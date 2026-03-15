@@ -628,7 +628,7 @@ function App() {
                   }}
                 >
                   <div className="entry-card-header">
-                    <MachinePill label="ADV / MIN" variant="advanced" />
+                    <MachinePill label="MINER" variant="advanced" />
                     <h3>Ore vein</h3>
                   </div>
                   <label className="field">

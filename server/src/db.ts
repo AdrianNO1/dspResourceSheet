@@ -24,21 +24,21 @@ const db = new DatabaseSync(path.join(dataDirectory, "dsp-resource-sheet.sqlite"
 db.exec("PRAGMA foreign_keys = ON");
 
 const seededResources: ResourceSeed[] = [
-  { name: "Stalagmite Crystal", type: "ore_vein", sortOrder: 10, colorStart: "#6af7d9", colorEnd: "#127f73" },
-  { name: "Silicon Ore", type: "ore_vein", sortOrder: 20, colorStart: "#f7e6a6", colorEnd: "#7f6c2b" },
-  { name: "Iron Ore", type: "ore_vein", sortOrder: 30, colorStart: "#d7dce7", colorEnd: "#4f5e78" },
-  { name: "Grating Crystal", type: "ore_vein", sortOrder: 40, colorStart: "#95f0ff", colorEnd: "#246d96" },
-  { name: "Coal", type: "ore_vein", sortOrder: 50, colorStart: "#858993", colorEnd: "#252833" },
-  { name: "Copper Ore", type: "ore_vein", sortOrder: 60, colorStart: "#feb375", colorEnd: "#8a3d22" },
-  { name: "Titanium Ore", type: "ore_vein", sortOrder: 70, colorStart: "#d3c4ff", colorEnd: "#6153c5" },
-  { name: "Stone", type: "ore_vein", sortOrder: 80, colorStart: "#e2dfcf", colorEnd: "#7c725c" },
-  { name: "Kimberlite Ore", type: "ore_vein", sortOrder: 90, colorStart: "#c7f9ff", colorEnd: "#387e95" },
-  { name: "Water", type: "liquid_pump", sortOrder: 100, colorStart: "#89cfff", colorEnd: "#1f5cc6" },
-  { name: "Sulfuric Acid", type: "liquid_pump", sortOrder: 110, colorStart: "#f3ff92", colorEnd: "#8b9133" },
-  { name: "Crude Oil", type: "oil_extractor", sortOrder: 120, colorStart: "#e8a065", colorEnd: "#6b2a21" },
-  { name: "Hydrogen", type: "gas_giant_output", sortOrder: 130, colorStart: "#fbfbff", colorEnd: "#87acff", fuelValueMj: 9 },
-  { name: "Deuterium", type: "gas_giant_output", sortOrder: 140, colorStart: "#ffe6a4", colorEnd: "#c28d23", fuelValueMj: 9 },
-  { name: "Fire Ice", type: "gas_giant_output", sortOrder: 150, colorStart: "#d8ffff", colorEnd: "#37afdb", fuelValueMj: 4.8 },
+  { name: "Stalagmite Crystal", type: "ore_vein", sortOrder: 10, colorStart: "#6af7d9", colorEnd: "#127f73", iconUrl: "/icons/resources/stalagmite-crystal.png" },
+  { name: "Silicon Ore", type: "ore_vein", sortOrder: 20, colorStart: "#f7e6a6", colorEnd: "#7f6c2b", iconUrl: "/icons/resources/silicon-ore.png" },
+  { name: "Iron Ore", type: "ore_vein", sortOrder: 30, colorStart: "#d7dce7", colorEnd: "#4f5e78", iconUrl: "/icons/resources/iron-ore.png" },
+  { name: "Grating Crystal", type: "ore_vein", sortOrder: 40, colorStart: "#95f0ff", colorEnd: "#246d96", iconUrl: "/icons/resources/grating-crystal.png" },
+  { name: "Coal", type: "ore_vein", sortOrder: 50, colorStart: "#858993", colorEnd: "#252833", iconUrl: "/icons/resources/coal.png" },
+  { name: "Copper Ore", type: "ore_vein", sortOrder: 60, colorStart: "#feb375", colorEnd: "#8a3d22", iconUrl: "/icons/resources/copper-ore.png" },
+  { name: "Titanium Ore", type: "ore_vein", sortOrder: 70, colorStart: "#d3c4ff", colorEnd: "#6153c5", iconUrl: "/icons/resources/titanium-ore.png" },
+  { name: "Stone", type: "ore_vein", sortOrder: 80, colorStart: "#e2dfcf", colorEnd: "#7c725c", iconUrl: "/icons/resources/stone.png" },
+  { name: "Kimberlite Ore", type: "ore_vein", sortOrder: 90, colorStart: "#c7f9ff", colorEnd: "#387e95", iconUrl: "/icons/resources/kimberlite-ore.png" },
+  { name: "Water", type: "liquid_pump", sortOrder: 100, colorStart: "#89cfff", colorEnd: "#1f5cc6", iconUrl: "/icons/resources/water.png" },
+  { name: "Sulfuric Acid", type: "liquid_pump", sortOrder: 110, colorStart: "#f3ff92", colorEnd: "#8b9133", iconUrl: "/icons/resources/sulfuric-acid.png" },
+  { name: "Crude Oil", type: "oil_extractor", sortOrder: 120, colorStart: "#e8a065", colorEnd: "#6b2a21", iconUrl: "/icons/resources/crude-oil.png" },
+  { name: "Hydrogen", type: "gas_giant_output", sortOrder: 130, colorStart: "#fbfbff", colorEnd: "#87acff", iconUrl: "/icons/resources/hydrogen.png", fuelValueMj: 9 },
+  { name: "Deuterium", type: "gas_giant_output", sortOrder: 140, colorStart: "#ffe6a4", colorEnd: "#c28d23", iconUrl: "/icons/resources/deuterium.png", fuelValueMj: 9 },
+  { name: "Fire Ice", type: "gas_giant_output", sortOrder: 150, colorStart: "#d8ffff", colorEnd: "#37afdb", iconUrl: "/icons/resources/fire-ice.png", fuelValueMj: 4.8 },
 ];
 
 function generateId() {
@@ -209,6 +209,28 @@ function seedDefaults() {
       `,
       generateId(),
       resource.name,
+      resource.type,
+      resource.iconUrl ?? null,
+      resource.colorStart,
+      resource.colorEnd,
+      resource.fuelValueMj ?? null,
+      resource.sortOrder,
+      resource.name,
+    );
+
+    runStatement(
+      `
+        UPDATE resource_definitions
+        SET
+          type = ?,
+          icon_url = ?,
+          color_start = ?,
+          color_end = ?,
+          fuel_value_mj = ?,
+          is_seeded = 1,
+          sort_order = ?
+        WHERE name = ?
+      `,
       resource.type,
       resource.iconUrl ?? null,
       resource.colorStart,
