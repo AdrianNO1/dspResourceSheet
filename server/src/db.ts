@@ -2,6 +2,12 @@ import { mkdirSync } from "node:fs";
 import { DatabaseSync } from "node:sqlite";
 import { randomUUID } from "node:crypto";
 import path from "node:path";
+import {
+  getAdvancedMinerOutputPerMinute,
+  getOilOutputPerSecond,
+  getOrbitalCollectorTrueBoost,
+  getRegularMinerOutputPerMinute,
+} from "./dspMath.js";
 
 export type ResourceType = "ore_vein" | "liquid_pump" | "oil_extractor" | "gas_giant_output";
 export type PlanetType = "solid" | "gas_giant";
@@ -750,10 +756,10 @@ export function getBootstrapData() {
   const snapshot = exportSnapshot();
   const settings = snapshot.settings;
   const miningResearchBonusPercent = Number(settings.miningResearchBonusPercent ?? "0");
-  const miningMultiplier = 1 + miningResearchBonusPercent / 100;
 
   const oreVeinById = new Map(snapshot.oreVeins.map((item) => [item.id as string, item]));
   const gasSiteById = new Map(snapshot.gasGiantSites.map((item) => [item.id as string, item]));
+  const resourceById = new Map(snapshot.resources.map((resource) => [resource.id as string, resource]));
   const activeProjectIds = new Set(
     snapshot.projects.filter((project) => Number(project.is_active) === 1).map((project) => project.id as string),
   );
@@ -791,9 +797,14 @@ export function getBootstrapData() {
       continue;
     }
 
-    const baseRate = miner.miner_type === "advanced" ? 60 : 30;
-    const speedMultiplier = miner.miner_type === "advanced" ? Number(miner.advanced_speed_percent ?? 100) / 100 : 1;
-    const supplyPerMinute = Number(miner.covered_nodes) * baseRate * speedMultiplier * miningMultiplier;
+    const supplyPerMinute =
+      miner.miner_type === "advanced"
+        ? getAdvancedMinerOutputPerMinute(
+            Number(miner.covered_nodes),
+            Number(miner.advanced_speed_percent ?? 100),
+            miningResearchBonusPercent,
+          )
+        : getRegularMinerOutputPerMinute(Number(miner.covered_nodes), miningResearchBonusPercent);
 
     aggregate.placementIds.add(parentVein.id as string);
     aggregate.supplyPerMinute += supplyPerMinute;
@@ -820,28 +831,39 @@ export function getBootstrapData() {
     }
 
     aggregate.placementIds.add(extractor.id as string);
-    aggregate.supplyPerSecond += Number(extractor.oil_per_second);
+    aggregate.supplyPerSecond += getOilOutputPerSecond(Number(extractor.oil_per_second));
     aggregate.supplyPerMinute = aggregate.supplyPerSecond * 60;
     aggregate.supplyMetric = aggregate.supplyPerMinute;
   }
 
-  for (const output of snapshot.gasGiantOutputs) {
-    const parentSite = gasSiteById.get(output.gas_giant_site_id as string);
-    if (!parentSite) {
-      continue;
-    }
+  for (const site of snapshot.gasGiantSites) {
+    const siteOutputs = snapshot.gasGiantOutputs.filter((output) => output.gas_giant_site_id === site.id);
+    const trueBoost = getOrbitalCollectorTrueBoost(
+      siteOutputs.map((output) => ({
+        ratePerSecond: Number(output.rate_per_second),
+        fuelValueMj: Number(resourceById.get(output.resource_id as string)?.fuel_value_mj ?? 0),
+      })),
+      miningResearchBonusPercent,
+    );
 
-    const resourceId = output.resource_id as string;
-    const aggregate = aggregates.get(resourceId);
-    if (!aggregate) {
-      continue;
-    }
+    for (const output of siteOutputs) {
+      const parentSite = gasSiteById.get(output.gas_giant_site_id as string);
+      if (!parentSite) {
+        continue;
+      }
 
-    const collectorCount = Number(parentSite.collector_count ?? 0);
-    aggregate.placementIds.add(parentSite.id as string);
-    aggregate.supplyPerSecond += Number(output.rate_per_second) * collectorCount * 8 * miningMultiplier;
-    aggregate.supplyPerMinute = aggregate.supplyPerSecond * 60;
-    aggregate.supplyMetric = aggregate.supplyPerMinute;
+      const resourceId = output.resource_id as string;
+      const aggregate = aggregates.get(resourceId);
+      if (!aggregate) {
+        continue;
+      }
+
+      const collectorCount = Number(parentSite.collector_count ?? 0);
+      aggregate.placementIds.add(parentSite.id as string);
+      aggregate.supplyPerSecond += Number(output.rate_per_second) * trueBoost * collectorCount;
+      aggregate.supplyPerMinute = aggregate.supplyPerSecond * 60;
+      aggregate.supplyMetric = aggregate.supplyPerMinute;
+    }
   }
 
   const resourceSummaries = snapshot.resources.map((resource) => {

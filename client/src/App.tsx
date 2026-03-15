@@ -3,6 +3,16 @@ import "./App.css";
 import { ResourceIcon } from "./components/ResourceIcon";
 import { ResourceSelect } from "./components/ResourceSelect";
 import { deleteBootstrap, exportSnapshot, getBootstrap, importSnapshot, patchBootstrap, postBootstrap } from "./lib/api";
+import {
+  getAdvancedMinerOutputPerMinute,
+  getAdvancedMinerPowerMw,
+  getOilOutputPerSecond,
+  getOrbitalCollectorTrueBoost,
+  getRegularMinerOutputPerMinute,
+  OIL_EXTRACTOR_POWER_MW,
+  PUMP_POWER_MW,
+  REGULAR_MINER_POWER_MW,
+} from "./lib/dspMath";
 import type {
   BootstrapData,
   GasGiantOutput,
@@ -107,6 +117,33 @@ function getProgressPercent(summary: ResourceSummary) {
   }
 
   return Math.min(100, (summary.supplyMetric / summary.goalQuantity) * 100);
+}
+
+function getOreVeinOutputPerMinute(miners: OreVeinMiner[], miningResearchBonusPercent: number) {
+  return miners.reduce((sum, miner) => {
+    if (miner.miner_type === "advanced") {
+      return (
+        sum +
+        getAdvancedMinerOutputPerMinute(
+          Number(miner.covered_nodes),
+          Number(miner.advanced_speed_percent ?? 100),
+          miningResearchBonusPercent,
+        )
+      );
+    }
+
+    return sum + getRegularMinerOutputPerMinute(Number(miner.covered_nodes), miningResearchBonusPercent);
+  }, 0);
+}
+
+function getDraftOreOutputPerMinute(miners: MinerDraft[], miningResearchBonusPercent: number) {
+  return miners.reduce((sum, miner) => {
+    if (miner.minerType === "advanced") {
+      return sum + getAdvancedMinerOutputPerMinute(miner.coveredNodes, miner.advancedSpeedPercent, miningResearchBonusPercent);
+    }
+
+    return sum + getRegularMinerOutputPerMinute(miner.coveredNodes, miningResearchBonusPercent);
+  }, 0);
 }
 
 function MachinePill({ label, variant }: { label: string; variant: "advanced" | "regular" | "pump" | "gas" | "oil" }) {
@@ -271,9 +308,12 @@ function App() {
     return acc;
   }, {});
 
+  const resourceLookup = new Map(loadedData.resources.map((resource) => [resource.id, resource]));
   const planetLookup = new Map(loadedData.planets.map((planet) => [planet.id, planet]));
   const systemLookup = new Map(loadedData.solarSystems.map((solarSystem) => [solarSystem.id, solarSystem]));
   const latestPlanetActivity = getLatestPlanetActivity(loadedData);
+  const selectedOreSummary = loadedData.summary.resourceSummaries.find((summary) => summary.resourceId === oreResourceId) ?? null;
+  const pendingOreNodeEquivalents = getDraftOreOutputPerMinute(oreMiners, loadedData.settings.miningResearchBonusPercent) / 30;
 
   function getPreferredPlanetIdForSystem(systemId: string | null) {
     if (!systemId) {
@@ -340,11 +380,27 @@ function App() {
       const items = [...oreItems, ...liquidItems, ...oilItems, ...gasItems].sort(
         (left, right) => new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime(),
       );
+      const orePowerMw = oreItems.reduce((sum, item) => {
+        const miners = oreMinerLookup[item.data.id] ?? [];
+        return (
+          sum +
+          miners.reduce((minerSum, miner) => {
+            if (miner.miner_type === "advanced") {
+              return minerSum + getAdvancedMinerPowerMw(Number(miner.advanced_speed_percent ?? 100));
+            }
+
+            return minerSum + REGULAR_MINER_POWER_MW;
+          }, 0)
+        );
+      }, 0);
+      const liquidPowerMw = liquidItems.reduce((sum, item) => sum + Number(item.data.pump_count) * PUMP_POWER_MW, 0);
+      const oilPowerMw = oilItems.length * OIL_EXTRACTOR_POWER_MW;
 
       return {
         planet,
         systemName,
         latestActivityAt: items[0]?.createdAt ?? "",
+        powerDemandMw: orePowerMw + liquidPowerMw + oilPowerMw,
         items,
       };
     })
@@ -705,6 +761,22 @@ function App() {
                     <span>Resource</span>
                     <ResourceSelect resources={oreResources} value={oreResourceId} onChange={setOreResourceId} disabled={busy} />
                   </label>
+                  {selectedOreSummary && (
+                    <div className="entry-stat-strip">
+                      <div className="entry-stat">
+                        <span>Current</span>
+                        <strong>{formatValue(selectedOreSummary.supplyMetric)}</strong>
+                      </div>
+                      <div className="entry-stat">
+                        <span>Target</span>
+                        <strong>{formatValue(selectedOreSummary.goalQuantity)}</strong>
+                      </div>
+                      <div className="entry-stat">
+                        <span>New log</span>
+                        <strong>+{formatValue(pendingOreNodeEquivalents)}</strong>
+                      </div>
+                    </div>
+                  )}
                   <div className="miner-stack">
                     {oreMiners.map((miner, index) => {
                       const chips = miner.minerType === "advanced" ? Array.from({ length: 16 }, (_, offset) => 15 + offset) : Array.from({ length: 10 }, (_, offset) => 1 + offset);
@@ -922,7 +994,7 @@ function App() {
                   </label>
                 </div>
 
-                <p className="helper-text">Each orbital collector produces the configured rate × 8, then the mining research bonus is applied.</p>
+                <p className="helper-text">Net output uses the collector true boost formula, including the 30 MW internal fuel burn and your mining research bonus.</p>
 
                 <div className="gas-output-stack">
                   {gasOutputs.map((output, index) => (
@@ -1034,7 +1106,7 @@ function App() {
           </section>
           )}
 
-          {activeView === "overview" && (
+          {activeView === "log" && (
           <section className="panel">
             <div className="section-heading">
               <div>
@@ -1057,6 +1129,7 @@ function App() {
                       <div className="ledger-group-context">
                         <p className="ledger-system-name">{group.systemName}</p>
                         <h3>{group.planet.name}</h3>
+                        <p className="ledger-power-line">Power demand {formatValue(group.powerDemandMw, 2)} MW</p>
                         {group.planet.planet_type === "gas_giant" && <span className="resource-badge">Gas giant</span>}
                       </div>
                     </div>
@@ -1066,12 +1139,7 @@ function App() {
                         if (item.kind === "ore") {
                           const vein = item.data;
                           const miners = oreMinerLookup[vein.id] ?? [];
-                          const throughputPerMinute = miners.reduce((sum, miner) => {
-                            const baseRate = miner.miner_type === "advanced" ? 60 : 30;
-                            const speed = miner.miner_type === "advanced" ? Number(miner.advanced_speed_percent ?? 100) / 100 : 1;
-                            const research = 1 + data.settings.miningResearchBonusPercent / 100;
-                            return sum + Number(miner.covered_nodes) * baseRate * speed * research;
-                          }, 0);
+                          const throughputPerMinute = getOreVeinOutputPerMinute(miners, data.settings.miningResearchBonusPercent);
 
                           return (
                             <article key={vein.id} className="ledger-item">
@@ -1103,11 +1171,12 @@ function App() {
 
                         if (item.kind === "oil") {
                           const site = item.data as OilExtractor;
+                          const oilPerSecondActual = getOilOutputPerSecond(site.oil_per_second);
                           return (
                             <article key={site.id} className="ledger-item">
                               <div>
                                 <h3>{getResourceName(data.resources, site.resource_id)}</h3>
-                                <p>{formatValue(site.oil_per_second)} / sec · {formatValue(site.oil_per_second * 60)} / min</p>
+                                <p>{formatValue(oilPerSecondActual)} / sec · {formatValue(oilPerSecondActual * 60)} / min</p>
                               </div>
                               <button type="button" className="ghost-button" onClick={() => void confirmAndDelete(`/api/oil-extractors/${site.id}`, `${getResourceName(data.resources, site.resource_id)} extractor`)}>
                                 Delete
@@ -1118,8 +1187,15 @@ function App() {
 
                         const site = item.data as GasGiantSite;
                         const outputs = gasOutputLookup[site.id] ?? [];
+                        const trueBoost = getOrbitalCollectorTrueBoost(
+                          outputs.map((output) => ({
+                            ratePerSecond: Number(output.rate_per_second),
+                            fuelValueMj: Number(resourceLookup.get(output.resource_id)?.fuel_value_mj ?? 0),
+                          })),
+                          data.settings.miningResearchBonusPercent,
+                        );
                         const detail = outputs
-                          .map((output) => `${getResourceName(data.resources, output.resource_id)} ${formatValue(output.rate_per_second * site.collector_count * 8 * (1 + data.settings.miningResearchBonusPercent / 100) * 60)}/min`)
+                          .map((output) => `${getResourceName(data.resources, output.resource_id)} ${formatValue(output.rate_per_second * trueBoost * site.collector_count * 60)}/min`)
                           .join(" · ");
 
                         return (

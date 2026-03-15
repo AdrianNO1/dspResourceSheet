@@ -222,6 +222,31 @@
   gap: 10px;
 }
 
+.entry-stat-strip {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  margin-bottom: 6px;
+}
+
+.entry-stat {
+  display: grid;
+  gap: 4px;
+  padding: 10px 12px;
+  border-radius: 16px;
+  border: 1px solid rgba(148, 172, 197, 0.16);
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.entry-stat span {
+  color: rgba(211, 223, 235, 0.7);
+  font-size: 0.82rem;
+}
+
+.entry-stat strong {
+  font-size: 1.02rem;
+}
+
 .miner-card {
   display: grid;
   gap: 12px;
@@ -398,6 +423,12 @@
   text-transform: uppercase;
 }
 
+.ledger-power-line {
+  margin: 0;
+  color: rgba(211, 223, 235, 0.78);
+  font-size: 0.92rem;
+}
+
 .entry-actions {
   margin-top: 8px;
 }
@@ -521,6 +552,7 @@
     grid-template-columns: 1fr;
   }
 
+  .entry-stat-strip,
   .gas-output-row,
   .slider-group {
     grid-template-columns: 1fr;
