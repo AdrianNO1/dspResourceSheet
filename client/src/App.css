@@ -177,7 +177,6 @@
 .context-chip,
 .machine-pill,
 .resource-badge,
-.quick-chip,
 .project-pill {
   border-radius: 999px;
   padding: 8px 12px;
@@ -212,6 +211,19 @@
 
 .full-width {
   width: 100%;
+}
+
+.quick-chip {
+  width: 42px;
+  height: 42px;
+  padding: 0;
+  border-radius: 999px;
+  border: 1px solid rgba(148, 172, 197, 0.18);
+  background: rgba(255, 255, 255, 0.04);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-variant-numeric: tabular-nums;
 }
 
 .quick-chip-row,
