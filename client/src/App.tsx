@@ -1177,7 +1177,7 @@ function App() {
                             <article key={vein.id} className="ledger-item">
                               <div>
                                 <h3>{getResourceName(data.resources, vein.resource_id)}</h3>
-                                <p>{miners.length} miners · {formatValue(throughputPerMinute)} ore/min · {formatValue(throughputPerMinute / 30)} node equivalents</p>
+                                <p>{miners.length} {miners.length === 1 ? "miner" : "miners"} · {formatValue(throughputPerMinute)} ore/min · {formatValue(throughputPerMinute / 30)} node equivalents</p>
                               </div>
                               <button type="button" className="ghost-button" onClick={() => void confirmAndDelete(`/api/ore-veins/${vein.id}`, `${getResourceName(data.resources, vein.resource_id)} vein`)}>
                                 Delete
