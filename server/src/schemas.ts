@@ -31,6 +31,10 @@ export const patchSettingsSchema = z.object({
   miningResearchBonusPercent: z.number().min(0).max(500).optional(),
 });
 
+export const moveEntrySchema = z.object({
+  planetId: z.string().uuid(),
+});
+
 export const createProjectSchema = z.object({
   name: z.string().trim().min(1).max(80),
   notes: z.string().trim().max(500).default(""),

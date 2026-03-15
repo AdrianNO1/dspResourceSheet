@@ -12,6 +12,7 @@ import {
   createResourceSchema,
   createSolarSystemSchema,
   importSnapshotSchema,
+  moveEntrySchema,
   patchSettingsSchema,
   replaceGoalsSchema,
   updateProjectSchema,
@@ -34,6 +35,7 @@ import {
   getResourceById,
   importSnapshot,
   initializeDatabase,
+  moveEntryToPlanet,
   replaceProjectGoals,
   setSetting,
   updateProject,
@@ -90,6 +92,27 @@ function respondAfterDelete(
   const startedAt = Date.now();
   action();
   writeTimingLog(`[delete] ${entityLabel} ${id} ${Date.now() - startedAt}ms`);
+  return respondWithBootstrap(res, operationLabel);
+}
+
+function moveEntry(
+  req: express.Request<{ id: string }>,
+  res: express.Response,
+  tableName: "ore_veins" | "liquid_sites" | "oil_extractors" | "gas_giant_sites",
+  operationLabel: string,
+  requiredPlanetType: "solid" | "gas_giant",
+) {
+  const parsed = moveEntrySchema.safeParse(req.body);
+  if (!parsed.success) {
+    return res.status(400).json({ error: parsed.error.flatten() });
+  }
+
+  const planet = getPlanetById(parsed.data.planetId);
+  if (!planet || planet.planet_type !== requiredPlanetType) {
+    return res.status(400).json({ error: `Target planet must be a ${requiredPlanetType === "gas_giant" ? "gas giant" : "solid planet"}.` });
+  }
+
+  moveEntryToPlanet(tableName, req.params.id, parsed.data.planetId);
   return respondWithBootstrap(res, operationLabel);
 }
 
@@ -267,10 +290,18 @@ app.delete("/api/ore-veins/:id", (req, res) => {
   });
 });
 
+app.patch("/api/ore-veins/:id/location", (req, res) => {
+  return moveEntry(req, res, "ore_veins", "move-ore-vein", "solid");
+});
+
 app.delete("/api/liquids/:id", (req, res) => {
   return respondAfterDelete(res, "delete-liquid", "liquid", req.params.id, () => {
     deleteById("liquid_sites", req.params.id);
   });
+});
+
+app.patch("/api/liquids/:id/location", (req, res) => {
+  return moveEntry(req, res, "liquid_sites", "move-liquid", "solid");
 });
 
 app.delete("/api/oil-extractors/:id", (req, res) => {
@@ -279,10 +310,18 @@ app.delete("/api/oil-extractors/:id", (req, res) => {
   });
 });
 
+app.patch("/api/oil-extractors/:id/location", (req, res) => {
+  return moveEntry(req, res, "oil_extractors", "move-oil", "solid");
+});
+
 app.delete("/api/gas-giants/:id", (req, res) => {
   return respondAfterDelete(res, "delete-gas-giant", "gas-giant", req.params.id, () => {
     deleteById("gas_giant_sites", req.params.id);
   });
+});
+
+app.patch("/api/gas-giants/:id/location", (req, res) => {
+  return moveEntry(req, res, "gas_giant_sites", "move-gas-giant", "gas_giant");
 });
 
 app.delete("/api/planets/:id", (req, res) => {

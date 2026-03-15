@@ -179,6 +179,8 @@ function App() {
   const [goalDrafts, setGoalDrafts] = useState<Record<string, number>>({});
   const [newProjectName, setNewProjectName] = useState("");
   const [newProjectNotes, setNewProjectNotes] = useState("");
+  const [editingEntryKey, setEditingEntryKey] = useState("");
+  const [entryLocationDraft, setEntryLocationDraft] = useState({ systemId: "", planetId: "" });
 
   const [oreResourceId, setOreResourceId] = useState("");
   const [oreMiners, setOreMiners] = useState<MinerDraft[]>([
@@ -349,6 +351,98 @@ function App() {
     }
 
     await mutate(() => deleteBootstrap(path), applyBootstrap);
+  }
+
+  function startLocationEdit(entryKey: string, planetId: string) {
+    const planet = planetLookup.get(planetId);
+    setEditingEntryKey(entryKey);
+    setEntryLocationDraft({
+      systemId: planet?.solar_system_id ?? "",
+      planetId,
+    });
+  }
+
+  function cancelLocationEdit() {
+    setEditingEntryKey("");
+    setEntryLocationDraft({ systemId: "", planetId: "" });
+  }
+
+  async function saveLocationEdit(path: string) {
+    if (!entryLocationDraft.planetId) {
+      return;
+    }
+
+    await mutate(() => patchBootstrap(path, { planetId: entryLocationDraft.planetId }), (nextData) => {
+      applyBootstrap(nextData);
+      cancelLocationEdit();
+    });
+  }
+
+  function getAssignablePlanets(systemId: string, planetType: "solid" | "gas_giant") {
+    return loadedData.planets
+      .filter((planet) => planet.solar_system_id === systemId && planet.planet_type === planetType)
+      .sort((left, right) => left.name.localeCompare(right.name));
+  }
+
+  function renderLocationEditor(entryKey: string, path: string, planetType: "solid" | "gas_giant") {
+    if (editingEntryKey !== entryKey) {
+      return null;
+    }
+
+    const assignablePlanets = getAssignablePlanets(entryLocationDraft.systemId, planetType);
+
+    return (
+      <div className="location-editor">
+        <label className="field compact-field">
+          <span>System</span>
+          <select
+            value={entryLocationDraft.systemId}
+            onChange={(event) => {
+              const nextSystemId = event.target.value;
+              const nextPlanetId = getAssignablePlanets(nextSystemId, planetType)[0]?.id ?? "";
+              setEntryLocationDraft({ systemId: nextSystemId, planetId: nextPlanetId });
+            }}
+          >
+            <option value="">Select system</option>
+            {loadedData.solarSystems.map((solarSystem) => (
+              <option key={solarSystem.id} value={solarSystem.id}>
+                {solarSystem.name}
+              </option>
+            ))}
+          </select>
+        </label>
+
+        <label className="field">
+          <span>Planet</span>
+          <select
+            value={entryLocationDraft.planetId}
+            onChange={(event) =>
+              setEntryLocationDraft((current) => ({
+                ...current,
+                planetId: event.target.value,
+              }))
+            }
+            disabled={!entryLocationDraft.systemId}
+          >
+            <option value="">Select planet</option>
+            {assignablePlanets.map((planet) => (
+              <option key={planet.id} value={planet.id}>
+                {describePlanet(planet)}
+              </option>
+            ))}
+          </select>
+        </label>
+
+        <div className="location-editor-actions">
+          <button type="button" className="primary-button" onClick={() => void saveLocationEdit(path)} disabled={busy || !entryLocationDraft.planetId}>
+            Save move
+          </button>
+          <button type="button" className="ghost-button" onClick={cancelLocationEdit} disabled={busy}>
+            Cancel
+          </button>
+        </div>
+      </div>
+    );
   }
 
   const ledgerPlanetIds = showAllLedger
@@ -1178,10 +1272,16 @@ function App() {
                               <div>
                                 <h3>{getResourceName(data.resources, vein.resource_id)}</h3>
                                 <p>{miners.length} {miners.length === 1 ? "miner" : "miners"} · {formatValue(throughputPerMinute)} ore/min · {formatValue(throughputPerMinute / 30)} node equivalents</p>
+                                {renderLocationEditor(`ore:${vein.id}`, `/api/ore-veins/${vein.id}/location`, "solid")}
                               </div>
-                              <button type="button" className="ghost-button" onClick={() => void confirmAndDelete(`/api/ore-veins/${vein.id}`, `${getResourceName(data.resources, vein.resource_id)} vein`)}>
-                                Delete
-                              </button>
+                              <div className="ledger-item-actions">
+                                <button type="button" className="ghost-button" onClick={() => startLocationEdit(`ore:${vein.id}`, vein.planet_id)}>
+                                  Move
+                                </button>
+                                <button type="button" className="ghost-button" onClick={() => void confirmAndDelete(`/api/ore-veins/${vein.id}`, `${getResourceName(data.resources, vein.resource_id)} vein`)}>
+                                  Delete
+                                </button>
+                              </div>
                             </article>
                           );
                         }
@@ -1193,10 +1293,16 @@ function App() {
                               <div>
                                 <h3>{getResourceName(data.resources, site.resource_id)}</h3>
                                 <p>{site.pump_count} pumps</p>
+                                {renderLocationEditor(`liquid:${site.id}`, `/api/liquids/${site.id}/location`, "solid")}
                               </div>
-                              <button type="button" className="ghost-button" onClick={() => void confirmAndDelete(`/api/liquids/${site.id}`, `${getResourceName(data.resources, site.resource_id)} pump site`)}>
-                                Delete
-                              </button>
+                              <div className="ledger-item-actions">
+                                <button type="button" className="ghost-button" onClick={() => startLocationEdit(`liquid:${site.id}`, site.planet_id)}>
+                                  Move
+                                </button>
+                                <button type="button" className="ghost-button" onClick={() => void confirmAndDelete(`/api/liquids/${site.id}`, `${getResourceName(data.resources, site.resource_id)} pump site`)}>
+                                  Delete
+                                </button>
+                              </div>
                             </article>
                           );
                         }
@@ -1209,10 +1315,16 @@ function App() {
                               <div>
                                 <h3>{getResourceName(data.resources, site.resource_id)}</h3>
                                 <p>{formatValue(oilPerSecondActual)} / sec · {formatValue(oilPerSecondActual * 60)} / min</p>
+                                {renderLocationEditor(`oil:${site.id}`, `/api/oil-extractors/${site.id}/location`, "solid")}
                               </div>
-                              <button type="button" className="ghost-button" onClick={() => void confirmAndDelete(`/api/oil-extractors/${site.id}`, `${getResourceName(data.resources, site.resource_id)} extractor`)}>
-                                Delete
-                              </button>
+                              <div className="ledger-item-actions">
+                                <button type="button" className="ghost-button" onClick={() => startLocationEdit(`oil:${site.id}`, site.planet_id)}>
+                                  Move
+                                </button>
+                                <button type="button" className="ghost-button" onClick={() => void confirmAndDelete(`/api/oil-extractors/${site.id}`, `${getResourceName(data.resources, site.resource_id)} extractor`)}>
+                                  Delete
+                                </button>
+                              </div>
                             </article>
                           );
                         }
@@ -1235,10 +1347,16 @@ function App() {
                             <div>
                               <h3>Collector ring</h3>
                               <p>{site.collector_count} collectors · {detail}</p>
+                              {renderLocationEditor(`gas:${site.id}`, `/api/gas-giants/${site.id}/location`, "gas_giant")}
                             </div>
-                            <button type="button" className="ghost-button" onClick={() => void confirmAndDelete(`/api/gas-giants/${site.id}`, "gas giant site")}>
-                              Delete
-                            </button>
+                            <div className="ledger-item-actions">
+                              <button type="button" className="ghost-button" onClick={() => startLocationEdit(`gas:${site.id}`, site.planet_id)}>
+                                Move
+                              </button>
+                              <button type="button" className="ghost-button" onClick={() => void confirmAndDelete(`/api/gas-giants/${site.id}`, "gas giant site")}>
+                                Delete
+                              </button>
+                            </div>
                           </article>
                         );
                       })}

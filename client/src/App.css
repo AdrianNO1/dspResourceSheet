@@ -391,6 +391,24 @@
   border-bottom: none;
 }
 
+.ledger-item-actions,
+.location-editor-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.location-editor {
+  display: grid;
+  grid-template-columns: 180px minmax(0, 1fr) auto;
+  gap: 12px;
+  margin-top: 12px;
+  padding: 12px;
+  border-radius: 16px;
+  border: 1px solid rgba(148, 172, 197, 0.16);
+  background: rgba(255, 255, 255, 0.03);
+}
+
 .goal-row {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 110px;
@@ -565,6 +583,7 @@
   }
 
   .entry-stat-strip,
+  .location-editor,
   .gas-output-row,
   .slider-group {
     grid-template-columns: 1fr;

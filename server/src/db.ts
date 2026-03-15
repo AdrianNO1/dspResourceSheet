@@ -529,6 +529,10 @@ export function deleteById(tableName: string, id: string) {
   runStatement(`DELETE FROM ${tableName} WHERE id = ?`, id);
 }
 
+export function moveEntryToPlanet(tableName: "ore_veins" | "liquid_sites" | "oil_extractors" | "gas_giant_sites", id: string, planetId: string) {
+  runStatement(`UPDATE ${tableName} SET planet_id = ? WHERE id = ?`, planetId, id);
+}
+
 export function deletePlanet(planetId: string) {
   const settings = getSettingsRecord();
 
