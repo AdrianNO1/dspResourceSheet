@@ -173,6 +173,20 @@ export function initializeDatabase() {
       key TEXT PRIMARY KEY,
       value TEXT NOT NULL
     );
+
+    CREATE INDEX IF NOT EXISTS idx_planets_solar_system_id ON planets(solar_system_id);
+    CREATE INDEX IF NOT EXISTS idx_project_goals_project_id ON project_goals(project_id);
+    CREATE INDEX IF NOT EXISTS idx_project_goals_resource_id ON project_goals(resource_id);
+    CREATE INDEX IF NOT EXISTS idx_ore_veins_planet_id ON ore_veins(planet_id);
+    CREATE INDEX IF NOT EXISTS idx_ore_veins_resource_id ON ore_veins(resource_id);
+    CREATE INDEX IF NOT EXISTS idx_ore_vein_miners_ore_vein_id ON ore_vein_miners(ore_vein_id);
+    CREATE INDEX IF NOT EXISTS idx_liquid_sites_planet_id ON liquid_sites(planet_id);
+    CREATE INDEX IF NOT EXISTS idx_liquid_sites_resource_id ON liquid_sites(resource_id);
+    CREATE INDEX IF NOT EXISTS idx_oil_extractors_planet_id ON oil_extractors(planet_id);
+    CREATE INDEX IF NOT EXISTS idx_oil_extractors_resource_id ON oil_extractors(resource_id);
+    CREATE INDEX IF NOT EXISTS idx_gas_giant_sites_planet_id ON gas_giant_sites(planet_id);
+    CREATE INDEX IF NOT EXISTS idx_gas_giant_outputs_site_id ON gas_giant_outputs(gas_giant_site_id);
+    CREATE INDEX IF NOT EXISTS idx_gas_giant_outputs_resource_id ON gas_giant_outputs(resource_id);
   `);
 
   ensureColumn("liquid_sites", "created_at", "TEXT");
@@ -509,6 +523,45 @@ export function deleteById(tableName: string, id: string) {
   runStatement(`DELETE FROM ${tableName} WHERE id = ?`, id);
 }
 
+export function deletePlanet(planetId: string) {
+  const settings = getSettingsRecord();
+
+  db.exec("BEGIN");
+
+  try {
+    runStatement("DELETE FROM planets WHERE id = ?", planetId);
+
+    if (settings.currentPlanetId === planetId) {
+      setSetting("currentPlanetId", "");
+    }
+
+    db.exec("COMMIT");
+  } catch (error) {
+    db.exec("ROLLBACK");
+    throw error;
+  }
+}
+
+export function deleteSolarSystem(solarSystemId: string) {
+  const settings = getSettingsRecord();
+
+  db.exec("BEGIN");
+
+  try {
+    runStatement("DELETE FROM solar_systems WHERE id = ?", solarSystemId);
+
+    if (settings.currentSolarSystemId === solarSystemId) {
+      setSetting("currentSolarSystemId", "");
+      setSetting("currentPlanetId", "");
+    }
+
+    db.exec("COMMIT");
+  } catch (error) {
+    db.exec("ROLLBACK");
+    throw error;
+  }
+}
+
 export function exportSnapshot() {
   return {
     resources: readRows<Record<string, unknown>>("SELECT * FROM resource_definitions ORDER BY sort_order, name"),
@@ -705,6 +758,17 @@ export function getBootstrapData() {
     snapshot.projects.filter((project) => Number(project.is_active) === 1).map((project) => project.id as string),
   );
   const goalTotals = new Map<string, number>();
+  const aggregates = new Map(
+    snapshot.resources.map((resource) => [
+      resource.id as string,
+      {
+        supplyMetric: 0,
+        supplyPerMinute: 0,
+        supplyPerSecond: 0,
+        placementIds: new Set<string>(),
+      },
+    ]),
+  );
 
   for (const goal of snapshot.projectGoals) {
     if (!activeProjectIds.has(goal.project_id as string)) {
@@ -715,67 +779,75 @@ export function getBootstrapData() {
     goalTotals.set(goal.resource_id as string, currentValue + Number(goal.quantity));
   }
 
+  for (const miner of snapshot.oreVeinMiners) {
+    const parentVein = oreVeinById.get(miner.ore_vein_id as string);
+    if (!parentVein) {
+      continue;
+    }
+
+    const resourceId = parentVein.resource_id as string;
+    const aggregate = aggregates.get(resourceId);
+    if (!aggregate) {
+      continue;
+    }
+
+    const baseRate = miner.miner_type === "advanced" ? 60 : 30;
+    const speedMultiplier = miner.miner_type === "advanced" ? Number(miner.advanced_speed_percent ?? 100) / 100 : 1;
+    const supplyPerMinute = Number(miner.covered_nodes) * baseRate * speedMultiplier * miningMultiplier;
+
+    aggregate.placementIds.add(parentVein.id as string);
+    aggregate.supplyPerMinute += supplyPerMinute;
+    aggregate.supplyPerSecond = aggregate.supplyPerMinute / 60;
+    aggregate.supplyMetric = aggregate.supplyPerMinute / 30;
+  }
+
+  for (const site of snapshot.liquidSites) {
+    const resourceId = site.resource_id as string;
+    const aggregate = aggregates.get(resourceId);
+    if (!aggregate) {
+      continue;
+    }
+
+    aggregate.placementIds.add(site.id as string);
+    aggregate.supplyMetric += Number(site.pump_count);
+  }
+
+  for (const extractor of snapshot.oilExtractors) {
+    const resourceId = extractor.resource_id as string;
+    const aggregate = aggregates.get(resourceId);
+    if (!aggregate) {
+      continue;
+    }
+
+    aggregate.placementIds.add(extractor.id as string);
+    aggregate.supplyPerSecond += Number(extractor.oil_per_second);
+    aggregate.supplyPerMinute = aggregate.supplyPerSecond * 60;
+    aggregate.supplyMetric = aggregate.supplyPerMinute;
+  }
+
+  for (const output of snapshot.gasGiantOutputs) {
+    const parentSite = gasSiteById.get(output.gas_giant_site_id as string);
+    if (!parentSite) {
+      continue;
+    }
+
+    const resourceId = output.resource_id as string;
+    const aggregate = aggregates.get(resourceId);
+    if (!aggregate) {
+      continue;
+    }
+
+    const collectorCount = Number(parentSite.collector_count ?? 0);
+    aggregate.placementIds.add(parentSite.id as string);
+    aggregate.supplyPerSecond += Number(output.rate_per_second) * collectorCount * 8 * miningMultiplier;
+    aggregate.supplyPerMinute = aggregate.supplyPerSecond * 60;
+    aggregate.supplyMetric = aggregate.supplyPerMinute;
+  }
+
   const resourceSummaries = snapshot.resources.map((resource) => {
     const resourceId = resource.id as string;
     const resourceType = resource.type as ResourceType;
-    let supplyMetric = 0;
-    let supplyPerMinute = 0;
-    let supplyPerSecond = 0;
-    let placementCount = 0;
-
-    if (resourceType === "ore_vein") {
-      const matchingMiners = snapshot.oreVeinMiners.filter((miner) => {
-        const parentVein = oreVeinById.get(miner.ore_vein_id as string);
-        return parentVein?.resource_id === resourceId;
-      });
-
-      placementCount = new Set(
-        matchingMiners.map((miner) => {
-          const parentVein = oreVeinById.get(miner.ore_vein_id as string);
-          return parentVein?.id;
-        }),
-      ).size;
-      supplyPerMinute = matchingMiners.reduce((sum, miner) => {
-        const baseRate = miner.miner_type === "advanced" ? 60 : 30;
-        const speedMultiplier =
-          miner.miner_type === "advanced" ? Number(miner.advanced_speed_percent ?? 100) / 100 : 1;
-        return sum + Number(miner.covered_nodes) * baseRate * speedMultiplier * miningMultiplier;
-      }, 0);
-      supplyPerSecond = supplyPerMinute / 60;
-      supplyMetric = supplyPerMinute / 30;
-    }
-
-    if (resourceType === "liquid_pump") {
-      const matchingSites = snapshot.liquidSites.filter((site) => site.resource_id === resourceId);
-      placementCount = matchingSites.length;
-      supplyMetric = matchingSites.reduce((sum, site) => sum + Number(site.pump_count), 0);
-    }
-
-    if (resourceType === "oil_extractor") {
-      const matchingExtractors = snapshot.oilExtractors.filter((site) => site.resource_id === resourceId);
-      placementCount = matchingExtractors.length;
-      supplyPerSecond = matchingExtractors.reduce((sum, extractor) => sum + Number(extractor.oil_per_second), 0);
-      supplyPerMinute = supplyPerSecond * 60;
-      supplyMetric = supplyPerMinute;
-    }
-
-    if (resourceType === "gas_giant_output") {
-      const matchingOutputs = snapshot.gasGiantOutputs.filter((output) => output.resource_id === resourceId);
-      placementCount = new Set(
-        matchingOutputs.map((output) => {
-          const parentSite = gasSiteById.get(output.gas_giant_site_id as string);
-          return parentSite?.id;
-        }),
-      ).size;
-      supplyPerSecond = matchingOutputs.reduce((sum, output) => {
-        const parentSite = gasSiteById.get(output.gas_giant_site_id as string);
-        const collectorCount = Number(parentSite?.collector_count ?? 0);
-        return sum + Number(output.rate_per_second) * collectorCount * 8 * miningMultiplier;
-      }, 0);
-      supplyPerMinute = supplyPerSecond * 60;
-      supplyMetric = supplyPerMinute;
-    }
-
+    const aggregate = aggregates.get(resourceId);
     const goalQuantity = goalTotals.get(resourceId) ?? 0;
 
     return {
@@ -788,10 +860,10 @@ export function getBootstrapData() {
       fuelValueMj: resource.fuel_value_mj,
       goalUnitLabel: resourceGoalUnit(resourceType),
       goalQuantity,
-      supplyMetric,
-      supplyPerMinute,
-      supplyPerSecond,
-      placementCount,
+      supplyMetric: aggregate?.supplyMetric ?? 0,
+      supplyPerMinute: aggregate?.supplyPerMinute ?? 0,
+      supplyPerSecond: aggregate?.supplyPerSecond ?? 0,
+      placementCount: aggregate?.placementIds.size ?? 0,
     };
   });
 

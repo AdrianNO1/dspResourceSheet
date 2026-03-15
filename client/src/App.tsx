@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import "./App.css";
 import { ResourceIcon } from "./components/ResourceIcon";
+import { ResourceSelect } from "./components/ResourceSelect";
 import { deleteBootstrap, exportSnapshot, getBootstrap, importSnapshot, patchBootstrap, postBootstrap } from "./lib/api";
 import type {
   BootstrapData,
@@ -9,6 +10,7 @@ import type {
   MinerType,
   OilExtractor,
   OreVeinMiner,
+  Planet,
   Project,
   ProjectGoal,
   ResourceDefinition,
@@ -59,6 +61,40 @@ function getCurrentSystemPlanets(data: BootstrapData | null) {
   return data.planets.filter((planet) => planet.solar_system_id === data.settings.currentSolarSystemId);
 }
 
+function describePlanet(planet: Planet) {
+  return planet.planet_type === "gas_giant" ? `${planet.name} · Gas giant` : planet.name;
+}
+
+function getLatestPlanetActivity(data: BootstrapData) {
+  const latestByPlanetId = new Map<string, number>();
+
+  const mark = (planetId: string, createdAt: string) => {
+    const timestamp = new Date(createdAt).getTime();
+    const current = latestByPlanetId.get(planetId) ?? 0;
+    if (timestamp > current) {
+      latestByPlanetId.set(planetId, timestamp);
+    }
+  };
+
+  for (const vein of data.oreVeins) {
+    mark(vein.planet_id, vein.created_at);
+  }
+
+  for (const site of data.liquidSites) {
+    mark(site.planet_id, site.created_at);
+  }
+
+  for (const site of data.oilExtractors) {
+    mark(site.planet_id, site.created_at);
+  }
+
+  for (const site of data.gasGiantSites) {
+    mark(site.planet_id, site.created_at);
+  }
+
+  return latestByPlanetId;
+}
+
 function sortResources(resources: ResourceDefinition[], type: ResourceType) {
   return resources
     .filter((resource) => resource.type === type)
@@ -84,7 +120,7 @@ function App() {
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [activeView, setActiveView] = useState<"log" | "overview" | "projects" | "settings">("log");
-  const [showAllLedger, setShowAllLedger] = useState(false);
+  const [showAllLedger, setShowAllLedger] = useState(true);
   const [selectedProjectId, setSelectedProjectId] = useState("");
 
   const [newSystemName, setNewSystemName] = useState("");
@@ -237,6 +273,31 @@ function App() {
 
   const planetLookup = new Map(loadedData.planets.map((planet) => [planet.id, planet]));
   const systemLookup = new Map(loadedData.solarSystems.map((solarSystem) => [solarSystem.id, solarSystem]));
+  const latestPlanetActivity = getLatestPlanetActivity(loadedData);
+
+  function getPreferredPlanetIdForSystem(systemId: string | null) {
+    if (!systemId) {
+      return null;
+    }
+
+    const candidates = loadedData.planets
+      .filter((planet) => planet.solar_system_id === systemId)
+      .sort((left, right) => {
+        const rightTime = latestPlanetActivity.get(right.id) ?? 0;
+        const leftTime = latestPlanetActivity.get(left.id) ?? 0;
+        return rightTime - leftTime || left.name.localeCompare(right.name);
+      });
+
+    return candidates[0]?.id ?? null;
+  }
+
+  async function confirmAndDelete(path: string, label: string) {
+    if (!window.confirm(`Delete ${label}?`)) {
+      return;
+    }
+
+    await mutate(() => deleteBootstrap(path), applyBootstrap);
+  }
 
   const ledgerPlanetIds = showAllLedger
     ? Array.from(
@@ -498,12 +559,9 @@ function App() {
                   value={data.settings.currentSolarSystemId ?? ""}
                   onChange={(event) => {
                     const nextSystemId = event.target.value || null;
-                    const nextPlanet = data.planets.find(
-                      (planet) => planet.id === data.settings.currentPlanetId && planet.solar_system_id === nextSystemId,
-                    );
                     void updateSettings({
                       currentSolarSystemId: nextSystemId,
-                      currentPlanetId: nextPlanet?.id ?? null,
+                      currentPlanetId: getPreferredPlanetIdForSystem(nextSystemId),
                     });
                   }}
                   disabled={busy}
@@ -529,7 +587,7 @@ function App() {
                   <option value="">Select a planet</option>
                   {planetsInSystem.map((planet) => (
                     <option key={planet.id} value={planet.id}>
-                      {planet.name} · {planet.planet_type === "gas_giant" ? "Gas Giant" : "Solid"}
+                      {describePlanet(planet)}
                     </option>
                   ))}
                 </select>
@@ -591,10 +649,22 @@ function App() {
                 </label>
                 <label className="field compact-field">
                   <span>Type</span>
-                  <select value={newPlanetType} onChange={(event) => setNewPlanetType(event.target.value as "solid" | "gas_giant")}>
-                    <option value="solid">Solid</option>
-                    <option value="gas_giant">Gas giant</option>
-                  </select>
+                  <div className="segmented-control">
+                    <button
+                      type="button"
+                      className={`segmented-button ${newPlanetType === "solid" ? "segmented-button-active" : ""}`}
+                      onClick={() => setNewPlanetType("solid")}
+                    >
+                      Solid
+                    </button>
+                    <button
+                      type="button"
+                      className={`segmented-button ${newPlanetType === "gas_giant" ? "segmented-button-active" : ""}`}
+                      onClick={() => setNewPlanetType("gas_giant")}
+                    >
+                      Gas giant
+                    </button>
+                  </div>
                 </label>
                 <button type="submit" className="primary-button" disabled={busy || !data.settings.currentSolarSystemId}>
                   Add planet
@@ -612,7 +682,7 @@ function App() {
                 <h2>Planet extraction log</h2>
               </div>
               <div className="context-chip">
-                {currentPlanet ? `${currentPlanet.name} · ${currentPlanet.planet_type === "gas_giant" ? "Gas giant" : "Solid planet"}` : "No planet selected"}
+                {currentPlanet ? describePlanet(currentPlanet) : "No planet selected"}
               </div>
             </div>
 
@@ -631,15 +701,9 @@ function App() {
                     <MachinePill label="MINER" variant="advanced" />
                     <h3>Ore vein</h3>
                   </div>
-                  <label className="field">
+                  <label className="field field-spaced">
                     <span>Resource</span>
-                    <select value={oreResourceId} onChange={(event) => setOreResourceId(event.target.value)}>
-                      {oreResources.map((resource) => (
-                        <option key={resource.id} value={resource.id}>
-                          {resource.name}
-                        </option>
-                      ))}
-                    </select>
+                    <ResourceSelect resources={oreResources} value={oreResourceId} onChange={setOreResourceId} disabled={busy} />
                   </label>
                   <div className="miner-stack">
                     {oreMiners.map((miner, index) => {
@@ -768,7 +832,7 @@ function App() {
                     })}
                   </div>
 
-                  <div className="action-row">
+                  <div className="action-row entry-actions">
                     <button
                       type="button"
                       className="ghost-button"
@@ -795,13 +859,7 @@ function App() {
                   </div>
                   <label className="field">
                     <span>Resource</span>
-                    <select value={liquidResourceId} onChange={(event) => setLiquidResourceId(event.target.value)}>
-                      {liquidResources.map((resource) => (
-                        <option key={resource.id} value={resource.id}>
-                          {resource.name}
-                        </option>
-                      ))}
-                    </select>
+                    <ResourceSelect resources={liquidResources} value={liquidResourceId} onChange={setLiquidResourceId} disabled={busy} />
                   </label>
                   <label className="field">
                     <span>Pumps</span>
@@ -825,13 +883,7 @@ function App() {
                   </div>
                   <label className="field">
                     <span>Resource</span>
-                    <select value={oilResourceId} onChange={(event) => setOilResourceId(event.target.value)}>
-                      {oilResources.map((resource) => (
-                        <option key={resource.id} value={resource.id}>
-                          {resource.name}
-                        </option>
-                      ))}
-                    </select>
+                    <ResourceSelect resources={oilResources} value={oilResourceId} onChange={setOilResourceId} disabled={busy} />
                   </label>
                   <label className="field">
                     <span>Oil per second</span>
@@ -877,22 +929,18 @@ function App() {
                     <div key={`${output.resourceId}-${index}`} className="gas-output-row">
                       <label className="field">
                         <span>Output resource</span>
-                        <select
+                        <ResourceSelect
+                          resources={gasResources}
                           value={output.resourceId}
-                          onChange={(event) =>
+                          onChange={(value) =>
                             setGasOutputs((current) =>
                               current.map((entry, currentIndex) =>
-                                currentIndex === index ? { ...entry, resourceId: event.target.value } : entry,
+                                currentIndex === index ? { ...entry, resourceId: value } : entry,
                               ),
                             )
                           }
-                        >
-                          {gasResources.map((resource) => (
-                            <option key={resource.id} value={resource.id}>
-                              {resource.name}
-                            </option>
-                          ))}
-                        </select>
+                          disabled={busy}
+                        />
                       </label>
                       <label className="field">
                         <span>Configured rate / sec</span>
@@ -922,7 +970,7 @@ function App() {
                   ))}
                 </div>
 
-                <div className="action-row">
+                <div className="action-row entry-actions">
                   <button
                     type="button"
                     className="ghost-button"
@@ -963,14 +1011,11 @@ function App() {
                         <p>{summary.goalUnitLabel}</p>
                       </div>
                     </div>
-                    <span className={`resource-status ${summary.supplyMetric >= summary.goalQuantity ? "resource-status-done" : "resource-status-pending"}`}>
-                      {summary.supplyMetric >= summary.goalQuantity ? "Goal met" : "In progress"}
-                    </span>
                   </div>
 
-                  <div className="metric-line">
+                  <div className={`metric-line metric-line-inline ${summary.supplyMetric >= summary.goalQuantity ? "metric-line-done" : ""}`}>
                     <strong>{formatValue(summary.supplyMetric)}</strong>
-                    <span>/ {summary.goalQuantity > 0 ? formatValue(summary.goalQuantity) : "no target"}</span>
+                    <span>/ {formatValue(summary.goalQuantity)}</span>
                   </div>
                   <div className="progress-rail">
                     <span style={{ width: `${getProgressPercent(summary)}%` }} />
@@ -1009,9 +1054,10 @@ function App() {
                 {ledgerGroups.map((group) => (
                   <section key={group.planet.id} className="ledger-group">
                     <div className="ledger-group-header">
-                      <div>
+                      <div className="ledger-group-context">
+                        <p className="ledger-system-name">{group.systemName}</p>
                         <h3>{group.planet.name}</h3>
-                        <p>{group.systemName} · {group.planet.planet_type === "gas_giant" ? "Gas giant" : "Solid planet"}</p>
+                        {group.planet.planet_type === "gas_giant" && <span className="resource-badge">Gas giant</span>}
                       </div>
                     </div>
 
@@ -1033,7 +1079,7 @@ function App() {
                                 <h3>{getResourceName(data.resources, vein.resource_id)}</h3>
                                 <p>{miners.length} miners · {formatValue(throughputPerMinute)} ore/min · {formatValue(throughputPerMinute / 30)} node equivalents</p>
                               </div>
-                              <button type="button" className="ghost-button" onClick={() => void mutate(() => deleteBootstrap(`/api/ore-veins/${vein.id}`), applyBootstrap)}>
+                              <button type="button" className="ghost-button" onClick={() => void confirmAndDelete(`/api/ore-veins/${vein.id}`, `${getResourceName(data.resources, vein.resource_id)} vein`)}>
                                 Delete
                               </button>
                             </article>
@@ -1048,7 +1094,7 @@ function App() {
                                 <h3>{getResourceName(data.resources, site.resource_id)}</h3>
                                 <p>{site.pump_count} pumps</p>
                               </div>
-                              <button type="button" className="ghost-button" onClick={() => void mutate(() => deleteBootstrap(`/api/liquids/${site.id}`), applyBootstrap)}>
+                              <button type="button" className="ghost-button" onClick={() => void confirmAndDelete(`/api/liquids/${site.id}`, `${getResourceName(data.resources, site.resource_id)} pump site`)}>
                                 Delete
                               </button>
                             </article>
@@ -1063,7 +1109,7 @@ function App() {
                                 <h3>{getResourceName(data.resources, site.resource_id)}</h3>
                                 <p>{formatValue(site.oil_per_second)} / sec · {formatValue(site.oil_per_second * 60)} / min</p>
                               </div>
-                              <button type="button" className="ghost-button" onClick={() => void mutate(() => deleteBootstrap(`/api/oil-extractors/${site.id}`), applyBootstrap)}>
+                              <button type="button" className="ghost-button" onClick={() => void confirmAndDelete(`/api/oil-extractors/${site.id}`, `${getResourceName(data.resources, site.resource_id)} extractor`)}>
                                 Delete
                               </button>
                             </article>
@@ -1082,7 +1128,7 @@ function App() {
                               <h3>Collector ring</h3>
                               <p>{site.collector_count} collectors · {detail}</p>
                             </div>
-                            <button type="button" className="ghost-button" onClick={() => void mutate(() => deleteBootstrap(`/api/gas-giants/${site.id}`), applyBootstrap)}>
+                            <button type="button" className="ghost-button" onClick={() => void confirmAndDelete(`/api/gas-giants/${site.id}`, "gas giant site")}>
                               Delete
                             </button>
                           </article>
@@ -1136,6 +1182,64 @@ function App() {
                 +10%
               </button>
               <span className="helper-text">Applied to ore miners and orbital collectors.</span>
+            </div>
+          </section>
+          )}
+
+          {activeView === "settings" && (
+          <section className="panel">
+            <div className="section-heading">
+              <div>
+                <p className="eyebrow">Map</p>
+                <h2>Systems and planets</h2>
+              </div>
+            </div>
+            <div className="admin-stack">
+              {data.solarSystems.map((solarSystem) => {
+                const systemPlanets = data.planets.filter((planet) => planet.solar_system_id === solarSystem.id);
+
+                return (
+                  <section key={solarSystem.id} className="admin-card">
+                    <div className="admin-row">
+                      <div>
+                        <strong>{solarSystem.name}</strong>
+                        <span>{systemPlanets.length} planets</span>
+                      </div>
+                      <button
+                        type="button"
+                        className="ghost-button"
+                        onClick={() => void confirmAndDelete(`/api/systems/${solarSystem.id}`, `solar system ${solarSystem.name}`)}
+                      >
+                        Delete system
+                      </button>
+                    </div>
+                    <div className="admin-stack">
+                      {systemPlanets.length > 0 ? (
+                        systemPlanets
+                          .slice()
+                          .sort((left, right) => left.name.localeCompare(right.name))
+                          .map((planet) => (
+                            <div key={planet.id} className="admin-row">
+                              <div>
+                                <strong>{planet.name}</strong>
+                                {planet.planet_type === "gas_giant" && <span>Gas giant</span>}
+                              </div>
+                              <button
+                                type="button"
+                                className="ghost-button"
+                                onClick={() => void confirmAndDelete(`/api/planets/${planet.id}`, `planet ${planet.name}`)}
+                              >
+                                Delete planet
+                              </button>
+                            </div>
+                          ))
+                      ) : (
+                        <p className="helper-text">No planets in this system yet.</p>
+                      )}
+                    </div>
+                  </section>
+                );
+              })}
             </div>
           </section>
           )}

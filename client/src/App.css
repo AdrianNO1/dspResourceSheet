@@ -150,7 +150,8 @@
 .field input,
 .field select,
 .field textarea,
-.goal-row input {
+.goal-row input,
+.resource-select-trigger {
   width: 100%;
   box-sizing: border-box;
   padding: 12px 14px;
@@ -167,6 +168,10 @@
 
 .compact-field {
   max-width: 180px;
+}
+
+.field-spaced {
+  margin-bottom: 6px;
 }
 
 .context-chip,
@@ -248,6 +253,25 @@
   gap: 10px;
 }
 
+.segmented-control {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.segmented-button {
+  padding: 12px 14px;
+  border-radius: 14px;
+  border: 1px solid rgba(131, 161, 193, 0.2);
+  background: rgba(7, 13, 23, 0.72);
+  color: #edf5ff;
+  cursor: pointer;
+}
+
+.segmented-button-active {
+  background: linear-gradient(135deg, #44a5b8, #1f5177);
+}
+
 .resource-grid {
   margin-top: 18px;
 }
@@ -278,6 +302,7 @@
   overflow: hidden;
   font-weight: 700;
   color: #08111d;
+  aspect-ratio: 1 / 1;
   box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.14);
 }
 
@@ -303,6 +328,21 @@
   height: 100%;
   border-radius: 999px;
   background: linear-gradient(90deg, #8de5e0, #f1a04f);
+}
+
+.metric-line-inline {
+  justify-content: flex-start;
+  gap: 8px;
+}
+
+.metric-line-inline strong,
+.metric-line-inline span {
+  font-size: 1.1rem;
+}
+
+.metric-line-done strong,
+.metric-line-done span {
+  color: #89efb3;
 }
 
 .ledger-item {
@@ -345,21 +385,25 @@
   border-bottom: 1px solid rgba(130, 153, 184, 0.14);
 }
 
-.resource-status {
-  padding: 6px 10px;
-  border-radius: 999px;
-  font-size: 0.8rem;
-  border: 1px solid rgba(148, 172, 197, 0.18);
+.ledger-group-context {
+  display: grid;
+  gap: 6px;
 }
 
-.resource-status-done {
-  background: rgba(98, 205, 156, 0.18);
-  color: #b9ffd8;
+.ledger-system-name {
+  margin: 0;
+  color: rgba(151, 193, 226, 0.72);
+  font-size: 0.82rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
 }
 
-.resource-status-pending {
-  background: rgba(255, 183, 94, 0.16);
-  color: #ffe1b7;
+.entry-actions {
+  margin-top: 8px;
+}
+
+.entry-card > .primary-button {
+  margin-top: 8px;
 }
 
 .divider {
@@ -378,6 +422,96 @@
   border: 1px dashed rgba(130, 153, 184, 0.2);
   color: rgba(219, 229, 239, 0.7);
   text-align: center;
+}
+
+.resource-select {
+  position: relative;
+}
+
+.resource-select-trigger {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  cursor: pointer;
+}
+
+.resource-select-value,
+.resource-select-option {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.resource-select-value span:last-child,
+.resource-select-option span:last-child {
+  text-align: left;
+}
+
+.resource-select-placeholder,
+.resource-select-caret {
+  color: rgba(211, 223, 235, 0.7);
+}
+
+.resource-select-menu {
+  position: absolute;
+  z-index: 20;
+  top: calc(100% + 8px);
+  left: 0;
+  right: 0;
+  max-height: 320px;
+  overflow: auto;
+  padding: 8px;
+  border-radius: 18px;
+  border: 1px solid rgba(131, 161, 193, 0.2);
+  background: rgba(7, 13, 23, 0.98);
+  box-shadow: 0 18px 44px rgba(0, 0, 0, 0.28);
+}
+
+.resource-select-option {
+  width: 100%;
+  padding: 8px;
+  border: none;
+  border-radius: 14px;
+  background: transparent;
+  color: #edf5ff;
+  cursor: pointer;
+}
+
+.resource-select-option:hover,
+.resource-select-option-selected {
+  background: rgba(255, 255, 255, 0.07);
+}
+
+.admin-stack {
+  display: grid;
+  gap: 12px;
+}
+
+.admin-card {
+  display: grid;
+  gap: 12px;
+  padding: 16px;
+  border-radius: 18px;
+  border: 1px solid rgba(148, 172, 197, 0.16);
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.admin-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.admin-row > div {
+  display: grid;
+  gap: 4px;
+}
+
+.admin-row span {
+  color: rgba(211, 223, 235, 0.7);
+  font-size: 0.92rem;
 }
 
 @media (max-width: 1180px) {

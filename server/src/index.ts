@@ -25,6 +25,8 @@ import {
   createResource,
   createSolarSystem,
   deleteById,
+  deletePlanet,
+  deleteSolarSystem,
   exportSnapshot,
   getBootstrapData,
   getPlanetById,
@@ -43,9 +45,29 @@ const port = Number(process.env.PORT ?? "3001");
 const clientDistDirectory = path.resolve(process.cwd(), "..", "client", "dist");
 
 app.use(express.json({ limit: "10mb" }));
+app.use((req, res, next) => {
+  const startedAt = Date.now();
+  res.on("finish", () => {
+    const elapsedMs = Date.now() - startedAt;
+    if (req.path.startsWith("/api")) {
+      console.log(`[api] ${req.method} ${req.path} ${res.statusCode} ${elapsedMs}ms`);
+    }
+  });
+  next();
+});
+
+function respondWithBootstrap(res: express.Response, label: string) {
+  const bootstrapStartedAt = Date.now();
+  const payload = getBootstrapData();
+  const bootstrapElapsedMs = Date.now() - bootstrapStartedAt;
+  if (bootstrapElapsedMs >= 150) {
+    console.log(`[bootstrap] ${label} ${bootstrapElapsedMs}ms`);
+  }
+  return res.json(payload);
+}
 
 app.get("/api/bootstrap", (_req, res) => {
-  res.json(getBootstrapData());
+  respondWithBootstrap(res, "bootstrap");
 });
 
 app.post("/api/resources", (req, res) => {
@@ -55,7 +77,8 @@ app.post("/api/resources", (req, res) => {
   }
 
   createResource(parsed.data.name, parsed.data.type);
-  return res.status(201).json(getBootstrapData());
+  res.status(201);
+  return respondWithBootstrap(res, "create-resource");
 });
 
 app.post("/api/systems", (req, res) => {
@@ -66,7 +89,8 @@ app.post("/api/systems", (req, res) => {
 
   const systemId = createSolarSystem(parsed.data.name);
   setSetting("currentSolarSystemId", systemId);
-  return res.status(201).json(getBootstrapData());
+  res.status(201);
+  return respondWithBootstrap(res, "create-system");
 });
 
 app.post("/api/planets", (req, res) => {
@@ -78,7 +102,8 @@ app.post("/api/planets", (req, res) => {
   const planetId = createPlanet(parsed.data);
   setSetting("currentSolarSystemId", parsed.data.solarSystemId);
   setSetting("currentPlanetId", planetId);
-  return res.status(201).json(getBootstrapData());
+  res.status(201);
+  return respondWithBootstrap(res, "create-planet");
 });
 
 app.patch("/api/settings", (req, res) => {
@@ -91,7 +116,7 @@ app.patch("/api/settings", (req, res) => {
     setSetting(key, value === null ? "" : String(value));
   }
 
-  return res.json(getBootstrapData());
+  return respondWithBootstrap(res, "patch-settings");
 });
 
 app.post("/api/projects", (req, res) => {
@@ -101,7 +126,8 @@ app.post("/api/projects", (req, res) => {
   }
 
   createProject(parsed.data);
-  return res.status(201).json(getBootstrapData());
+  res.status(201);
+  return respondWithBootstrap(res, "create-project");
 });
 
 app.patch("/api/projects/:projectId", (req, res) => {
@@ -114,7 +140,7 @@ app.patch("/api/projects/:projectId", (req, res) => {
   if (parsed.data.goals) {
     replaceProjectGoals(req.params.projectId, parsed.data.goals);
   }
-  return res.json(getBootstrapData());
+  return respondWithBootstrap(res, "update-project");
 });
 
 app.put("/api/projects/:projectId/goals", (req, res) => {
@@ -124,7 +150,7 @@ app.put("/api/projects/:projectId/goals", (req, res) => {
   }
 
   replaceProjectGoals(req.params.projectId, parsed.data.goals);
-  return res.json(getBootstrapData());
+  return respondWithBootstrap(res, "replace-goals");
 });
 
 app.post("/api/ore-veins", (req, res) => {
@@ -145,7 +171,8 @@ app.post("/api/ore-veins", (req, res) => {
   }
 
   createOreVein(parsed.data);
-  return res.status(201).json(getBootstrapData());
+  res.status(201);
+  return respondWithBootstrap(res, "create-ore-vein");
 });
 
 app.post("/api/liquids", (req, res) => {
@@ -166,7 +193,8 @@ app.post("/api/liquids", (req, res) => {
   }
 
   createLiquidSite(parsed.data);
-  return res.status(201).json(getBootstrapData());
+  res.status(201);
+  return respondWithBootstrap(res, "create-liquid");
 });
 
 app.post("/api/oil-extractors", (req, res) => {
@@ -187,7 +215,8 @@ app.post("/api/oil-extractors", (req, res) => {
   }
 
   createOilExtractor(parsed.data);
-  return res.status(201).json(getBootstrapData());
+  res.status(201);
+  return respondWithBootstrap(res, "create-oil");
 });
 
 app.post("/api/gas-giants", (req, res) => {
@@ -209,27 +238,50 @@ app.post("/api/gas-giants", (req, res) => {
   }
 
   createGasGiantSite(parsed.data);
-  return res.status(201).json(getBootstrapData());
+  res.status(201);
+  return respondWithBootstrap(res, "create-gas-giant");
 });
 
 app.delete("/api/ore-veins/:id", (req, res) => {
+  const deleteStartedAt = Date.now();
   deleteById("ore_veins", req.params.id);
-  return res.json(getBootstrapData());
+  console.log(`[delete] ore-vein ${req.params.id} ${Date.now() - deleteStartedAt}ms`);
+  return respondWithBootstrap(res, "delete-ore-vein");
 });
 
 app.delete("/api/liquids/:id", (req, res) => {
+  const deleteStartedAt = Date.now();
   deleteById("liquid_sites", req.params.id);
-  return res.json(getBootstrapData());
+  console.log(`[delete] liquid ${req.params.id} ${Date.now() - deleteStartedAt}ms`);
+  return respondWithBootstrap(res, "delete-liquid");
 });
 
 app.delete("/api/oil-extractors/:id", (req, res) => {
+  const deleteStartedAt = Date.now();
   deleteById("oil_extractors", req.params.id);
-  return res.json(getBootstrapData());
+  console.log(`[delete] oil-extractor ${req.params.id} ${Date.now() - deleteStartedAt}ms`);
+  return respondWithBootstrap(res, "delete-oil");
 });
 
 app.delete("/api/gas-giants/:id", (req, res) => {
+  const deleteStartedAt = Date.now();
   deleteById("gas_giant_sites", req.params.id);
-  return res.json(getBootstrapData());
+  console.log(`[delete] gas-giant ${req.params.id} ${Date.now() - deleteStartedAt}ms`);
+  return respondWithBootstrap(res, "delete-gas-giant");
+});
+
+app.delete("/api/planets/:id", (req, res) => {
+  const deleteStartedAt = Date.now();
+  deletePlanet(req.params.id);
+  console.log(`[delete] planet ${req.params.id} ${Date.now() - deleteStartedAt}ms`);
+  return respondWithBootstrap(res, "delete-planet");
+});
+
+app.delete("/api/systems/:id", (req, res) => {
+  const deleteStartedAt = Date.now();
+  deleteSolarSystem(req.params.id);
+  console.log(`[delete] system ${req.params.id} ${Date.now() - deleteStartedAt}ms`);
+  return respondWithBootstrap(res, "delete-system");
 });
 
 app.get("/api/export", (_req, res) => {
@@ -248,7 +300,7 @@ app.post("/api/import", (req, res) => {
   }
 
   importSnapshot(parsed.data);
-  return res.json(getBootstrapData());
+  return respondWithBootstrap(res, "import");
 });
 
 if (existsSync(clientDistDirectory)) {
