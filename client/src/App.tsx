@@ -1163,7 +1163,7 @@ function App() {
                         <input
                           type="number"
                           min={0.1}
-                          step={0.1}
+                          step="any"
                           value={output.ratePerSecond}
                           onChange={(event) =>
                             setGasOutputs((current) =>
@@ -1212,7 +1212,7 @@ function App() {
               </div>
             </div>
             <div className="resource-grid">
-              {data.summary.resourceSummaries.filter((summary) => summary.goalQuantity > 0).map((summary) => (
+              {data.summary.resourceSummaries.filter((summary) => summary.goalQuantity > 0 || summary.supplyMetric > 0).map((summary) => (
                 <article key={summary.resourceId} className="resource-card">
                   <div className="resource-card-top">
                     <div className="resource-title">
