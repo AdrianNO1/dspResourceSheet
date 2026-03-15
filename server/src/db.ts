@@ -634,13 +634,13 @@ export function importSnapshot(snapshot: ReturnType<typeof exportSnapshot>) {
 function resourceGoalUnit(type: ResourceType) {
   switch (type) {
     case "ore_vein":
-      return "covered nodes";
+      return "30/min nodes";
     case "liquid_pump":
       return "pumps";
     case "oil_extractor":
       return "oil / min";
     case "gas_giant_output":
-      return "items / sec";
+      return "items / min";
   }
 }
 
@@ -686,7 +686,6 @@ export function getBootstrapData() {
           return parentVein?.id;
         }),
       ).size;
-      supplyMetric = matchingMiners.reduce((sum, miner) => sum + Number(miner.covered_nodes), 0);
       supplyPerMinute = matchingMiners.reduce((sum, miner) => {
         const baseRate = miner.miner_type === "advanced" ? 60 : 30;
         const speedMultiplier =
@@ -694,6 +693,7 @@ export function getBootstrapData() {
         return sum + Number(miner.covered_nodes) * baseRate * speedMultiplier * miningMultiplier;
       }, 0);
       supplyPerSecond = supplyPerMinute / 60;
+      supplyMetric = supplyPerMinute / 30;
     }
 
     if (resourceType === "liquid_pump") {
@@ -724,7 +724,7 @@ export function getBootstrapData() {
         return sum + Number(output.rate_per_second) * collectorCount * 8 * miningMultiplier;
       }, 0);
       supplyPerMinute = supplyPerSecond * 60;
-      supplyMetric = supplyPerSecond;
+      supplyMetric = supplyPerMinute;
     }
 
     const goalQuantity = goalTotals.get(resourceId) ?? 0;

@@ -83,6 +83,7 @@ function App() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
+  const [activeView, setActiveView] = useState<"log" | "overview" | "projects" | "settings">("log");
   const [selectedProjectId, setSelectedProjectId] = useState("");
 
   const [newSystemName, setNewSystemName] = useState("");
@@ -98,20 +99,16 @@ function App() {
   const [newProjectNotes, setNewProjectNotes] = useState("");
 
   const [oreResourceId, setOreResourceId] = useState("");
-  const [oreLabel, setOreLabel] = useState("");
   const [oreMiners, setOreMiners] = useState<MinerDraft[]>([
     { minerType: "advanced", coveredNodes: 15, advancedSpeedPercent: 100 },
   ]);
 
   const [liquidResourceId, setLiquidResourceId] = useState("");
-  const [liquidLabel, setLiquidLabel] = useState("");
   const [pumpCount, setPumpCount] = useState(1);
 
   const [oilResourceId, setOilResourceId] = useState("");
-  const [oilLabel, setOilLabel] = useState("");
   const [oilPerSecond, setOilPerSecond] = useState(2.5);
 
-  const [gasLabel, setGasLabel] = useState("");
   const [collectorCount, setCollectorCount] = useState(40);
   const [gasOutputs, setGasOutputs] = useState<GasOutputDraft[]>([{ resourceId: "", ratePerSecond: 1 }]);
 
@@ -302,7 +299,7 @@ function App() {
         postBootstrap("/api/ore-veins", {
           planetId: currentPlanet.id,
           resourceId: oreResourceId,
-          label: oreLabel,
+          label: "",
           miners: oreMiners.map((miner) => ({
             minerType: miner.minerType,
             coveredNodes: Number(miner.coveredNodes),
@@ -311,8 +308,8 @@ function App() {
         }),
       (nextData) => {
         applyBootstrap(nextData);
-        setOreLabel("");
-        setOreMiners([{ minerType: "advanced", coveredNodes: 15, advancedSpeedPercent: 100 }]);
+        const nextAdvancedSpeed = oreMiners.find((miner) => miner.minerType === "advanced")?.advancedSpeedPercent ?? 100;
+        setOreMiners([{ minerType: "advanced", coveredNodes: 15, advancedSpeedPercent: nextAdvancedSpeed }]);
       },
     );
   }
@@ -327,12 +324,11 @@ function App() {
         postBootstrap("/api/liquids", {
           planetId: currentPlanet.id,
           resourceId: liquidResourceId,
-          label: liquidLabel,
+          label: "",
           pumpCount: Number(pumpCount),
         }),
       (nextData) => {
         applyBootstrap(nextData);
-        setLiquidLabel("");
         setPumpCount(1);
       },
     );
@@ -348,12 +344,11 @@ function App() {
         postBootstrap("/api/oil-extractors", {
           planetId: currentPlanet.id,
           resourceId: oilResourceId,
-          label: oilLabel,
+          label: "",
           oilPerSecond: Number(oilPerSecond),
         }),
       (nextData) => {
         applyBootstrap(nextData);
-        setOilLabel("");
         setOilPerSecond(2.5);
       },
     );
@@ -368,7 +363,7 @@ function App() {
       () =>
         postBootstrap("/api/gas-giants", {
           planetId: currentPlanet.id,
-          label: gasLabel,
+          label: "",
           collectorCount: Number(collectorCount),
           outputs: gasOutputs.map((output) => ({
             resourceId: output.resourceId,
@@ -377,7 +372,6 @@ function App() {
         }),
       (nextData) => {
         applyBootstrap(nextData);
-        setGasLabel("");
         setCollectorCount(40);
         setGasOutputs([{ resourceId: gasResources[0]?.id ?? "", ratePerSecond: 1 }]);
       },
@@ -448,8 +442,27 @@ function App() {
         </section>
       )}
 
-      <section className="grid-layout">
+      <nav className="view-tabs">
+        {[
+          ["log", "Logging"],
+          ["overview", "Overview"],
+          ["projects", "Projects"],
+          ["settings", "Settings"],
+        ].map(([viewKey, label]) => (
+          <button
+            key={viewKey}
+            type="button"
+            className={`view-tab ${activeView === viewKey ? "view-tab-active" : ""}`}
+            onClick={() => setActiveView(viewKey as "log" | "overview" | "projects" | "settings")}
+          >
+            {label}
+          </button>
+        ))}
+      </nav>
+
+      <section className={`grid-layout grid-layout-${activeView}`}>
         <div className="main-column">
+          {activeView === "log" && (
           <section className="panel">
             <div className="section-heading">
               <div>
@@ -569,7 +582,9 @@ function App() {
               </form>
             </div>
           </section>
+          )}
 
+          {activeView === "log" && (
           <section className="panel">
             <div className="section-heading">
               <div>
@@ -606,11 +621,6 @@ function App() {
                       ))}
                     </select>
                   </label>
-                  <label className="field">
-                    <span>Label</span>
-                    <input value={oreLabel} onChange={(event) => setOreLabel(event.target.value)} placeholder="North ridge vein" />
-                  </label>
-
                   <div className="miner-stack">
                     {oreMiners.map((miner, index) => {
                       const chips = miner.minerType === "advanced" ? Array.from({ length: 16 }, (_, offset) => 15 + offset) : Array.from({ length: 10 }, (_, offset) => 1 + offset);
@@ -641,14 +651,17 @@ function App() {
                               </select>
                             </label>
 
-                            <button
-                              type="button"
-                              className="ghost-button"
-                              onClick={() => setOreMiners((current) => current.filter((_, currentIndex) => currentIndex !== index))}
-                              disabled={oreMiners.length === 1}
-                            >
-                              Remove
-                            </button>
+                            {oreMiners.length > 1 ? (
+                              <button
+                                type="button"
+                                className="ghost-button"
+                                onClick={() => setOreMiners((current) => current.filter((_, currentIndex) => currentIndex !== index))}
+                              >
+                                Remove
+                              </button>
+                            ) : (
+                              <span className="helper-text">Base row</span>
+                            )}
                           </div>
 
                           <div className="quick-chip-row">
@@ -772,10 +785,6 @@ function App() {
                     </select>
                   </label>
                   <label className="field">
-                    <span>Label</span>
-                    <input value={liquidLabel} onChange={(event) => setLiquidLabel(event.target.value)} placeholder="South coast" />
-                  </label>
-                  <label className="field">
                     <span>Pumps</span>
                     <input type="number" min={1} value={pumpCount} onChange={(event) => setPumpCount(Number(event.target.value))} />
                   </label>
@@ -804,10 +813,6 @@ function App() {
                         </option>
                       ))}
                     </select>
-                  </label>
-                  <label className="field">
-                    <span>Label</span>
-                    <input value={oilLabel} onChange={(event) => setOilLabel(event.target.value)} placeholder="Shale basin" />
                   </label>
                   <label className="field">
                     <span>Oil per second</span>
@@ -840,10 +845,6 @@ function App() {
                   <h3>Gas giant site</h3>
                 </div>
                 <div className="two-column">
-                  <label className="field">
-                    <span>Label</span>
-                    <input value={gasLabel} onChange={(event) => setGasLabel(event.target.value)} placeholder="Equatorial ring" />
-                  </label>
                   <label className="field">
                     <span>Orbital collectors</span>
                     <input type="number" min={0} max={40} value={collectorCount} onChange={(event) => setCollectorCount(Number(event.target.value))} />
@@ -917,7 +918,9 @@ function App() {
               </form>
             )}
           </section>
+          )}
 
+          {activeView === "overview" && (
           <section className="panel">
             <div className="section-heading">
               <div>
@@ -926,7 +929,7 @@ function App() {
               </div>
             </div>
             <div className="resource-grid">
-              {data.summary.resourceSummaries.map((summary) => (
+              {data.summary.resourceSummaries.filter((summary) => summary.goalQuantity > 0).map((summary) => (
                 <article key={summary.resourceId} className="resource-card">
                   <div className="resource-card-top">
                     <div className="resource-title">
@@ -941,7 +944,6 @@ function App() {
                         <p>{summary.goalUnitLabel}</p>
                       </div>
                     </div>
-                    {summary.fuelValueMj ? <span className="resource-badge">{formatValue(summary.fuelValueMj)} MJ</span> : null}
                   </div>
 
                   <div className="metric-line">
@@ -963,7 +965,9 @@ function App() {
               ))}
             </div>
           </section>
+          )}
 
+          {activeView === "overview" && (
           <section className="panel">
             <div className="section-heading">
               <div>
@@ -990,7 +994,7 @@ function App() {
                       <div>
                         <h3>{getResourceName(data.resources, vein.resource_id)}</h3>
                         <p>
-                          {vein.label || "Unnamed vein"} · {miners.length} miner rows · {formatValue(throughputPerMinute)} ore/min
+                          {miners.length} miner rows · {formatValue(throughputPerMinute)} ore/min · {formatValue(throughputPerMinute / 30)} node equivalents
                         </p>
                       </div>
                       <button type="button" className="ghost-button" onClick={() => void mutate(() => deleteBootstrap(`/api/ore-veins/${vein.id}`), applyBootstrap)}>
@@ -1005,7 +1009,7 @@ function App() {
                     <div>
                       <h3>{getResourceName(data.resources, site.resource_id)}</h3>
                       <p>
-                        {site.label || "Unnamed pump site"} · {site.pump_count} pumps
+                        {site.pump_count} pumps
                       </p>
                     </div>
                     <button type="button" className="ghost-button" onClick={() => void mutate(() => deleteBootstrap(`/api/liquids/${site.id}`), applyBootstrap)}>
@@ -1019,7 +1023,7 @@ function App() {
                     <div>
                       <h3>{getResourceName(data.resources, site.resource_id)}</h3>
                       <p>
-                        {site.label || "Unnamed extractor"} · {formatValue(site.oil_per_second)} / sec · {formatValue(site.oil_per_second * 60)} / min
+                        {formatValue(site.oil_per_second)} / sec · {formatValue(site.oil_per_second * 60)} / min
                       </p>
                     </div>
                     <button type="button" className="ghost-button" onClick={() => void mutate(() => deleteBootstrap(`/api/oil-extractors/${site.id}`), applyBootstrap)}>
@@ -1031,13 +1035,13 @@ function App() {
                 {gasSitesOnPlanet.map((site: GasGiantSite) => {
                   const outputs = gasOutputLookup[site.id] ?? [];
                   const detail = outputs
-                    .map((output) => `${getResourceName(data.resources, output.resource_id)} ${formatValue(output.rate_per_second * site.collector_count * 8 * (1 + data.settings.miningResearchBonusPercent / 100))}/sec`)
+                    .map((output) => `${getResourceName(data.resources, output.resource_id)} ${formatValue(output.rate_per_second * site.collector_count * 8 * (1 + data.settings.miningResearchBonusPercent / 100) * 60)}/min`)
                     .join(" · ");
 
                   return (
                     <article key={site.id} className="ledger-item">
                       <div>
-                        <h3>{site.label || "Unnamed collector ring"}</h3>
+                        <h3>Collector ring</h3>
                         <p>
                           {site.collector_count} collectors · {detail}
                         </p>
@@ -1056,9 +1060,12 @@ function App() {
               </div>
             )}
           </section>
+          )}
         </div>
 
+        {(activeView === "projects" || activeView === "settings") && (
         <aside className="sidebar-column">
+          {activeView === "settings" && (
           <section className="panel">
             <div className="section-heading">
               <div>
@@ -1095,7 +1102,9 @@ function App() {
               <span className="helper-text">Applied to ore miners and orbital collectors.</span>
             </div>
           </section>
+          )}
 
+          {activeView === "projects" && (
           <section className="panel">
             <div className="section-heading">
               <div>
@@ -1186,7 +1195,9 @@ function App() {
               Create project
             </button>
           </section>
+          )}
 
+          {activeView === "settings" && (
           <section className="panel">
             <div className="section-heading">
               <div>
@@ -1228,7 +1239,9 @@ function App() {
               Add resource
             </button>
           </section>
+          )}
 
+          {activeView === "settings" && (
           <section className="panel">
             <div className="section-heading">
               <div>
@@ -1244,7 +1257,9 @@ function App() {
               <input type="file" accept=".json,application/json" onChange={(event) => void handleImport(event.target.files?.[0])} />
             </label>
           </section>
+          )}
         </aside>
+        )}
       </section>
     </main>
   );

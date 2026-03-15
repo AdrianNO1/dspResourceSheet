@@ -58,6 +58,26 @@
   margin-bottom: 20px;
 }
 
+.view-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.view-tab {
+  padding: 10px 16px;
+  border-radius: 999px;
+  border: 1px solid rgba(143, 184, 216, 0.18);
+  background: rgba(255, 255, 255, 0.04);
+  color: #edf5ff;
+  cursor: pointer;
+}
+
+.view-tab-active {
+  background: linear-gradient(135deg, #44a5b8, #1f5177);
+}
+
 .message {
   padding: 14px 16px;
   border-radius: 16px;
@@ -80,6 +100,13 @@
   display: grid;
   grid-template-columns: minmax(0, 2fr) minmax(320px, 0.95fr);
   gap: 22px;
+}
+
+.grid-layout-log,
+.grid-layout-overview,
+.grid-layout-projects,
+.grid-layout-settings {
+  grid-template-columns: 1fr;
 }
 
 .main-column,
@@ -131,7 +158,7 @@
 }
 
 .entry-grid {
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: minmax(0, 1.65fr) repeat(2, minmax(260px, 1fr));
   margin-top: 18px;
 }
 
@@ -231,6 +258,25 @@
   gap: 10px;
 }
 
+.miner-card {
+  display: grid;
+  gap: 12px;
+  padding: 16px;
+  border-radius: 18px;
+  border: 1px solid rgba(148, 172, 197, 0.16);
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.slider-group {
+  grid-template-columns: minmax(0, 1fr) 132px;
+  align-items: end;
+}
+
+.gas-output-row {
+  grid-template-columns: minmax(0, 1.2fr) 180px auto;
+  align-items: end;
+}
+
 .selected-chip,
 .project-pill-active {
   background: linear-gradient(135deg, rgba(255, 166, 94, 0.9), rgba(215, 114, 52, 0.88));
@@ -318,6 +364,11 @@
   gap: 12px;
 }
 
+.goal-row-title > div {
+  display: grid;
+  gap: 4px;
+}
+
 .divider {
   height: 1px;
   margin: 4px 0;
@@ -341,6 +392,11 @@
   .hero-banner,
   .entry-grid,
   .two-column {
+    grid-template-columns: 1fr;
+  }
+
+  .gas-output-row,
+  .slider-group {
     grid-template-columns: 1fr;
   }
 
