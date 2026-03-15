@@ -75,6 +75,14 @@ function describePlanet(planet: Planet) {
   return planet.planet_type === "gas_giant" ? `${planet.name} · Gas giant` : planet.name;
 }
 
+function buildPlanetNamePrefix(systemName: string) {
+  return `${systemName} `.replace(/\s{2,}/g, " ");
+}
+
+function normalizePlanetName(name: string) {
+  return name.replace(/\s{2,}/g, " ").trim();
+}
+
 function getLatestPlanetActivity(data: BootstrapData) {
   const latestByPlanetId = new Map<string, number>();
 
@@ -270,6 +278,18 @@ function App() {
     setProjectActiveDraft(selectedProject.is_active === 1);
     setGoalDrafts(toProjectGoalMap(data.projectGoals, selectedProjectId));
   }, [data, selectedProjectId]);
+
+  useEffect(() => {
+    if (!data || newPlanetName) {
+      return;
+    }
+
+    const currentSystemName =
+      data.solarSystems.find((solarSystem) => solarSystem.id === data.settings.currentSolarSystemId)?.name ?? "";
+    if (currentSystemName) {
+      setNewPlanetName(buildPlanetNamePrefix(currentSystemName));
+    }
+  }, [data, newPlanetName]);
 
   async function mutate<T>(request: () => Promise<T>, onSuccess?: (payload: T) => void) {
     setBusy(true);
@@ -739,6 +759,9 @@ function App() {
                   value={data.settings.currentSolarSystemId ?? ""}
                   onChange={(event) => {
                     const nextSystemId = event.target.value || null;
+                    const nextSystemName =
+                      data.solarSystems.find((solarSystem) => solarSystem.id === nextSystemId)?.name ?? "";
+                    setNewPlanetName(nextSystemName ? buildPlanetNamePrefix(nextSystemName) : "");
                     void updateSettings({
                       currentSolarSystemId: nextSystemId,
                       currentPlanetId: getPreferredPlanetIdForSystem(nextSystemId),
@@ -787,6 +810,7 @@ function App() {
                     () => postBootstrap("/api/systems", { name: newSystemName }),
                     (nextData) => {
                       applyBootstrap(nextData);
+                      setNewPlanetName(buildPlanetNamePrefix(newSystemName.trim()));
                       setNewSystemName("");
                     },
                   );
@@ -813,19 +837,21 @@ function App() {
                     () =>
                       postBootstrap("/api/planets", {
                         solarSystemId: data.settings.currentSolarSystemId,
-                        name: newPlanetName,
+                        name: normalizePlanetName(newPlanetName),
                         planetType: newPlanetType,
                       }),
                     (nextData) => {
                       applyBootstrap(nextData);
-                      setNewPlanetName("");
+                      const currentSystemName =
+                        nextData.solarSystems.find((solarSystem) => solarSystem.id === nextData.settings.currentSolarSystemId)?.name ?? "";
+                      setNewPlanetName(currentSystemName ? buildPlanetNamePrefix(currentSystemName) : "");
                     },
                   );
                 }}
               >
                 <label className="field">
                   <span>Add planet</span>
-                  <input value={newPlanetName} onChange={(event) => setNewPlanetName(event.target.value)} placeholder="Arden II" />
+                  <input value={newPlanetName} onChange={(event) => setNewPlanetName(event.target.value.replace(/\s{2,}/g, " "))} placeholder="Arden II" />
                 </label>
                 <label className="field compact-field">
                   <span>Type</span>
