@@ -1,7 +1,7 @@
-import { startTransition, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import "./App.css";
 import { ResourceIcon } from "./components/ResourceIcon";
-import { deleteBootstrap, exportSnapshot, getBootstrap, importSnapshot, patchBootstrap, postBootstrap, putBootstrap } from "./lib/api";
+import { deleteBootstrap, exportSnapshot, getBootstrap, importSnapshot, patchBootstrap, postBootstrap } from "./lib/api";
 import type {
   BootstrapData,
   GasGiantOutput,
@@ -84,6 +84,7 @@ function App() {
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [activeView, setActiveView] = useState<"log" | "overview" | "projects" | "settings">("log");
+  const [showAllLedger, setShowAllLedger] = useState(false);
   const [selectedProjectId, setSelectedProjectId] = useState("");
 
   const [newSystemName, setNewSystemName] = useState("");
@@ -117,9 +118,7 @@ function App() {
 
     try {
       const nextData = await getBootstrap();
-      startTransition(() => {
-        setData(nextData);
-      });
+      setData(nextData);
       setError("");
     } catch (requestError) {
       setError(requestError instanceof Error ? requestError.message : "Unable to load the app.");
@@ -201,17 +200,15 @@ function App() {
   }
 
   function applyBootstrap(nextData: BootstrapData) {
-    startTransition(() => {
-      setData(nextData);
-    });
+    setData(nextData);
   }
 
   if (loading || !data) {
     return (
       <main className="shell loading-shell">
-        <section className="panel hero-panel">
+        <section className="panel">
           <p className="eyebrow">Dyson Sphere Program</p>
-          <h1>Loading the extraction ledger…</h1>
+          <h1>Loading extraction ledger...</h1>
         </section>
       </main>
     );
@@ -226,11 +223,6 @@ function App() {
   const oilResources = sortResources(loadedData.resources, "oil_extractor");
   const gasResources = sortResources(loadedData.resources, "gas_giant_output");
 
-  const oreVeinsOnPlanet = loadedData.oreVeins.filter((vein) => vein.planet_id === currentPlanet?.id);
-  const liquidSitesOnPlanet = loadedData.liquidSites.filter((site) => site.planet_id === currentPlanet?.id);
-  const oilExtractorsOnPlanet = loadedData.oilExtractors.filter((site) => site.planet_id === currentPlanet?.id);
-  const gasSitesOnPlanet = loadedData.gasGiantSites.filter((site) => site.planet_id === currentPlanet?.id);
-
   const gasOutputLookup = loadedData.gasGiantOutputs.reduce<Record<string, GasGiantOutput[]>>((acc, output) => {
     acc[output.gas_giant_site_id] ??= [];
     acc[output.gas_giant_site_id].push(output);
@@ -243,6 +235,61 @@ function App() {
     return acc;
   }, {});
 
+  const planetLookup = new Map(loadedData.planets.map((planet) => [planet.id, planet]));
+  const systemLookup = new Map(loadedData.solarSystems.map((solarSystem) => [solarSystem.id, solarSystem]));
+
+  const ledgerPlanetIds = showAllLedger
+    ? Array.from(
+        new Set([
+          ...loadedData.oreVeins.map((vein) => vein.planet_id),
+          ...loadedData.liquidSites.map((site) => site.planet_id),
+          ...loadedData.oilExtractors.map((site) => site.planet_id),
+          ...loadedData.gasGiantSites.map((site) => site.planet_id),
+        ]),
+      )
+    : currentPlanet
+      ? [currentPlanet.id]
+      : [];
+
+  const ledgerGroups = ledgerPlanetIds
+    .map((planetId) => {
+      const planet = planetLookup.get(planetId);
+      if (!planet) {
+        return null;
+      }
+
+      const systemName = systemLookup.get(planet.solar_system_id)?.name ?? "Unknown System";
+      const oreItems = loadedData.oreVeins
+        .filter((vein) => vein.planet_id === planetId)
+        .sort((left, right) => new Date(right.created_at).getTime() - new Date(left.created_at).getTime())
+        .map((vein) => ({ kind: "ore" as const, createdAt: vein.created_at, data: vein }));
+      const liquidItems = loadedData.liquidSites
+        .filter((site) => site.planet_id === planetId)
+        .sort((left, right) => new Date(right.created_at).getTime() - new Date(left.created_at).getTime())
+        .map((site) => ({ kind: "liquid" as const, createdAt: site.created_at, data: site }));
+      const oilItems = loadedData.oilExtractors
+        .filter((site) => site.planet_id === planetId)
+        .sort((left, right) => new Date(right.created_at).getTime() - new Date(left.created_at).getTime())
+        .map((site) => ({ kind: "oil" as const, createdAt: site.created_at, data: site }));
+      const gasItems = loadedData.gasGiantSites
+        .filter((site) => site.planet_id === planetId)
+        .sort((left, right) => new Date(right.created_at).getTime() - new Date(left.created_at).getTime())
+        .map((site) => ({ kind: "gas" as const, createdAt: site.created_at, data: site }));
+
+      const items = [...oreItems, ...liquidItems, ...oilItems, ...gasItems].sort(
+        (left, right) => new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime(),
+      );
+
+      return {
+        planet,
+        systemName,
+        latestActivityAt: items[0]?.createdAt ?? "",
+        items,
+      };
+    })
+    .filter((group): group is NonNullable<typeof group> => group !== null)
+    .sort((left, right) => new Date(right.latestActivityAt).getTime() - new Date(left.latestActivityAt).getTime());
+
   async function updateSettings(payload: Partial<BootstrapData["settings"]>) {
     await mutate(() => patchBootstrap("/api/settings", payload), applyBootstrap);
   }
@@ -253,13 +300,10 @@ function App() {
     }
 
     await mutate(async () => {
-      await patchBootstrap(`/api/projects/${selectedProject.id}`, {
+      return patchBootstrap(`/api/projects/${selectedProject.id}`, {
         name: projectNameDraft,
         notes: projectNotesDraft,
         isActive: projectActiveDraft,
-      });
-
-      return putBootstrap(`/api/projects/${selectedProject.id}/goals`, {
         goals: loadedData.resources.map((resource) => ({
           resourceId: resource.id,
           quantity: Number(goalDrafts[resource.id] ?? 0),
@@ -411,30 +455,6 @@ function App() {
 
   return (
     <main className="shell">
-      <section className="hero-banner">
-        <div>
-          <p className="eyebrow">Dyson Sphere Program</p>
-          <h1>Resource Sheet</h1>
-          <p className="hero-copy">
-            Track every vein, pump, orbital collector, and oil extractor across your interstellar logistics network.
-          </p>
-        </div>
-        <div className="hero-stats">
-          <article className="hero-stat">
-            <strong>{data.summary.activeProjectCount}</strong>
-            <span>active projects</span>
-          </article>
-          <article className="hero-stat">
-            <strong>{data.summary.planetCount}</strong>
-            <span>tracked planets</span>
-          </article>
-          <article className="hero-stat">
-            <strong>{data.summary.solarSystemCount}</strong>
-            <span>solar systems</span>
-          </article>
-        </div>
-      </section>
-
       {(error || notice) && (
         <section className="message-row">
           {error && <div className="message error-message">{error}</div>}
@@ -688,7 +708,6 @@ function App() {
                             <input
                               type="number"
                               min={1}
-                              max={miner.minerType === "advanced" ? 30 : 10}
                               value={miner.coveredNodes}
                               onChange={(event) =>
                                 setOreMiners((current) =>
@@ -944,6 +963,9 @@ function App() {
                         <p>{summary.goalUnitLabel}</p>
                       </div>
                     </div>
+                    <span className={`resource-status ${summary.supplyMetric >= summary.goalQuantity ? "resource-status-done" : "resource-status-pending"}`}>
+                      {summary.supplyMetric >= summary.goalQuantity ? "Goal met" : "In progress"}
+                    </span>
                   </div>
 
                   <div className="metric-line">
@@ -972,93 +994,107 @@ function App() {
             <div className="section-heading">
               <div>
                 <p className="eyebrow">Planet Ledger</p>
-                <h2>{currentPlanet ? `${currentPlanet.name} extraction` : "Select a planet"}</h2>
+                <h2>Extraction log</h2>
               </div>
+              <label className="toggle-field">
+                <input type="checkbox" checked={showAllLedger} onChange={(event) => setShowAllLedger(event.target.checked)} />
+                <span>Show all planets</span>
+              </label>
             </div>
 
-            {!currentPlanet && <p className="empty-state">Pick a planet to review the sites you have already logged.</p>}
+            {!currentPlanet && !showAllLedger && <p className="empty-state">Pick a planet or enable all-planets view.</p>}
 
-            {currentPlanet && (
+            {ledgerGroups.length > 0 && (
               <div className="ledger-stack">
-                {oreVeinsOnPlanet.map((vein) => {
-                  const miners = oreMinerLookup[vein.id] ?? [];
-                  const throughputPerMinute = miners.reduce((sum, miner) => {
-                    const baseRate = miner.miner_type === "advanced" ? 60 : 30;
-                    const speed = miner.miner_type === "advanced" ? Number(miner.advanced_speed_percent ?? 100) / 100 : 1;
-                    const research = 1 + data.settings.miningResearchBonusPercent / 100;
-                    return sum + Number(miner.covered_nodes) * baseRate * speed * research;
-                  }, 0);
-
-                  return (
-                    <article key={vein.id} className="ledger-item">
+                {ledgerGroups.map((group) => (
+                  <section key={group.planet.id} className="ledger-group">
+                    <div className="ledger-group-header">
                       <div>
-                        <h3>{getResourceName(data.resources, vein.resource_id)}</h3>
-                        <p>
-                          {miners.length} miner rows · {formatValue(throughputPerMinute)} ore/min · {formatValue(throughputPerMinute / 30)} node equivalents
-                        </p>
+                        <h3>{group.planet.name}</h3>
+                        <p>{group.systemName} · {group.planet.planet_type === "gas_giant" ? "Gas giant" : "Solid planet"}</p>
                       </div>
-                      <button type="button" className="ghost-button" onClick={() => void mutate(() => deleteBootstrap(`/api/ore-veins/${vein.id}`), applyBootstrap)}>
-                        Delete
-                      </button>
-                    </article>
-                  );
-                })}
-
-                {liquidSitesOnPlanet.map((site) => (
-                  <article key={site.id} className="ledger-item">
-                    <div>
-                      <h3>{getResourceName(data.resources, site.resource_id)}</h3>
-                      <p>
-                        {site.pump_count} pumps
-                      </p>
                     </div>
-                    <button type="button" className="ghost-button" onClick={() => void mutate(() => deleteBootstrap(`/api/liquids/${site.id}`), applyBootstrap)}>
-                      Delete
-                    </button>
-                  </article>
-                ))}
 
-                {oilExtractorsOnPlanet.map((site: OilExtractor) => (
-                  <article key={site.id} className="ledger-item">
-                    <div>
-                      <h3>{getResourceName(data.resources, site.resource_id)}</h3>
-                      <p>
-                        {formatValue(site.oil_per_second)} / sec · {formatValue(site.oil_per_second * 60)} / min
-                      </p>
+                    <div className="ledger-stack">
+                      {group.items.map((item) => {
+                        if (item.kind === "ore") {
+                          const vein = item.data;
+                          const miners = oreMinerLookup[vein.id] ?? [];
+                          const throughputPerMinute = miners.reduce((sum, miner) => {
+                            const baseRate = miner.miner_type === "advanced" ? 60 : 30;
+                            const speed = miner.miner_type === "advanced" ? Number(miner.advanced_speed_percent ?? 100) / 100 : 1;
+                            const research = 1 + data.settings.miningResearchBonusPercent / 100;
+                            return sum + Number(miner.covered_nodes) * baseRate * speed * research;
+                          }, 0);
+
+                          return (
+                            <article key={vein.id} className="ledger-item">
+                              <div>
+                                <h3>{getResourceName(data.resources, vein.resource_id)}</h3>
+                                <p>{miners.length} miners · {formatValue(throughputPerMinute)} ore/min · {formatValue(throughputPerMinute / 30)} node equivalents</p>
+                              </div>
+                              <button type="button" className="ghost-button" onClick={() => void mutate(() => deleteBootstrap(`/api/ore-veins/${vein.id}`), applyBootstrap)}>
+                                Delete
+                              </button>
+                            </article>
+                          );
+                        }
+
+                        if (item.kind === "liquid") {
+                          const site = item.data;
+                          return (
+                            <article key={site.id} className="ledger-item">
+                              <div>
+                                <h3>{getResourceName(data.resources, site.resource_id)}</h3>
+                                <p>{site.pump_count} pumps</p>
+                              </div>
+                              <button type="button" className="ghost-button" onClick={() => void mutate(() => deleteBootstrap(`/api/liquids/${site.id}`), applyBootstrap)}>
+                                Delete
+                              </button>
+                            </article>
+                          );
+                        }
+
+                        if (item.kind === "oil") {
+                          const site = item.data as OilExtractor;
+                          return (
+                            <article key={site.id} className="ledger-item">
+                              <div>
+                                <h3>{getResourceName(data.resources, site.resource_id)}</h3>
+                                <p>{formatValue(site.oil_per_second)} / sec · {formatValue(site.oil_per_second * 60)} / min</p>
+                              </div>
+                              <button type="button" className="ghost-button" onClick={() => void mutate(() => deleteBootstrap(`/api/oil-extractors/${site.id}`), applyBootstrap)}>
+                                Delete
+                              </button>
+                            </article>
+                          );
+                        }
+
+                        const site = item.data as GasGiantSite;
+                        const outputs = gasOutputLookup[site.id] ?? [];
+                        const detail = outputs
+                          .map((output) => `${getResourceName(data.resources, output.resource_id)} ${formatValue(output.rate_per_second * site.collector_count * 8 * (1 + data.settings.miningResearchBonusPercent / 100) * 60)}/min`)
+                          .join(" · ");
+
+                        return (
+                          <article key={site.id} className="ledger-item">
+                            <div>
+                              <h3>Collector ring</h3>
+                              <p>{site.collector_count} collectors · {detail}</p>
+                            </div>
+                            <button type="button" className="ghost-button" onClick={() => void mutate(() => deleteBootstrap(`/api/gas-giants/${site.id}`), applyBootstrap)}>
+                              Delete
+                            </button>
+                          </article>
+                        );
+                      })}
                     </div>
-                    <button type="button" className="ghost-button" onClick={() => void mutate(() => deleteBootstrap(`/api/oil-extractors/${site.id}`), applyBootstrap)}>
-                      Delete
-                    </button>
-                  </article>
+                  </section>
                 ))}
-
-                {gasSitesOnPlanet.map((site: GasGiantSite) => {
-                  const outputs = gasOutputLookup[site.id] ?? [];
-                  const detail = outputs
-                    .map((output) => `${getResourceName(data.resources, output.resource_id)} ${formatValue(output.rate_per_second * site.collector_count * 8 * (1 + data.settings.miningResearchBonusPercent / 100) * 60)}/min`)
-                    .join(" · ");
-
-                  return (
-                    <article key={site.id} className="ledger-item">
-                      <div>
-                        <h3>Collector ring</h3>
-                        <p>
-                          {site.collector_count} collectors · {detail}
-                        </p>
-                      </div>
-                      <button type="button" className="ghost-button" onClick={() => void mutate(() => deleteBootstrap(`/api/gas-giants/${site.id}`), applyBootstrap)}>
-                        Delete
-                      </button>
-                    </article>
-                  );
-                })}
-
-                {oreVeinsOnPlanet.length === 0 &&
-                  liquidSitesOnPlanet.length === 0 &&
-                  oilExtractorsOnPlanet.length === 0 &&
-                  gasSitesOnPlanet.length === 0 && <p className="empty-state">No extraction sites logged on this planet yet.</p>}
               </div>
             )}
+
+            {ledgerGroups.length === 0 && <p className="empty-state">No extraction sites logged yet for the selected ledger view.</p>}
           </section>
           )}
         </div>

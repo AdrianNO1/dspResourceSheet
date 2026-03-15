@@ -63,6 +63,7 @@ export type LiquidSite = {
   resource_id: string;
   label: string;
   pump_count: number;
+  created_at: string;
 };
 
 export type OilExtractor = {
@@ -71,6 +72,7 @@ export type OilExtractor = {
   resource_id: string;
   label: string;
   oil_per_second: number;
+  created_at: string;
 };
 
 export type GasGiantSite = {
@@ -78,6 +80,7 @@ export type GasGiantSite = {
   planet_id: string;
   label: string;
   collector_count: number;
+  created_at: string;
 };
 
 export type GasGiantOutput = {

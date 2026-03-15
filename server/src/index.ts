@@ -111,6 +111,9 @@ app.patch("/api/projects/:projectId", (req, res) => {
   }
 
   updateProject(req.params.projectId, parsed.data);
+  if (parsed.data.goals) {
+    replaceProjectGoals(req.params.projectId, parsed.data.goals);
+  }
   return res.json(getBootstrapData());
 });
 

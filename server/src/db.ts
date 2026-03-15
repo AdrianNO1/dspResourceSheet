@@ -57,6 +57,15 @@ function readRow<T>(sql: string, ...params: unknown[]) {
   return db.prepare(sql).get(...params) as T | undefined;
 }
 
+function ensureColumn(tableName: string, columnName: string, definition: string) {
+  const existingColumns = readRows<{ name: string }>(`PRAGMA table_info(${tableName})`);
+  if (existingColumns.some((column) => column.name === columnName)) {
+    return;
+  }
+
+  db.exec(`ALTER TABLE ${tableName} ADD COLUMN ${columnName} ${definition}`);
+}
+
 export function initializeDatabase() {
   db.exec(`
     CREATE TABLE IF NOT EXISTS resource_definitions (
@@ -126,6 +135,7 @@ export function initializeDatabase() {
       resource_id TEXT NOT NULL,
       label TEXT NOT NULL DEFAULT '',
       pump_count INTEGER NOT NULL,
+      created_at TEXT,
       FOREIGN KEY (planet_id) REFERENCES planets(id) ON DELETE CASCADE,
       FOREIGN KEY (resource_id) REFERENCES resource_definitions(id) ON DELETE CASCADE
     );
@@ -136,6 +146,7 @@ export function initializeDatabase() {
       resource_id TEXT NOT NULL,
       label TEXT NOT NULL DEFAULT '',
       oil_per_second REAL NOT NULL,
+      created_at TEXT,
       FOREIGN KEY (planet_id) REFERENCES planets(id) ON DELETE CASCADE,
       FOREIGN KEY (resource_id) REFERENCES resource_definitions(id) ON DELETE CASCADE
     );
@@ -145,6 +156,7 @@ export function initializeDatabase() {
       planet_id TEXT NOT NULL,
       label TEXT NOT NULL DEFAULT '',
       collector_count INTEGER NOT NULL,
+      created_at TEXT,
       FOREIGN KEY (planet_id) REFERENCES planets(id) ON DELETE CASCADE
     );
 
@@ -161,6 +173,15 @@ export function initializeDatabase() {
       key TEXT PRIMARY KEY,
       value TEXT NOT NULL
     );
+  `);
+
+  ensureColumn("liquid_sites", "created_at", "TEXT");
+  ensureColumn("oil_extractors", "created_at", "TEXT");
+  ensureColumn("gas_giant_sites", "created_at", "TEXT");
+  db.exec(`
+    UPDATE liquid_sites SET created_at = COALESCE(NULLIF(created_at, ''), datetime('now')) WHERE created_at IS NULL OR created_at = '';
+    UPDATE oil_extractors SET created_at = COALESCE(NULLIF(created_at, ''), datetime('now')) WHERE created_at IS NULL OR created_at = '';
+    UPDATE gas_giant_sites SET created_at = COALESCE(NULLIF(created_at, ''), datetime('now')) WHERE created_at IS NULL OR created_at = '';
   `);
 
   seedDefaults();
@@ -408,12 +429,13 @@ export function createLiquidSite(input: {
   pumpCount: number;
 }) {
   runStatement(
-    "INSERT INTO liquid_sites (id, planet_id, resource_id, label, pump_count) VALUES (?, ?, ?, ?, ?)",
+    "INSERT INTO liquid_sites (id, planet_id, resource_id, label, pump_count, created_at) VALUES (?, ?, ?, ?, ?, ?)",
     generateId(),
     input.planetId,
     input.resourceId,
     input.label,
     input.pumpCount,
+    new Date().toISOString(),
   );
 }
 
@@ -424,12 +446,13 @@ export function createOilExtractor(input: {
   oilPerSecond: number;
 }) {
   runStatement(
-    "INSERT INTO oil_extractors (id, planet_id, resource_id, label, oil_per_second) VALUES (?, ?, ?, ?, ?)",
+    "INSERT INTO oil_extractors (id, planet_id, resource_id, label, oil_per_second, created_at) VALUES (?, ?, ?, ?, ?, ?)",
     generateId(),
     input.planetId,
     input.resourceId,
     input.label,
     input.oilPerSecond,
+    new Date().toISOString(),
   );
 }
 
@@ -441,11 +464,12 @@ export function createGasGiantSite(input: {
 }) {
   const siteId = generateId();
   runStatement(
-    "INSERT INTO gas_giant_sites (id, planet_id, label, collector_count) VALUES (?, ?, ?, ?)",
+    "INSERT INTO gas_giant_sites (id, planet_id, label, collector_count, created_at) VALUES (?, ?, ?, ?, ?)",
     siteId,
     input.planetId,
     input.label,
     input.collectorCount,
+    new Date().toISOString(),
   );
 
   for (const output of input.outputs) {
@@ -472,9 +496,9 @@ export function exportSnapshot() {
     projectGoals: readRows<Record<string, unknown>>("SELECT * FROM project_goals"),
     oreVeins: readRows<Record<string, unknown>>("SELECT * FROM ore_veins ORDER BY created_at DESC"),
     oreVeinMiners: readRows<Record<string, unknown>>("SELECT * FROM ore_vein_miners"),
-    liquidSites: readRows<Record<string, unknown>>("SELECT * FROM liquid_sites"),
-    oilExtractors: readRows<Record<string, unknown>>("SELECT * FROM oil_extractors"),
-    gasGiantSites: readRows<Record<string, unknown>>("SELECT * FROM gas_giant_sites"),
+    liquidSites: readRows<Record<string, unknown>>("SELECT * FROM liquid_sites ORDER BY created_at DESC"),
+    oilExtractors: readRows<Record<string, unknown>>("SELECT * FROM oil_extractors ORDER BY created_at DESC"),
+    gasGiantSites: readRows<Record<string, unknown>>("SELECT * FROM gas_giant_sites ORDER BY created_at DESC"),
     gasGiantOutputs: readRows<Record<string, unknown>>("SELECT * FROM gas_giant_outputs"),
     settings: getSettingsRecord(),
   };
@@ -580,33 +604,36 @@ export function importSnapshot(snapshot: ReturnType<typeof exportSnapshot>) {
 
     for (const row of snapshot.liquidSites) {
       runStatement(
-        "INSERT INTO liquid_sites (id, planet_id, resource_id, label, pump_count) VALUES (?, ?, ?, ?, ?)",
+        "INSERT INTO liquid_sites (id, planet_id, resource_id, label, pump_count, created_at) VALUES (?, ?, ?, ?, ?, ?)",
         row.id,
         row.planet_id,
         row.resource_id,
         row.label,
         row.pump_count,
+        row.created_at ?? new Date().toISOString(),
       );
     }
 
     for (const row of snapshot.oilExtractors) {
       runStatement(
-        "INSERT INTO oil_extractors (id, planet_id, resource_id, label, oil_per_second) VALUES (?, ?, ?, ?, ?)",
+        "INSERT INTO oil_extractors (id, planet_id, resource_id, label, oil_per_second, created_at) VALUES (?, ?, ?, ?, ?, ?)",
         row.id,
         row.planet_id,
         row.resource_id,
         row.label,
         row.oil_per_second,
+        row.created_at ?? new Date().toISOString(),
       );
     }
 
     for (const row of snapshot.gasGiantSites) {
       runStatement(
-        "INSERT INTO gas_giant_sites (id, planet_id, label, collector_count) VALUES (?, ?, ?, ?)",
+        "INSERT INTO gas_giant_sites (id, planet_id, label, collector_count, created_at) VALUES (?, ?, ?, ?, ?)",
         row.id,
         row.planet_id,
         row.label,
         row.collector_count,
+        row.created_at ?? new Date().toISOString(),
       );
     }
 

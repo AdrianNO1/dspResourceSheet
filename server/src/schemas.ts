@@ -40,6 +40,14 @@ export const updateProjectSchema = z.object({
   name: z.string().trim().min(1).max(80),
   notes: z.string().trim().max(500).default(""),
   isActive: z.boolean(),
+  goals: z
+    .array(
+      z.object({
+        resourceId: z.string().uuid(),
+        quantity: z.number().min(0),
+      }),
+    )
+    .optional(),
 });
 
 export const replaceGoalsSchema = z.object({
@@ -54,18 +62,10 @@ export const replaceGoalsSchema = z.object({
 const minerSchema = z
   .object({
     minerType: minerTypeSchema,
-    coveredNodes: z.number().int().min(1).max(30),
+    coveredNodes: z.number().int().min(1),
     advancedSpeedPercent: z.number().int().min(100).max(300).optional(),
   })
   .superRefine((value, ctx) => {
-    if (value.minerType === "regular" && value.coveredNodes > 10) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        path: ["coveredNodes"],
-        message: "Regular miners can only cover 1-10 nodes.",
-      });
-    }
-
     if (value.minerType === "advanced" && value.advancedSpeedPercent === undefined) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
