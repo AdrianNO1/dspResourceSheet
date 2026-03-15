@@ -1,6 +1,7 @@
 import express from "express";
-import { existsSync, writeFileSync } from "node:fs";
+import { appendFileSync, existsSync, mkdirSync, writeFileSync } from "node:fs";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 import {
   createGasGiantSchema,
   createLiquidSiteSchema,
@@ -43,6 +44,12 @@ initializeDatabase();
 const app = express();
 const port = Number(process.env.PORT ?? "3001");
 const clientDistDirectory = path.resolve(process.cwd(), "..", "client", "dist");
+const timingLogPath = fileURLToPath(new URL("../../data/api-timings.log", import.meta.url));
+mkdirSync(path.dirname(timingLogPath), { recursive: true });
+
+function writeTimingLog(line: string) {
+  appendFileSync(timingLogPath, `${new Date().toISOString()} ${line}\n`, "utf8");
+}
 
 app.use(express.json({ limit: "10mb" }));
 app.use((req, res, next) => {
@@ -50,7 +57,7 @@ app.use((req, res, next) => {
   res.on("finish", () => {
     const elapsedMs = Date.now() - startedAt;
     if (req.path.startsWith("/api")) {
-      console.log(`[api] ${req.method} ${req.path} ${res.statusCode} ${elapsedMs}ms`);
+      writeTimingLog(`[api] ${req.method} ${req.path} ${res.statusCode} ${elapsedMs}ms`);
     }
   });
   next();
@@ -60,9 +67,7 @@ function respondWithBootstrap(res: express.Response, label: string) {
   const bootstrapStartedAt = Date.now();
   const payload = getBootstrapData();
   const bootstrapElapsedMs = Date.now() - bootstrapStartedAt;
-  if (bootstrapElapsedMs >= 150) {
-    console.log(`[bootstrap] ${label} ${bootstrapElapsedMs}ms`);
-  }
+  writeTimingLog(`[bootstrap] ${label} ${bootstrapElapsedMs}ms`);
   return res.json(payload);
 }
 
@@ -245,42 +250,42 @@ app.post("/api/gas-giants", (req, res) => {
 app.delete("/api/ore-veins/:id", (req, res) => {
   const deleteStartedAt = Date.now();
   deleteById("ore_veins", req.params.id);
-  console.log(`[delete] ore-vein ${req.params.id} ${Date.now() - deleteStartedAt}ms`);
+  writeTimingLog(`[delete] ore-vein ${req.params.id} ${Date.now() - deleteStartedAt}ms`);
   return respondWithBootstrap(res, "delete-ore-vein");
 });
 
 app.delete("/api/liquids/:id", (req, res) => {
   const deleteStartedAt = Date.now();
   deleteById("liquid_sites", req.params.id);
-  console.log(`[delete] liquid ${req.params.id} ${Date.now() - deleteStartedAt}ms`);
+  writeTimingLog(`[delete] liquid ${req.params.id} ${Date.now() - deleteStartedAt}ms`);
   return respondWithBootstrap(res, "delete-liquid");
 });
 
 app.delete("/api/oil-extractors/:id", (req, res) => {
   const deleteStartedAt = Date.now();
   deleteById("oil_extractors", req.params.id);
-  console.log(`[delete] oil-extractor ${req.params.id} ${Date.now() - deleteStartedAt}ms`);
+  writeTimingLog(`[delete] oil-extractor ${req.params.id} ${Date.now() - deleteStartedAt}ms`);
   return respondWithBootstrap(res, "delete-oil");
 });
 
 app.delete("/api/gas-giants/:id", (req, res) => {
   const deleteStartedAt = Date.now();
   deleteById("gas_giant_sites", req.params.id);
-  console.log(`[delete] gas-giant ${req.params.id} ${Date.now() - deleteStartedAt}ms`);
+  writeTimingLog(`[delete] gas-giant ${req.params.id} ${Date.now() - deleteStartedAt}ms`);
   return respondWithBootstrap(res, "delete-gas-giant");
 });
 
 app.delete("/api/planets/:id", (req, res) => {
   const deleteStartedAt = Date.now();
   deletePlanet(req.params.id);
-  console.log(`[delete] planet ${req.params.id} ${Date.now() - deleteStartedAt}ms`);
+  writeTimingLog(`[delete] planet ${req.params.id} ${Date.now() - deleteStartedAt}ms`);
   return respondWithBootstrap(res, "delete-planet");
 });
 
 app.delete("/api/systems/:id", (req, res) => {
   const deleteStartedAt = Date.now();
   deleteSolarSystem(req.params.id);
-  console.log(`[delete] system ${req.params.id} ${Date.now() - deleteStartedAt}ms`);
+  writeTimingLog(`[delete] system ${req.params.id} ${Date.now() - deleteStartedAt}ms`);
   return respondWithBootstrap(res, "delete-system");
 });
 
@@ -312,4 +317,6 @@ if (existsSync(clientDistDirectory)) {
 
 app.listen(port, () => {
   console.log(`DSP Resource Sheet server listening on http://localhost:${port}`);
+  console.log(`Timing log file: ${timingLogPath}`);
+  writeTimingLog(`[startup] server listening on http://localhost:${port}`);
 });
