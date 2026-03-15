@@ -146,6 +146,14 @@ function getDraftOreOutputPerMinute(miners: MinerDraft[], miningResearchBonusPer
   }, 0);
 }
 
+function formatCurrentWithPending(current: number, pending: number) {
+  if (pending <= 0) {
+    return formatValue(current);
+  }
+
+  return `${formatValue(current)} + ${formatValue(pending)}`;
+}
+
 function MachinePill({ label, variant }: { label: string; variant: "advanced" | "regular" | "pump" | "gas" | "oil" }) {
   return <span className={`machine-pill machine-pill-${variant}`}>{label}</span>;
 }
@@ -178,10 +186,10 @@ function App() {
   ]);
 
   const [liquidResourceId, setLiquidResourceId] = useState("");
-  const [pumpCount, setPumpCount] = useState(1);
+  const [pumpCount, setPumpCount] = useState(0);
 
   const [oilResourceId, setOilResourceId] = useState("");
-  const [oilPerSecond, setOilPerSecond] = useState(2.5);
+  const [oilPerSecond, setOilPerSecond] = useState(0);
 
   const [collectorCount, setCollectorCount] = useState(40);
   const [gasOutputs, setGasOutputs] = useState<GasOutputDraft[]>([{ resourceId: "", ratePerSecond: 1 }]);
@@ -494,7 +502,7 @@ function App() {
         }),
       (nextData) => {
         applyBootstrap(nextData);
-        setPumpCount(1);
+        setPumpCount(0);
       },
     );
   }
@@ -514,7 +522,7 @@ function App() {
         }),
       (nextData) => {
         applyBootstrap(nextData);
-        setOilPerSecond(2.5);
+        setOilPerSecond(0);
       },
     );
   }
@@ -769,7 +777,7 @@ function App() {
                     <div className="entry-stat-strip">
                       <div className="entry-stat">
                         <span>Current</span>
-                        <strong>{formatValue(selectedOreSummary.supplyMetric)} + {formatValue(pendingOreNodeEquivalents)}</strong>
+                        <strong>{formatCurrentWithPending(selectedOreSummary.supplyMetric, pendingOreNodeEquivalents)}</strong>
                       </div>
                       <div className="entry-stat">
                         <span>Target</span>
@@ -937,7 +945,7 @@ function App() {
                     <div className="entry-stat-strip">
                       <div className="entry-stat">
                         <span>Current</span>
-                        <strong>{formatValue(selectedLiquidSummary.supplyMetric)} + {formatValue(pendingLiquidPumps)}</strong>
+                        <strong>{formatCurrentWithPending(selectedLiquidSummary.supplyMetric, pendingLiquidPumps)}</strong>
                       </div>
                       <div className="entry-stat">
                         <span>Target</span>
@@ -947,7 +955,7 @@ function App() {
                   )}
                   <label className="field">
                     <span>Pumps</span>
-                    <input type="number" min={1} value={pumpCount} onChange={(event) => setPumpCount(Number(event.target.value))} />
+                    <input type="number" min={0} value={pumpCount} onChange={(event) => setPumpCount(Number(event.target.value))} />
                   </label>
                   <button type="submit" className="primary-button" disabled={busy}>
                     Save pump site
@@ -973,7 +981,7 @@ function App() {
                     <div className="entry-stat-strip">
                       <div className="entry-stat">
                         <span>Current</span>
-                        <strong>{formatValue(selectedOilSummary.supplyMetric)} + {formatValue(pendingOilPerMinute)}</strong>
+                        <strong>{formatCurrentWithPending(selectedOilSummary.supplyMetric, pendingOilPerMinute)}</strong>
                       </div>
                       <div className="entry-stat">
                         <span>Target</span>
@@ -1153,7 +1161,7 @@ function App() {
                       <div className="ledger-group-context">
                         <p className="ledger-system-name">{group.systemName}</p>
                         <h3>{group.planet.name}</h3>
-                        <p className="ledger-power-line">Power demand {formatValue(group.powerDemandMw, 2)} MW</p>
+                        <p className="ledger-power-line">Extraction power demand {formatValue(group.powerDemandMw, 2)} MW</p>
                         {group.planet.planet_type === "gas_giant" && <span className="resource-badge">Gas giant</span>}
                       </div>
                     </div>
