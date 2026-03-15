@@ -313,7 +313,11 @@ function App() {
   const systemLookup = new Map(loadedData.solarSystems.map((solarSystem) => [solarSystem.id, solarSystem]));
   const latestPlanetActivity = getLatestPlanetActivity(loadedData);
   const selectedOreSummary = loadedData.summary.resourceSummaries.find((summary) => summary.resourceId === oreResourceId) ?? null;
+  const selectedLiquidSummary = loadedData.summary.resourceSummaries.find((summary) => summary.resourceId === liquidResourceId) ?? null;
+  const selectedOilSummary = loadedData.summary.resourceSummaries.find((summary) => summary.resourceId === oilResourceId) ?? null;
   const pendingOreNodeEquivalents = getDraftOreOutputPerMinute(oreMiners, loadedData.settings.miningResearchBonusPercent) / 30;
+  const pendingLiquidPumps = pumpCount;
+  const pendingOilPerMinute = getOilOutputPerSecond(oilPerSecond) * 60;
 
   function getPreferredPlanetIdForSystem(systemId: string | null) {
     if (!systemId) {
@@ -765,15 +769,11 @@ function App() {
                     <div className="entry-stat-strip">
                       <div className="entry-stat">
                         <span>Current</span>
-                        <strong>{formatValue(selectedOreSummary.supplyMetric)}</strong>
+                        <strong>{formatValue(selectedOreSummary.supplyMetric)} + {formatValue(pendingOreNodeEquivalents)}</strong>
                       </div>
                       <div className="entry-stat">
                         <span>Target</span>
                         <strong>{formatValue(selectedOreSummary.goalQuantity)}</strong>
-                      </div>
-                      <div className="entry-stat">
-                        <span>New log</span>
-                        <strong>+{formatValue(pendingOreNodeEquivalents)}</strong>
                       </div>
                     </div>
                   )}
@@ -933,6 +933,18 @@ function App() {
                     <span>Resource</span>
                     <ResourceSelect resources={liquidResources} value={liquidResourceId} onChange={setLiquidResourceId} disabled={busy} />
                   </label>
+                  {selectedLiquidSummary && (
+                    <div className="entry-stat-strip">
+                      <div className="entry-stat">
+                        <span>Current</span>
+                        <strong>{formatValue(selectedLiquidSummary.supplyMetric)} + {formatValue(pendingLiquidPumps)}</strong>
+                      </div>
+                      <div className="entry-stat">
+                        <span>Target</span>
+                        <strong>{formatValue(selectedLiquidSummary.goalQuantity)}</strong>
+                      </div>
+                    </div>
+                  )}
                   <label className="field">
                     <span>Pumps</span>
                     <input type="number" min={1} value={pumpCount} onChange={(event) => setPumpCount(Number(event.target.value))} />
@@ -957,6 +969,18 @@ function App() {
                     <span>Resource</span>
                     <ResourceSelect resources={oilResources} value={oilResourceId} onChange={setOilResourceId} disabled={busy} />
                   </label>
+                  {selectedOilSummary && (
+                    <div className="entry-stat-strip">
+                      <div className="entry-stat">
+                        <span>Current</span>
+                        <strong>{formatValue(selectedOilSummary.supplyMetric)} + {formatValue(pendingOilPerMinute)}</strong>
+                      </div>
+                      <div className="entry-stat">
+                        <span>Target</span>
+                        <strong>{formatValue(selectedOilSummary.goalQuantity)}</strong>
+                      </div>
+                    </div>
+                  )}
                   <label className="field">
                     <span>Oil per second</span>
                     <input
