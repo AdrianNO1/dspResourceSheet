@@ -1,0 +1,764 @@
+import { mkdirSync } from "node:fs";
+import { DatabaseSync } from "node:sqlite";
+import { randomUUID } from "node:crypto";
+import path from "node:path";
+
+export type ResourceType = "ore_vein" | "liquid_pump" | "oil_extractor" | "gas_giant_output";
+export type PlanetType = "solid" | "gas_giant";
+export type MinerType = "regular" | "advanced";
+
+type ResourceSeed = {
+  name: string;
+  type: ResourceType;
+  sortOrder: number;
+  colorStart: string;
+  colorEnd: string;
+  iconUrl?: string;
+  fuelValueMj?: number | null;
+};
+
+const dataDirectory = path.resolve(process.cwd(), "..", "data");
+mkdirSync(path.join(dataDirectory, "exports"), { recursive: true });
+
+const db = new DatabaseSync(path.join(dataDirectory, "dsp-resource-sheet.sqlite"));
+db.exec("PRAGMA foreign_keys = ON");
+
+const seededResources: ResourceSeed[] = [
+  { name: "Stalagmite Crystal", type: "ore_vein", sortOrder: 10, colorStart: "#6af7d9", colorEnd: "#127f73" },
+  { name: "Silicon Ore", type: "ore_vein", sortOrder: 20, colorStart: "#f7e6a6", colorEnd: "#7f6c2b" },
+  { name: "Iron Ore", type: "ore_vein", sortOrder: 30, colorStart: "#d7dce7", colorEnd: "#4f5e78" },
+  { name: "Grating Crystal", type: "ore_vein", sortOrder: 40, colorStart: "#95f0ff", colorEnd: "#246d96" },
+  { name: "Coal", type: "ore_vein", sortOrder: 50, colorStart: "#858993", colorEnd: "#252833" },
+  { name: "Copper Ore", type: "ore_vein", sortOrder: 60, colorStart: "#feb375", colorEnd: "#8a3d22" },
+  { name: "Titanium Ore", type: "ore_vein", sortOrder: 70, colorStart: "#d3c4ff", colorEnd: "#6153c5" },
+  { name: "Stone", type: "ore_vein", sortOrder: 80, colorStart: "#e2dfcf", colorEnd: "#7c725c" },
+  { name: "Kimberlite Ore", type: "ore_vein", sortOrder: 90, colorStart: "#c7f9ff", colorEnd: "#387e95" },
+  { name: "Water", type: "liquid_pump", sortOrder: 100, colorStart: "#89cfff", colorEnd: "#1f5cc6" },
+  { name: "Sulfuric Acid", type: "liquid_pump", sortOrder: 110, colorStart: "#f3ff92", colorEnd: "#8b9133" },
+  { name: "Crude Oil", type: "oil_extractor", sortOrder: 120, colorStart: "#e8a065", colorEnd: "#6b2a21" },
+  { name: "Hydrogen", type: "gas_giant_output", sortOrder: 130, colorStart: "#fbfbff", colorEnd: "#87acff", fuelValueMj: 9 },
+  { name: "Deuterium", type: "gas_giant_output", sortOrder: 140, colorStart: "#ffe6a4", colorEnd: "#c28d23", fuelValueMj: 9 },
+  { name: "Fire Ice", type: "gas_giant_output", sortOrder: 150, colorStart: "#d8ffff", colorEnd: "#37afdb", fuelValueMj: 4.8 },
+];
+
+function generateId() {
+  return randomUUID();
+}
+
+function runStatement(sql: string, ...params: unknown[]) {
+  db.prepare(sql).run(...params);
+}
+
+function readRows<T>(sql: string, ...params: unknown[]) {
+  return db.prepare(sql).all(...params) as T[];
+}
+
+function readRow<T>(sql: string, ...params: unknown[]) {
+  return db.prepare(sql).get(...params) as T | undefined;
+}
+
+export function initializeDatabase() {
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS resource_definitions (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL UNIQUE,
+      type TEXT NOT NULL,
+      icon_url TEXT,
+      color_start TEXT NOT NULL,
+      color_end TEXT NOT NULL,
+      fuel_value_mj REAL,
+      is_seeded INTEGER NOT NULL DEFAULT 0,
+      sort_order INTEGER NOT NULL DEFAULT 0
+    );
+
+    CREATE TABLE IF NOT EXISTS solar_systems (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL UNIQUE
+    );
+
+    CREATE TABLE IF NOT EXISTS planets (
+      id TEXT PRIMARY KEY,
+      solar_system_id TEXT NOT NULL,
+      name TEXT NOT NULL,
+      planet_type TEXT NOT NULL,
+      FOREIGN KEY (solar_system_id) REFERENCES solar_systems(id) ON DELETE CASCADE
+    );
+
+    CREATE TABLE IF NOT EXISTS projects (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL,
+      notes TEXT NOT NULL DEFAULT '',
+      is_active INTEGER NOT NULL DEFAULT 1,
+      sort_order INTEGER NOT NULL DEFAULT 0
+    );
+
+    CREATE TABLE IF NOT EXISTS project_goals (
+      id TEXT PRIMARY KEY,
+      project_id TEXT NOT NULL,
+      resource_id TEXT NOT NULL,
+      quantity REAL NOT NULL,
+      FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE,
+      FOREIGN KEY (resource_id) REFERENCES resource_definitions(id) ON DELETE CASCADE
+    );
+
+    CREATE TABLE IF NOT EXISTS ore_veins (
+      id TEXT PRIMARY KEY,
+      planet_id TEXT NOT NULL,
+      resource_id TEXT NOT NULL,
+      label TEXT NOT NULL DEFAULT '',
+      created_at TEXT NOT NULL,
+      FOREIGN KEY (planet_id) REFERENCES planets(id) ON DELETE CASCADE,
+      FOREIGN KEY (resource_id) REFERENCES resource_definitions(id) ON DELETE CASCADE
+    );
+
+    CREATE TABLE IF NOT EXISTS ore_vein_miners (
+      id TEXT PRIMARY KEY,
+      ore_vein_id TEXT NOT NULL,
+      miner_type TEXT NOT NULL,
+      covered_nodes INTEGER NOT NULL,
+      advanced_speed_percent INTEGER,
+      FOREIGN KEY (ore_vein_id) REFERENCES ore_veins(id) ON DELETE CASCADE
+    );
+
+    CREATE TABLE IF NOT EXISTS liquid_sites (
+      id TEXT PRIMARY KEY,
+      planet_id TEXT NOT NULL,
+      resource_id TEXT NOT NULL,
+      label TEXT NOT NULL DEFAULT '',
+      pump_count INTEGER NOT NULL,
+      FOREIGN KEY (planet_id) REFERENCES planets(id) ON DELETE CASCADE,
+      FOREIGN KEY (resource_id) REFERENCES resource_definitions(id) ON DELETE CASCADE
+    );
+
+    CREATE TABLE IF NOT EXISTS oil_extractors (
+      id TEXT PRIMARY KEY,
+      planet_id TEXT NOT NULL,
+      resource_id TEXT NOT NULL,
+      label TEXT NOT NULL DEFAULT '',
+      oil_per_second REAL NOT NULL,
+      FOREIGN KEY (planet_id) REFERENCES planets(id) ON DELETE CASCADE,
+      FOREIGN KEY (resource_id) REFERENCES resource_definitions(id) ON DELETE CASCADE
+    );
+
+    CREATE TABLE IF NOT EXISTS gas_giant_sites (
+      id TEXT PRIMARY KEY,
+      planet_id TEXT NOT NULL,
+      label TEXT NOT NULL DEFAULT '',
+      collector_count INTEGER NOT NULL,
+      FOREIGN KEY (planet_id) REFERENCES planets(id) ON DELETE CASCADE
+    );
+
+    CREATE TABLE IF NOT EXISTS gas_giant_outputs (
+      id TEXT PRIMARY KEY,
+      gas_giant_site_id TEXT NOT NULL,
+      resource_id TEXT NOT NULL,
+      rate_per_second REAL NOT NULL,
+      FOREIGN KEY (gas_giant_site_id) REFERENCES gas_giant_sites(id) ON DELETE CASCADE,
+      FOREIGN KEY (resource_id) REFERENCES resource_definitions(id) ON DELETE CASCADE
+    );
+
+    CREATE TABLE IF NOT EXISTS app_settings (
+      key TEXT PRIMARY KEY,
+      value TEXT NOT NULL
+    );
+  `);
+
+  seedDefaults();
+}
+
+function seedDefaults() {
+  for (const resource of seededResources) {
+    runStatement(
+      `
+        INSERT INTO resource_definitions (
+          id,
+          name,
+          type,
+          icon_url,
+          color_start,
+          color_end,
+          fuel_value_mj,
+          is_seeded,
+          sort_order
+        )
+        SELECT ?, ?, ?, ?, ?, ?, ?, 1, ?
+        WHERE NOT EXISTS (
+          SELECT 1 FROM resource_definitions WHERE name = ?
+        )
+      `,
+      generateId(),
+      resource.name,
+      resource.type,
+      resource.iconUrl ?? null,
+      resource.colorStart,
+      resource.colorEnd,
+      resource.fuelValueMj ?? null,
+      resource.sortOrder,
+      resource.name,
+    );
+  }
+
+  const settingsDefaults = new Map<string, string>([
+    ["currentSolarSystemId", ""],
+    ["currentPlanetId", ""],
+    ["miningResearchBonusPercent", "0"],
+  ]);
+
+  for (const [key, value] of settingsDefaults.entries()) {
+    runStatement(
+      `
+        INSERT INTO app_settings (key, value)
+        SELECT ?, ?
+        WHERE NOT EXISTS (SELECT 1 FROM app_settings WHERE key = ?)
+      `,
+      key,
+      value,
+      key,
+    );
+  }
+
+  const hasProjects = readRow<{ count: number }>("SELECT COUNT(*) as count FROM projects");
+  if ((hasProjects?.count ?? 0) > 0) {
+    return;
+  }
+
+  const starterProjectId = generateId();
+  runStatement(
+    "INSERT INTO projects (id, name, notes, is_active, sort_order) VALUES (?, ?, ?, 1, 1)",
+    starterProjectId,
+    "Current Factory Plan",
+    "Seeded from the current Dyson Sphere Program extraction targets.",
+  );
+
+  const starterGoals = new Map<string, number>([
+    ["Stalagmite Crystal", 2428],
+    ["Silicon Ore", 1806],
+    ["Iron Ore", 1617],
+    ["Grating Crystal", 990],
+    ["Coal", 860],
+    ["Copper Ore", 753],
+    ["Titanium Ore", 628],
+    ["Stone", 305],
+    ["Kimberlite Ore", 192],
+    ["Water", 115],
+    ["Sulfuric Acid", 243],
+  ]);
+
+  for (const [name, quantity] of starterGoals.entries()) {
+    const resource = readRow<{ id: string }>("SELECT id FROM resource_definitions WHERE name = ?", name);
+    if (!resource) {
+      continue;
+    }
+
+    runStatement(
+      "INSERT INTO project_goals (id, project_id, resource_id, quantity) VALUES (?, ?, ?, ?)",
+      generateId(),
+      starterProjectId,
+      resource.id,
+      quantity,
+    );
+  }
+}
+
+function getSettingsRecord() {
+  const rows = readRows<{ key: string; value: string }>("SELECT key, value FROM app_settings");
+  return rows.reduce<Record<string, string>>((acc, row) => {
+    acc[row.key] = row.value;
+    return acc;
+  }, {});
+}
+
+export function setSetting(key: string, value: string) {
+  runStatement(
+    `
+      INSERT INTO app_settings (key, value)
+      VALUES (?, ?)
+      ON CONFLICT(key) DO UPDATE SET value = excluded.value
+    `,
+    key,
+    value,
+  );
+}
+
+export function getResourceById(id: string) {
+  return readRow<{ id: string; type: ResourceType; name: string }>(
+    "SELECT id, type, name FROM resource_definitions WHERE id = ?",
+    id,
+  );
+}
+
+export function getPlanetById(id: string) {
+  return readRow<{ id: string; planet_type: PlanetType; solar_system_id: string }>(
+    "SELECT id, planet_type, solar_system_id FROM planets WHERE id = ?",
+    id,
+  );
+}
+
+export function createResource(name: string, type: ResourceType) {
+  const sortOrder =
+    readRow<{ nextValue: number }>("SELECT COALESCE(MAX(sort_order), 0) + 10 AS nextValue FROM resource_definitions")
+      ?.nextValue ?? 10;
+
+  runStatement(
+    `
+      INSERT INTO resource_definitions (
+        id, name, type, icon_url, color_start, color_end, fuel_value_mj, is_seeded, sort_order
+      ) VALUES (?, ?, ?, NULL, ?, ?, NULL, 0, ?)
+    `,
+    generateId(),
+    name,
+    type,
+    "#8ee5ff",
+    "#305f8f",
+    sortOrder,
+  );
+}
+
+export function createSolarSystem(name: string) {
+  const id = generateId();
+  runStatement("INSERT INTO solar_systems (id, name) VALUES (?, ?)", id, name);
+  return id;
+}
+
+export function createPlanet(input: { solarSystemId: string; name: string; planetType: PlanetType }) {
+  const id = generateId();
+  runStatement(
+    "INSERT INTO planets (id, solar_system_id, name, planet_type) VALUES (?, ?, ?, ?)",
+    id,
+    input.solarSystemId,
+    input.name,
+    input.planetType,
+  );
+  return id;
+}
+
+export function createProject(input: { name: string; notes: string }) {
+  const sortOrder = readRow<{ nextValue: number }>("SELECT COALESCE(MAX(sort_order), 0) + 1 AS nextValue FROM projects")
+    ?.nextValue ?? 1;
+  const id = generateId();
+  runStatement(
+    "INSERT INTO projects (id, name, notes, is_active, sort_order) VALUES (?, ?, ?, 1, ?)",
+    id,
+    input.name,
+    input.notes,
+    sortOrder,
+  );
+  return id;
+}
+
+export function updateProject(projectId: string, input: { name: string; notes: string; isActive: boolean }) {
+  runStatement(
+    "UPDATE projects SET name = ?, notes = ?, is_active = ? WHERE id = ?",
+    input.name,
+    input.notes,
+    input.isActive ? 1 : 0,
+    projectId,
+  );
+}
+
+export function replaceProjectGoals(projectId: string, goals: Array<{ resourceId: string; quantity: number }>) {
+  runStatement("DELETE FROM project_goals WHERE project_id = ?", projectId);
+
+  for (const goal of goals.filter((item) => item.quantity > 0)) {
+    runStatement(
+      "INSERT INTO project_goals (id, project_id, resource_id, quantity) VALUES (?, ?, ?, ?)",
+      generateId(),
+      projectId,
+      goal.resourceId,
+      goal.quantity,
+    );
+  }
+}
+
+export function createOreVein(input: {
+  planetId: string;
+  resourceId: string;
+  label: string;
+  miners: Array<{ minerType: MinerType; coveredNodes: number; advancedSpeedPercent?: number }>;
+}) {
+  const oreVeinId = generateId();
+  runStatement(
+    "INSERT INTO ore_veins (id, planet_id, resource_id, label, created_at) VALUES (?, ?, ?, ?, ?)",
+    oreVeinId,
+    input.planetId,
+    input.resourceId,
+    input.label,
+    new Date().toISOString(),
+  );
+
+  for (const miner of input.miners) {
+    runStatement(
+      `
+        INSERT INTO ore_vein_miners (id, ore_vein_id, miner_type, covered_nodes, advanced_speed_percent)
+        VALUES (?, ?, ?, ?, ?)
+      `,
+      generateId(),
+      oreVeinId,
+      miner.minerType,
+      miner.coveredNodes,
+      miner.minerType === "advanced" ? miner.advancedSpeedPercent ?? 100 : null,
+    );
+  }
+}
+
+export function createLiquidSite(input: {
+  planetId: string;
+  resourceId: string;
+  label: string;
+  pumpCount: number;
+}) {
+  runStatement(
+    "INSERT INTO liquid_sites (id, planet_id, resource_id, label, pump_count) VALUES (?, ?, ?, ?, ?)",
+    generateId(),
+    input.planetId,
+    input.resourceId,
+    input.label,
+    input.pumpCount,
+  );
+}
+
+export function createOilExtractor(input: {
+  planetId: string;
+  resourceId: string;
+  label: string;
+  oilPerSecond: number;
+}) {
+  runStatement(
+    "INSERT INTO oil_extractors (id, planet_id, resource_id, label, oil_per_second) VALUES (?, ?, ?, ?, ?)",
+    generateId(),
+    input.planetId,
+    input.resourceId,
+    input.label,
+    input.oilPerSecond,
+  );
+}
+
+export function createGasGiantSite(input: {
+  planetId: string;
+  label: string;
+  collectorCount: number;
+  outputs: Array<{ resourceId: string; ratePerSecond: number }>;
+}) {
+  const siteId = generateId();
+  runStatement(
+    "INSERT INTO gas_giant_sites (id, planet_id, label, collector_count) VALUES (?, ?, ?, ?)",
+    siteId,
+    input.planetId,
+    input.label,
+    input.collectorCount,
+  );
+
+  for (const output of input.outputs) {
+    runStatement(
+      "INSERT INTO gas_giant_outputs (id, gas_giant_site_id, resource_id, rate_per_second) VALUES (?, ?, ?, ?)",
+      generateId(),
+      siteId,
+      output.resourceId,
+      output.ratePerSecond,
+    );
+  }
+}
+
+export function deleteById(tableName: string, id: string) {
+  runStatement(`DELETE FROM ${tableName} WHERE id = ?`, id);
+}
+
+export function exportSnapshot() {
+  return {
+    resources: readRows<Record<string, unknown>>("SELECT * FROM resource_definitions ORDER BY sort_order, name"),
+    solarSystems: readRows<Record<string, unknown>>("SELECT * FROM solar_systems ORDER BY name"),
+    planets: readRows<Record<string, unknown>>("SELECT * FROM planets ORDER BY name"),
+    projects: readRows<Record<string, unknown>>("SELECT * FROM projects ORDER BY sort_order, name"),
+    projectGoals: readRows<Record<string, unknown>>("SELECT * FROM project_goals"),
+    oreVeins: readRows<Record<string, unknown>>("SELECT * FROM ore_veins ORDER BY created_at DESC"),
+    oreVeinMiners: readRows<Record<string, unknown>>("SELECT * FROM ore_vein_miners"),
+    liquidSites: readRows<Record<string, unknown>>("SELECT * FROM liquid_sites"),
+    oilExtractors: readRows<Record<string, unknown>>("SELECT * FROM oil_extractors"),
+    gasGiantSites: readRows<Record<string, unknown>>("SELECT * FROM gas_giant_sites"),
+    gasGiantOutputs: readRows<Record<string, unknown>>("SELECT * FROM gas_giant_outputs"),
+    settings: getSettingsRecord(),
+  };
+}
+
+export function importSnapshot(snapshot: ReturnType<typeof exportSnapshot>) {
+  db.exec("BEGIN");
+
+  try {
+    db.exec(`
+      DELETE FROM gas_giant_outputs;
+      DELETE FROM gas_giant_sites;
+      DELETE FROM oil_extractors;
+      DELETE FROM liquid_sites;
+      DELETE FROM ore_vein_miners;
+      DELETE FROM ore_veins;
+      DELETE FROM project_goals;
+      DELETE FROM projects;
+      DELETE FROM planets;
+      DELETE FROM solar_systems;
+      DELETE FROM resource_definitions;
+      DELETE FROM app_settings;
+    `);
+
+    for (const row of snapshot.resources) {
+      runStatement(
+        `
+          INSERT INTO resource_definitions (
+            id, name, type, icon_url, color_start, color_end, fuel_value_mj, is_seeded, sort_order
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `,
+        row.id,
+        row.name,
+        row.type,
+        row.icon_url ?? null,
+        row.color_start,
+        row.color_end,
+        row.fuel_value_mj ?? null,
+        row.is_seeded,
+        row.sort_order,
+      );
+    }
+
+    for (const row of snapshot.solarSystems) {
+      runStatement("INSERT INTO solar_systems (id, name) VALUES (?, ?)", row.id, row.name);
+    }
+
+    for (const row of snapshot.planets) {
+      runStatement(
+        "INSERT INTO planets (id, solar_system_id, name, planet_type) VALUES (?, ?, ?, ?)",
+        row.id,
+        row.solar_system_id,
+        row.name,
+        row.planet_type,
+      );
+    }
+
+    for (const row of snapshot.projects) {
+      runStatement(
+        "INSERT INTO projects (id, name, notes, is_active, sort_order) VALUES (?, ?, ?, ?, ?)",
+        row.id,
+        row.name,
+        row.notes,
+        row.is_active,
+        row.sort_order,
+      );
+    }
+
+    for (const row of snapshot.projectGoals) {
+      runStatement(
+        "INSERT INTO project_goals (id, project_id, resource_id, quantity) VALUES (?, ?, ?, ?)",
+        row.id,
+        row.project_id,
+        row.resource_id,
+        row.quantity,
+      );
+    }
+
+    for (const row of snapshot.oreVeins) {
+      runStatement(
+        "INSERT INTO ore_veins (id, planet_id, resource_id, label, created_at) VALUES (?, ?, ?, ?, ?)",
+        row.id,
+        row.planet_id,
+        row.resource_id,
+        row.label,
+        row.created_at,
+      );
+    }
+
+    for (const row of snapshot.oreVeinMiners) {
+      runStatement(
+        `
+          INSERT INTO ore_vein_miners (id, ore_vein_id, miner_type, covered_nodes, advanced_speed_percent)
+          VALUES (?, ?, ?, ?, ?)
+        `,
+        row.id,
+        row.ore_vein_id,
+        row.miner_type,
+        row.covered_nodes,
+        row.advanced_speed_percent ?? null,
+      );
+    }
+
+    for (const row of snapshot.liquidSites) {
+      runStatement(
+        "INSERT INTO liquid_sites (id, planet_id, resource_id, label, pump_count) VALUES (?, ?, ?, ?, ?)",
+        row.id,
+        row.planet_id,
+        row.resource_id,
+        row.label,
+        row.pump_count,
+      );
+    }
+
+    for (const row of snapshot.oilExtractors) {
+      runStatement(
+        "INSERT INTO oil_extractors (id, planet_id, resource_id, label, oil_per_second) VALUES (?, ?, ?, ?, ?)",
+        row.id,
+        row.planet_id,
+        row.resource_id,
+        row.label,
+        row.oil_per_second,
+      );
+    }
+
+    for (const row of snapshot.gasGiantSites) {
+      runStatement(
+        "INSERT INTO gas_giant_sites (id, planet_id, label, collector_count) VALUES (?, ?, ?, ?)",
+        row.id,
+        row.planet_id,
+        row.label,
+        row.collector_count,
+      );
+    }
+
+    for (const row of snapshot.gasGiantOutputs) {
+      runStatement(
+        "INSERT INTO gas_giant_outputs (id, gas_giant_site_id, resource_id, rate_per_second) VALUES (?, ?, ?, ?)",
+        row.id,
+        row.gas_giant_site_id,
+        row.resource_id,
+        row.rate_per_second,
+      );
+    }
+
+    for (const [key, value] of Object.entries(snapshot.settings)) {
+      runStatement("INSERT INTO app_settings (key, value) VALUES (?, ?)", key, String(value ?? ""));
+    }
+
+    db.exec("COMMIT");
+  } catch (error) {
+    db.exec("ROLLBACK");
+    throw error;
+  }
+}
+
+function resourceGoalUnit(type: ResourceType) {
+  switch (type) {
+    case "ore_vein":
+      return "covered nodes";
+    case "liquid_pump":
+      return "pumps";
+    case "oil_extractor":
+      return "oil / min";
+    case "gas_giant_output":
+      return "items / sec";
+  }
+}
+
+export function getBootstrapData() {
+  const snapshot = exportSnapshot();
+  const settings = snapshot.settings;
+  const miningResearchBonusPercent = Number(settings.miningResearchBonusPercent ?? "0");
+  const miningMultiplier = 1 + miningResearchBonusPercent / 100;
+
+  const oreVeinById = new Map(snapshot.oreVeins.map((item) => [item.id as string, item]));
+  const gasSiteById = new Map(snapshot.gasGiantSites.map((item) => [item.id as string, item]));
+  const activeProjectIds = new Set(
+    snapshot.projects.filter((project) => Number(project.is_active) === 1).map((project) => project.id as string),
+  );
+  const goalTotals = new Map<string, number>();
+
+  for (const goal of snapshot.projectGoals) {
+    if (!activeProjectIds.has(goal.project_id as string)) {
+      continue;
+    }
+
+    const currentValue = goalTotals.get(goal.resource_id as string) ?? 0;
+    goalTotals.set(goal.resource_id as string, currentValue + Number(goal.quantity));
+  }
+
+  const resourceSummaries = snapshot.resources.map((resource) => {
+    const resourceId = resource.id as string;
+    const resourceType = resource.type as ResourceType;
+    let supplyMetric = 0;
+    let supplyPerMinute = 0;
+    let supplyPerSecond = 0;
+    let placementCount = 0;
+
+    if (resourceType === "ore_vein") {
+      const matchingMiners = snapshot.oreVeinMiners.filter((miner) => {
+        const parentVein = oreVeinById.get(miner.ore_vein_id as string);
+        return parentVein?.resource_id === resourceId;
+      });
+
+      placementCount = new Set(
+        matchingMiners.map((miner) => {
+          const parentVein = oreVeinById.get(miner.ore_vein_id as string);
+          return parentVein?.id;
+        }),
+      ).size;
+      supplyMetric = matchingMiners.reduce((sum, miner) => sum + Number(miner.covered_nodes), 0);
+      supplyPerMinute = matchingMiners.reduce((sum, miner) => {
+        const baseRate = miner.miner_type === "advanced" ? 60 : 30;
+        const speedMultiplier =
+          miner.miner_type === "advanced" ? Number(miner.advanced_speed_percent ?? 100) / 100 : 1;
+        return sum + Number(miner.covered_nodes) * baseRate * speedMultiplier * miningMultiplier;
+      }, 0);
+      supplyPerSecond = supplyPerMinute / 60;
+    }
+
+    if (resourceType === "liquid_pump") {
+      const matchingSites = snapshot.liquidSites.filter((site) => site.resource_id === resourceId);
+      placementCount = matchingSites.length;
+      supplyMetric = matchingSites.reduce((sum, site) => sum + Number(site.pump_count), 0);
+    }
+
+    if (resourceType === "oil_extractor") {
+      const matchingExtractors = snapshot.oilExtractors.filter((site) => site.resource_id === resourceId);
+      placementCount = matchingExtractors.length;
+      supplyPerSecond = matchingExtractors.reduce((sum, extractor) => sum + Number(extractor.oil_per_second), 0);
+      supplyPerMinute = supplyPerSecond * 60;
+      supplyMetric = supplyPerMinute;
+    }
+
+    if (resourceType === "gas_giant_output") {
+      const matchingOutputs = snapshot.gasGiantOutputs.filter((output) => output.resource_id === resourceId);
+      placementCount = new Set(
+        matchingOutputs.map((output) => {
+          const parentSite = gasSiteById.get(output.gas_giant_site_id as string);
+          return parentSite?.id;
+        }),
+      ).size;
+      supplyPerSecond = matchingOutputs.reduce((sum, output) => {
+        const parentSite = gasSiteById.get(output.gas_giant_site_id as string);
+        const collectorCount = Number(parentSite?.collector_count ?? 0);
+        return sum + Number(output.rate_per_second) * collectorCount * 8 * miningMultiplier;
+      }, 0);
+      supplyPerMinute = supplyPerSecond * 60;
+      supplyMetric = supplyPerSecond;
+    }
+
+    const goalQuantity = goalTotals.get(resourceId) ?? 0;
+
+    return {
+      resourceId,
+      name: resource.name,
+      type: resourceType,
+      iconUrl: resource.icon_url,
+      colorStart: resource.color_start,
+      colorEnd: resource.color_end,
+      fuelValueMj: resource.fuel_value_mj,
+      goalUnitLabel: resourceGoalUnit(resourceType),
+      goalQuantity,
+      supplyMetric,
+      supplyPerMinute,
+      supplyPerSecond,
+      placementCount,
+    };
+  });
+
+  return {
+    ...snapshot,
+    settings: {
+      currentSolarSystemId: settings.currentSolarSystemId || null,
+      currentPlanetId: settings.currentPlanetId || null,
+      miningResearchBonusPercent,
+    },
+    summary: {
+      totalResourcesTracked: resourceSummaries.length,
+      activeProjectCount: activeProjectIds.size,
+      solarSystemCount: snapshot.solarSystems.length,
+      planetCount: snapshot.planets.length,
+      resourceSummaries,
+    },
+  };
+}

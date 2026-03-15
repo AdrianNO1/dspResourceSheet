@@ -1,0 +1,9 @@
+node_modules/
+client/node_modules/
+server/node_modules/
+client/dist/
+server/dist/
+data/*.sqlite
+data/*.sqlite-*
+data/exports/*.json
+*.log
