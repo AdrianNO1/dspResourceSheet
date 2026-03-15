@@ -1,0 +1,92 @@
+:root {
+  font-family: "Bahnschrift", "Trebuchet MS", "Gill Sans", sans-serif;
+  line-height: 1.45;
+  font-weight: 400;
+  color: #eef6ff;
+  background:
+    radial-gradient(circle at top, rgba(67, 127, 171, 0.3), transparent 38%),
+    radial-gradient(circle at bottom left, rgba(245, 146, 77, 0.14), transparent 30%),
+    linear-gradient(180deg, #09111d, #050a12 45%, #070e19);
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  margin: 0;
+  min-width: 320px;
+  min-height: 100vh;
+}
+
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  background-image:
+    linear-gradient(rgba(255, 255, 255, 0.02) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.02) 1px, transparent 1px);
+  background-size: 44px 44px;
+  mask-image: radial-gradient(circle at center, black, transparent 78%);
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+}
+
+button:disabled,
+input:disabled,
+select:disabled,
+textarea:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+#root {
+  min-height: 100vh;
+}
+
+h1,
+h2,
+h3,
+p {
+  margin-top: 0;
+}
+
+.eyebrow {
+  margin-bottom: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.22em;
+  color: #8de5e0;
+  font-size: 0.76rem;
+}
+
+h1,
+h2,
+h3,
+strong {
+  font-family: "Aptos Display", "Bahnschrift", "Trebuchet MS", sans-serif;
+  letter-spacing: -0.03em;
+}
+
+h1 {
+  margin-bottom: 12px;
+  font-size: clamp(2.4rem, 5vw, 4.8rem);
+}
+
+h2 {
+  margin-bottom: 0;
+  font-size: 1.5rem;
+}

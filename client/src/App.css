@@ -1,0 +1,368 @@
+.shell {
+  width: min(1500px, calc(100% - 40px));
+  margin: 0 auto;
+  padding: 32px 0 48px;
+}
+
+.loading-shell {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+}
+
+.hero-banner {
+  display: grid;
+  grid-template-columns: minmax(0, 1.6fr) minmax(280px, 0.9fr);
+  gap: 24px;
+  padding: 28px 32px;
+  margin-bottom: 24px;
+  border: 1px solid rgba(104, 151, 193, 0.24);
+  border-radius: 28px;
+  background:
+    radial-gradient(circle at top left, rgba(122, 219, 216, 0.16), transparent 38%),
+    radial-gradient(circle at bottom right, rgba(255, 163, 81, 0.18), transparent 34%),
+    linear-gradient(145deg, rgba(10, 21, 36, 0.95), rgba(22, 45, 67, 0.92));
+  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.28);
+}
+
+.hero-copy {
+  max-width: 56ch;
+  color: rgba(231, 241, 255, 0.78);
+}
+
+.hero-stats {
+  display: grid;
+  gap: 14px;
+}
+
+.hero-stat {
+  padding: 18px 20px;
+  border-radius: 20px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.hero-stat strong {
+  display: block;
+  font-size: 2rem;
+  color: #f8fbff;
+}
+
+.hero-stat span {
+  color: rgba(226, 235, 245, 0.72);
+}
+
+.message-row {
+  display: grid;
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.message {
+  padding: 14px 16px;
+  border-radius: 16px;
+  border: 1px solid transparent;
+}
+
+.error-message {
+  background: rgba(161, 37, 37, 0.16);
+  border-color: rgba(244, 116, 116, 0.28);
+  color: #ffd9d7;
+}
+
+.notice-message {
+  background: rgba(49, 109, 128, 0.18);
+  border-color: rgba(122, 219, 216, 0.25);
+  color: #dffbf8;
+}
+
+.grid-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(320px, 0.95fr);
+  gap: 22px;
+}
+
+.main-column,
+.sidebar-column,
+.ledger-stack,
+.goal-list,
+.project-pills,
+.miner-stack,
+.gas-output-stack {
+  display: grid;
+  gap: 18px;
+}
+
+.panel,
+.entry-card {
+  padding: 22px;
+  border-radius: 24px;
+  border: 1px solid rgba(102, 126, 158, 0.2);
+  background:
+    linear-gradient(180deg, rgba(18, 29, 45, 0.94), rgba(9, 18, 31, 0.94));
+  box-shadow: 0 18px 44px rgba(0, 0, 0, 0.2);
+}
+
+.section-heading,
+.entry-card-header,
+.resource-card-top,
+.action-row,
+.ledger-item,
+.miner-header,
+.metric-line,
+.resource-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.two-column,
+.entry-grid,
+.slider-group,
+.gas-output-row {
+  display: grid;
+  gap: 16px;
+}
+
+.two-column {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  margin-top: 18px;
+}
+
+.entry-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  margin-top: 18px;
+}
+
+.gas-entry-card {
+  margin-top: 18px;
+}
+
+.field,
+.inline-form {
+  display: grid;
+  gap: 8px;
+}
+
+.inline-form {
+  align-content: start;
+}
+
+.field span,
+.helper-text,
+.context-chip,
+.resource-title p,
+.resource-meta,
+.goal-row span,
+.project-pill span,
+.file-input span {
+  color: rgba(211, 223, 235, 0.7);
+  font-size: 0.92rem;
+}
+
+.field input,
+.field select,
+.field textarea,
+.goal-row input {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 12px 14px;
+  border-radius: 14px;
+  border: 1px solid rgba(131, 161, 193, 0.2);
+  background: rgba(7, 13, 23, 0.72);
+  color: #edf5ff;
+}
+
+.field textarea {
+  resize: vertical;
+  min-height: 86px;
+}
+
+.compact-field {
+  max-width: 180px;
+}
+
+.context-chip,
+.machine-pill,
+.resource-badge,
+.quick-chip,
+.project-pill {
+  border-radius: 999px;
+  padding: 8px 12px;
+  border: 1px solid rgba(148, 172, 197, 0.18);
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.machine-pill-advanced { background: rgba(66, 178, 199, 0.2); }
+.machine-pill-pump { background: rgba(67, 105, 191, 0.22); }
+.machine-pill-gas { background: rgba(199, 140, 66, 0.2); }
+.machine-pill-oil { background: rgba(168, 91, 56, 0.24); }
+
+.primary-button,
+.ghost-button,
+.quick-chip,
+.project-pill {
+  cursor: pointer;
+  color: #edf5ff;
+}
+
+.primary-button,
+.ghost-button {
+  padding: 12px 16px;
+  border-radius: 14px;
+  border: 1px solid rgba(143, 184, 216, 0.22);
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.primary-button {
+  background: linear-gradient(135deg, #44a5b8, #1f5177);
+}
+
+.full-width {
+  width: 100%;
+}
+
+.quick-chip-row,
+.project-pills,
+.resource-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.selected-chip,
+.project-pill-active {
+  background: linear-gradient(135deg, rgba(255, 166, 94, 0.9), rgba(215, 114, 52, 0.88));
+  color: #131a25;
+}
+
+.toggle-field {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.resource-grid {
+  margin-top: 18px;
+}
+
+.resource-card {
+  flex: 1 1 280px;
+  padding: 18px;
+  border-radius: 20px;
+  border: 1px solid rgba(132, 156, 187, 0.18);
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.resource-title {
+  display: flex;
+  gap: 12px;
+}
+
+.resource-title h3,
+.entry-card h3,
+.ledger-item h3 {
+  margin: 0;
+}
+
+.resource-icon {
+  display: inline-grid;
+  place-items: center;
+  border-radius: 18px;
+  overflow: hidden;
+  font-weight: 700;
+  color: #08111d;
+}
+
+.resource-icon img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.progress-rail {
+  height: 10px;
+  margin: 12px 0;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.06);
+  overflow: hidden;
+}
+
+.progress-rail span {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #8de5e0, #f1a04f);
+}
+
+.ledger-item {
+  padding: 16px 0;
+  border-bottom: 1px solid rgba(130, 153, 184, 0.14);
+}
+
+.ledger-item:last-child {
+  border-bottom: none;
+}
+
+.goal-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 110px;
+  gap: 12px;
+  align-items: center;
+}
+
+.goal-row-title {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.divider {
+  height: 1px;
+  margin: 4px 0;
+  background: rgba(130, 153, 184, 0.12);
+}
+
+.file-input input {
+  margin-top: 8px;
+}
+
+.empty-state {
+  padding: 24px;
+  border-radius: 18px;
+  border: 1px dashed rgba(130, 153, 184, 0.2);
+  color: rgba(219, 229, 239, 0.7);
+  text-align: center;
+}
+
+@media (max-width: 1180px) {
+  .grid-layout,
+  .hero-banner,
+  .entry-grid,
+  .two-column {
+    grid-template-columns: 1fr;
+  }
+
+  .compact-field {
+    max-width: none;
+  }
+}
+
+@media (max-width: 720px) {
+  .shell {
+    width: min(100% - 24px, 1500px);
+    padding-top: 18px;
+  }
+
+  .panel,
+  .entry-card,
+  .hero-banner {
+    padding: 18px;
+    border-radius: 20px;
+  }
+
+  .goal-row {
+    grid-template-columns: 1fr;
+  }
+}

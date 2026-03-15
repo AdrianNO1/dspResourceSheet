@@ -3,6 +3,7 @@ client/node_modules/
 server/node_modules/
 client/dist/
 server/dist/
+client/src/assets/
 data/*.sqlite
 data/*.sqlite-*
 data/exports/*.json
