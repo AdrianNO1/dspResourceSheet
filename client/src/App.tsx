@@ -181,6 +181,10 @@ function App() {
   const [newProjectNotes, setNewProjectNotes] = useState("");
   const [editingEntryKey, setEditingEntryKey] = useState("");
   const [entryLocationDraft, setEntryLocationDraft] = useState({ systemId: "", planetId: "" });
+  const [lastMoveTargets, setLastMoveTargets] = useState<Record<"solid" | "gas_giant", { systemId: string; planetId: string }>>({
+    solid: { systemId: "", planetId: "" },
+    gas_giant: { systemId: "", planetId: "" },
+  });
 
   const [oreResourceId, setOreResourceId] = useState("");
   const [oreMiners, setOreMiners] = useState<MinerDraft[]>([
@@ -353,12 +357,19 @@ function App() {
     await mutate(() => deleteBootstrap(path), applyBootstrap);
   }
 
-  function startLocationEdit(entryKey: string, planetId: string) {
+  function startLocationEdit(entryKey: string, planetId: string, planetType: "solid" | "gas_giant") {
     const planet = planetLookup.get(planetId);
+    const rememberedTarget = lastMoveTargets[planetType];
+    const rememberedPlanet = planetLookup.get(rememberedTarget.planetId);
+    const rememberedPlanetMatchesType =
+      rememberedPlanet &&
+      rememberedPlanet.planet_type === planetType &&
+      rememberedPlanet.solar_system_id === rememberedTarget.systemId;
+
     setEditingEntryKey(entryKey);
     setEntryLocationDraft({
-      systemId: planet?.solar_system_id ?? "",
-      planetId,
+      systemId: rememberedPlanetMatchesType ? rememberedTarget.systemId : planet?.solar_system_id ?? "",
+      planetId: rememberedPlanetMatchesType ? rememberedTarget.planetId : planetId,
     });
   }
 
@@ -367,12 +378,19 @@ function App() {
     setEntryLocationDraft({ systemId: "", planetId: "" });
   }
 
-  async function saveLocationEdit(path: string) {
+  async function saveLocationEdit(path: string, planetType: "solid" | "gas_giant") {
     if (!entryLocationDraft.planetId) {
       return;
     }
 
     await mutate(() => patchBootstrap(path, { planetId: entryLocationDraft.planetId }), (nextData) => {
+      setLastMoveTargets((current) => ({
+        ...current,
+        [planetType]: {
+          systemId: entryLocationDraft.systemId,
+          planetId: entryLocationDraft.planetId,
+        },
+      }));
       applyBootstrap(nextData);
       cancelLocationEdit();
     });
@@ -434,7 +452,7 @@ function App() {
         </label>
 
         <div className="location-editor-actions">
-          <button type="button" className="primary-button" onClick={() => void saveLocationEdit(path)} disabled={busy || !entryLocationDraft.planetId}>
+          <button type="button" className="primary-button" onClick={() => void saveLocationEdit(path, planetType)} disabled={busy || !entryLocationDraft.planetId}>
             Save move
           </button>
           <button type="button" className="ghost-button" onClick={cancelLocationEdit} disabled={busy}>
@@ -1275,7 +1293,7 @@ function App() {
                                 {renderLocationEditor(`ore:${vein.id}`, `/api/ore-veins/${vein.id}/location`, "solid")}
                               </div>
                               <div className="ledger-item-actions">
-                                <button type="button" className="ghost-button" onClick={() => startLocationEdit(`ore:${vein.id}`, vein.planet_id)}>
+                                <button type="button" className="ghost-button" onClick={() => startLocationEdit(`ore:${vein.id}`, vein.planet_id, "solid")}>
                                   Move
                                 </button>
                                 <button type="button" className="ghost-button" onClick={() => void confirmAndDelete(`/api/ore-veins/${vein.id}`, `${getResourceName(data.resources, vein.resource_id)} vein`)}>
@@ -1296,7 +1314,7 @@ function App() {
                                 {renderLocationEditor(`liquid:${site.id}`, `/api/liquids/${site.id}/location`, "solid")}
                               </div>
                               <div className="ledger-item-actions">
-                                <button type="button" className="ghost-button" onClick={() => startLocationEdit(`liquid:${site.id}`, site.planet_id)}>
+                                <button type="button" className="ghost-button" onClick={() => startLocationEdit(`liquid:${site.id}`, site.planet_id, "solid")}>
                                   Move
                                 </button>
                                 <button type="button" className="ghost-button" onClick={() => void confirmAndDelete(`/api/liquids/${site.id}`, `${getResourceName(data.resources, site.resource_id)} pump site`)}>
@@ -1318,7 +1336,7 @@ function App() {
                                 {renderLocationEditor(`oil:${site.id}`, `/api/oil-extractors/${site.id}/location`, "solid")}
                               </div>
                               <div className="ledger-item-actions">
-                                <button type="button" className="ghost-button" onClick={() => startLocationEdit(`oil:${site.id}`, site.planet_id)}>
+                                <button type="button" className="ghost-button" onClick={() => startLocationEdit(`oil:${site.id}`, site.planet_id, "solid")}>
                                   Move
                                 </button>
                                 <button type="button" className="ghost-button" onClick={() => void confirmAndDelete(`/api/oil-extractors/${site.id}`, `${getResourceName(data.resources, site.resource_id)} extractor`)}>
@@ -1350,7 +1368,7 @@ function App() {
                               {renderLocationEditor(`gas:${site.id}`, `/api/gas-giants/${site.id}/location`, "gas_giant")}
                             </div>
                             <div className="ledger-item-actions">
-                              <button type="button" className="ghost-button" onClick={() => startLocationEdit(`gas:${site.id}`, site.planet_id)}>
+                              <button type="button" className="ghost-button" onClick={() => startLocationEdit(`gas:${site.id}`, site.planet_id, "gas_giant")}>
                                 Move
                               </button>
                               <button type="button" className="ghost-button" onClick={() => void confirmAndDelete(`/api/gas-giants/${site.id}`, "gas giant site")}>
