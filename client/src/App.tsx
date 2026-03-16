@@ -8,6 +8,7 @@ import {
   getAdvancedMinerPowerMw,
   getOilOutputPerSecond,
   getOrbitalCollectorTrueBoost,
+  getPumpOutputPerMinute,
   getRegularMinerOutputPerMinute,
   OIL_EXTRACTOR_POWER_MW,
   PUMP_POWER_MW,
@@ -350,7 +351,7 @@ function App() {
   const selectedLiquidSummary = loadedData.summary.resourceSummaries.find((summary) => summary.resourceId === liquidResourceId) ?? null;
   const selectedOilSummary = loadedData.summary.resourceSummaries.find((summary) => summary.resourceId === oilResourceId) ?? null;
   const pendingOreNodeEquivalents = getDraftOreOutputPerMinute(oreMiners, loadedData.settings.miningResearchBonusPercent) / 30;
-  const pendingLiquidPumps = pumpCount;
+  const pendingLiquidOutputPerMinute = getPumpOutputPerMinute(pumpCount, loadedData.settings.miningResearchBonusPercent);
   const pendingOilPerMinute = getOilOutputPerSecond(oilPerSecond) * 60;
 
   function getPreferredPlanetIdForSystem(systemId: string | null) {
@@ -1083,7 +1084,7 @@ function App() {
                     <div className="entry-stat-strip">
                       <div className="entry-stat">
                         <span>Current</span>
-                        <strong>{formatCurrentWithPending(selectedLiquidSummary.supplyMetric, pendingLiquidPumps)}</strong>
+                        <strong>{formatCurrentWithPending(selectedLiquidSummary.supplyMetric, pendingLiquidOutputPerMinute)}</strong>
                       </div>
                       <div className="entry-stat">
                         <span>Target</span>
@@ -1451,7 +1452,7 @@ function App() {
               >
                 +10%
               </button>
-              <span className="helper-text">Applied to ore miners and orbital collectors.</span>
+              <span className="helper-text">Applied to ore miners, pumps, and orbital collectors.</span>
             </div>
           </section>
           )}

@@ -2,6 +2,7 @@ export const REGULAR_MINER_RATE_PER_MINUTE = 30;
 export const ADVANCED_MINER_RATE_PER_MINUTE = 60;
 export const REGULAR_MINER_POWER_MW = 0.42;
 export const PUMP_POWER_MW = 0.3;
+export const PUMP_OUTPUT_PER_MINUTE = 50;
 export const OIL_EXTRACTOR_POWER_MW = 0.84;
 export const OIL_OUTPUT_MULTIPLIER = 1.5;
 export const ORBITAL_COLLECTOR_INTERNAL_POWER_MW = 30;
@@ -30,6 +31,10 @@ export function getAdvancedMinerOutputPerMinute(
 export function getAdvancedMinerPowerMw(advancedSpeedPercent: number) {
   const speedMultiplier = advancedSpeedPercent / 100;
   return 0.15510304 + 2.76993894 * speedMultiplier * speedMultiplier;
+}
+
+export function getPumpOutputPerMinute(pumpCount: number, miningResearchBonusPercent: number) {
+  return pumpCount * PUMP_OUTPUT_PER_MINUTE * getMiningResearchMultiplier(miningResearchBonusPercent);
 }
 
 export function getOilOutputPerSecond(baseOilPerSecond: number) {

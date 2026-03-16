@@ -6,6 +6,7 @@ import {
   getAdvancedMinerOutputPerMinute,
   getOilOutputPerSecond,
   getOrbitalCollectorTrueBoost,
+  getPumpOutputPerMinute,
   getRegularMinerOutputPerMinute,
 } from "./dspMath.js";
 
@@ -205,6 +206,7 @@ export function initializeDatabase() {
   `);
 
   seedDefaults();
+  migrateLiquidGoalsToItemsPerMinute();
 }
 
 function seedDefaults() {
@@ -320,6 +322,36 @@ function seedDefaults() {
       resource.id,
       quantity,
     );
+  }
+}
+
+function migrateLiquidGoalsToItemsPerMinute() {
+  const migrationKey = "liquidGoalsMigratedToItemsPerMinute";
+  const migrationState = readRow<{ value: string }>("SELECT value FROM app_settings WHERE key = ?", migrationKey);
+  if (migrationState?.value === "1") {
+    return;
+  }
+
+  db.exec("BEGIN");
+
+  try {
+    runStatement(
+      `
+        UPDATE project_goals
+        SET quantity = quantity * 50
+        WHERE resource_id IN (
+          SELECT id
+          FROM resource_definitions
+          WHERE type = 'liquid_pump'
+        )
+      `,
+    );
+
+    setSetting(migrationKey, "1");
+    db.exec("COMMIT");
+  } catch (error) {
+    db.exec("ROLLBACK");
+    throw error;
   }
 }
 
@@ -748,7 +780,7 @@ function resourceGoalUnit(type: ResourceType) {
     case "ore_vein":
       return "30/min nodes";
     case "liquid_pump":
-      return "pumps";
+      return "items / min";
     case "oil_extractor":
       return "oil / min";
     case "gas_giant_output":
@@ -823,8 +855,11 @@ export function getBootstrapData() {
       continue;
     }
 
+    const supplyPerMinute = getPumpOutputPerMinute(Number(site.pump_count), miningResearchBonusPercent);
     aggregate.placementIds.add(site.id as string);
-    aggregate.supplyMetric += Number(site.pump_count);
+    aggregate.supplyPerMinute += supplyPerMinute;
+    aggregate.supplyPerSecond = aggregate.supplyPerMinute / 60;
+    aggregate.supplyMetric = aggregate.supplyPerMinute;
   }
 
   for (const extractor of snapshot.oilExtractors) {
