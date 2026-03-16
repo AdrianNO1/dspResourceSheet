@@ -352,6 +352,34 @@
   background: rgba(255, 255, 255, 0.03);
 }
 
+.overview-total-card {
+  margin-top: 18px;
+  margin-bottom: 18px;
+  padding: 22px;
+  border-radius: 22px;
+  border: 1px solid rgba(132, 156, 187, 0.22);
+  background:
+    radial-gradient(circle at top left, rgba(68, 165, 184, 0.18), transparent 38%),
+    rgba(255, 255, 255, 0.04);
+}
+
+.overview-total-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+}
+
+.overview-total-header > div:first-child {
+  display: grid;
+  gap: 6px;
+}
+
+.overview-total-header h3,
+.overview-total-header p {
+  margin: 0;
+}
+
 .resource-title {
   display: flex;
   gap: 12px;
@@ -396,6 +424,11 @@
   height: 100%;
   border-radius: 999px;
   background: linear-gradient(90deg, #8de5e0, #f1a04f);
+}
+
+.progress-rail-large {
+  height: 20px;
+  margin: 18px 0 0;
 }
 
 .metric-line-inline {
@@ -675,6 +708,11 @@
   .transport-metric-grid,
   .transport-form-grid-compact {
     grid-template-columns: 1fr;
+  }
+
+  .overview-total-header {
+    flex-direction: column;
+    align-items: flex-start;
   }
 
   .compact-field {

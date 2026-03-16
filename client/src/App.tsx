@@ -163,6 +163,14 @@ function getProgressPercent(summary: ResourceSummary) {
   return Math.min(100, (summary.supplyMetric / summary.goalQuantity) * 100);
 }
 
+function getSummaryTargetPerMinute(summary: ResourceSummary) {
+  if (summary.goalQuantity <= 0) {
+    return 0;
+  }
+
+  return summary.type === "ore_vein" ? summary.goalQuantity * 30 : summary.goalQuantity;
+}
+
 function getOreVeinOutputPerMinute(miners: OreVeinMiner[], miningResearchBonusPercent: number) {
   return miners.reduce((sum, miner) => {
     if (miner.miner_type === "advanced") {
@@ -439,6 +447,17 @@ function App() {
   const pendingOreNodeEquivalents = getDraftOreOutputPerMinute(oreMiners, loadedData.settings.miningResearchBonusPercent) / 30;
   const pendingLiquidOutputPerMinute = getPumpOutputPerMinute(pumpCount, loadedData.settings.miningResearchBonusPercent);
   const pendingOilPerMinute = getOilOutputPerSecond(oilPerSecond) * 60;
+  const targetedResourceSummaries = loadedData.summary.resourceSummaries.filter((summary) => summary.goalQuantity > 0);
+  const combinedTargetPerMinute = targetedResourceSummaries.reduce(
+    (sum, summary) => sum + getSummaryTargetPerMinute(summary),
+    0,
+  );
+  const combinedSupplyPerMinute = targetedResourceSummaries.reduce(
+    (sum, summary) => sum + summary.supplyPerMinute,
+    0,
+  );
+  const combinedProgressPercent =
+    combinedTargetPerMinute > 0 ? Math.min(100, (combinedSupplyPerMinute / combinedTargetPerMinute) * 100) : 0;
   const quickCalcRoundTripSeconds = getTransportRoundTripSeconds(
     quickCalcDistanceLy,
     loadedData.settings.vesselSpeedLyPerSecond,
@@ -1521,6 +1540,21 @@ function App() {
                 <h2>Combined resource progress</h2>
               </div>
             </div>
+            <article className="overview-total-card">
+              <div className="overview-total-header">
+                <div>
+                  <h3>Total throughput</h3>
+                  <p>All targeted resources combined, normalized to per-minute output.</p>
+                </div>
+                <div className={`metric-line metric-line-inline ${combinedSupplyPerMinute >= combinedTargetPerMinute && combinedTargetPerMinute > 0 ? "metric-line-done" : ""}`}>
+                  <strong>{formatValue(combinedSupplyPerMinute)}</strong>
+                  <span>/ {formatValue(combinedTargetPerMinute)} / min</span>
+                </div>
+              </div>
+              <div className="progress-rail progress-rail-large">
+                <span style={{ width: `${combinedProgressPercent}%` }} />
+              </div>
+            </article>
             <div className="resource-grid">
               {data.summary.resourceSummaries.filter((summary) => summary.goalQuantity > 0 || summary.supplyMetric > 0).map((summary) => (
                 <article key={summary.resourceId} className="resource-card">
