@@ -8,6 +8,7 @@ export const OIL_OUTPUT_MULTIPLIER = 1.5;
 export const ORBITAL_COLLECTOR_INTERNAL_POWER_MW = 30;
 export const INTERSTELLAR_LOGISTICS_STATION_VESSEL_CAPACITY = 1000;
 export const INTERSTELLAR_LOGISTICS_STATION_VESSEL_COUNT = 10;
+export const INTERSTELLAR_LOGISTICS_STATION_STORAGE_CAPACITY = 10000;
 
 export function getMiningResearchMultiplier(miningResearchBonusPercent: number) {
   return 1 + miningResearchBonusPercent / 100;
@@ -125,4 +126,19 @@ export function getRequiredStations(
   }
 
   return requiredVessels / INTERSTELLAR_LOGISTICS_STATION_VESSEL_COUNT;
+}
+
+export function getTargetStationsNeeded(
+  throughputPerMinute: number,
+  ilsStorageItems: number,
+  distanceLy: number,
+  vesselSpeedLyPerSecond: number,
+  vesselDockingSeconds: number,
+) {
+  const roundTripSeconds = getTransportRoundTripSeconds(distanceLy, vesselSpeedLyPerSecond, vesselDockingSeconds);
+  if (roundTripSeconds === null || roundTripSeconds <= 0 || throughputPerMinute < 0 || ilsStorageItems <= 0) {
+    return null;
+  }
+
+  return throughputPerMinute * (roundTripSeconds / 60) / ilsStorageItems;
 }

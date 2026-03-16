@@ -143,6 +143,7 @@ export type BootstrapData = {
     vesselCapacityItems: number;
     vesselSpeedLyPerSecond: number;
     vesselDockingSeconds: number;
+    ilsStorageItems: number;
   };
   summary: {
     totalResourcesTracked: number;

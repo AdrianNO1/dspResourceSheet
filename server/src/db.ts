@@ -55,6 +55,7 @@ const settingsDefaults = new Map<string, string>([
   ["vesselCapacityItems", "1000"],
   ["vesselSpeedLyPerSecond", "0.25"],
   ["vesselDockingSeconds", "0"],
+  ["ilsStorageItems", "10000"],
 ]);
 
 function generateId() {
@@ -1163,6 +1164,7 @@ export function getBootstrapData() {
       vesselCapacityItems: Number(settings.vesselCapacityItems ?? settingsDefaults.get("vesselCapacityItems") ?? "1000"),
       vesselSpeedLyPerSecond: Number(settings.vesselSpeedLyPerSecond ?? settingsDefaults.get("vesselSpeedLyPerSecond") ?? "0.25"),
       vesselDockingSeconds: Number(settings.vesselDockingSeconds ?? settingsDefaults.get("vesselDockingSeconds") ?? "0"),
+      ilsStorageItems: Number(settings.ilsStorageItems ?? settingsDefaults.get("ilsStorageItems") ?? "10000"),
     },
     summary: {
       totalResourcesTracked: resourceSummaries.length,

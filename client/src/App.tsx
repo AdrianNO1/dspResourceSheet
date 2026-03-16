@@ -13,6 +13,7 @@ import {
   getRegularMinerOutputPerMinute,
   getRequiredStations,
   getRequiredVessels,
+  getTargetStationsNeeded,
   getTransportRoundTripSeconds,
   OIL_EXTRACTOR_POWER_MW,
   PUMP_POWER_MW,
@@ -449,16 +450,16 @@ function App() {
     loadedData.settings.vesselSpeedLyPerSecond,
     loadedData.settings.vesselDockingSeconds,
   );
-  const quickCalcRequiredVessels = getRequiredVessels(
+  const quickCalcRequiredStations = getRequiredStations(
     quickCalcThroughputPerMinute,
     loadedData.settings.vesselCapacityItems,
     quickCalcDistanceLy,
     loadedData.settings.vesselSpeedLyPerSecond,
     loadedData.settings.vesselDockingSeconds,
   );
-  const quickCalcRequiredStations = getRequiredStations(
+  const quickCalcTargetStationsNeeded = getTargetStationsNeeded(
     quickCalcThroughputPerMinute,
-    loadedData.settings.vesselCapacityItems,
+    loadedData.settings.ilsStorageItems,
     quickCalcDistanceLy,
     loadedData.settings.vesselSpeedLyPerSecond,
     loadedData.settings.vesselDockingSeconds,
@@ -1679,12 +1680,12 @@ function App() {
                       <strong>{quickCalcItemsPerMinutePerVessel === null ? "Incomplete" : `${formatFixedValue(quickCalcItemsPerMinutePerVessel, 1)} / min`}</strong>
                     </div>
                     <div className="entry-stat">
-                      <span>Required vessels</span>
-                      <strong>{quickCalcRequiredVessels === null ? "Incomplete" : formatFixedValue(quickCalcRequiredVessels, 1)}</strong>
-                    </div>
-                    <div className="entry-stat">
                       <span>Required ILS</span>
                       <strong>{quickCalcRequiredStations === null ? "Incomplete" : formatFixedValue(quickCalcRequiredStations, 1)}</strong>
+                    </div>
+                    <div className="entry-stat">
+                      <span>Target ILS needed</span>
+                      <strong>{quickCalcTargetStationsNeeded === null ? "Incomplete" : formatFixedValue(quickCalcTargetStationsNeeded, 1)}</strong>
                     </div>
                   </div>
                 </section>
@@ -2117,6 +2118,45 @@ function App() {
           <section className="panel">
             <div className="section-heading">
               <div>
+                <p className="eyebrow">Configuration</p>
+                <h2>Mining bonus</h2>
+              </div>
+            </div>
+            <label className="field">
+              <span>Mining research bonus %</span>
+              <input
+                type="number"
+                min={0}
+                max={500}
+                value={data.settings.miningResearchBonusPercent}
+                onChange={(event) =>
+                  void updateSettings({
+                    miningResearchBonusPercent: Number(event.target.value),
+                  })
+                }
+              />
+            </label>
+            <div className="action-row">
+              <button
+                type="button"
+                className="ghost-button"
+                onClick={() =>
+                  void updateSettings({
+                    miningResearchBonusPercent: data.settings.miningResearchBonusPercent + 10,
+                  })
+                }
+              >
+                +10%
+              </button>
+              <span className="helper-text">Applied to ore miners, pumps, and orbital collectors.</span>
+            </div>
+          </section>
+          )}
+
+          {activeView === "settings" && (
+          <section className="panel">
+            <div className="section-heading">
+              <div>
                 <p className="eyebrow">Transportation</p>
                 <h2>Vessel settings</h2>
               </div>
@@ -2150,6 +2190,34 @@ function App() {
               <span className="helper-text">Each interstellar station can house 10 vessels.</span>
             </div>
             <label className="field">
+              <span>ILS storage</span>
+              <input
+                type="number"
+                min={1}
+                max={1000000}
+                value={data.settings.ilsStorageItems}
+                onChange={(event) =>
+                  void updateSettings({
+                    ilsStorageItems: Number(event.target.value),
+                  })
+                }
+              />
+            </label>
+            <div className="action-row">
+              <button
+                type="button"
+                className="ghost-button"
+                onClick={() =>
+                  void updateSettings({
+                    ilsStorageItems: data.settings.ilsStorageItems + 2000,
+                  })
+                }
+              >
+                +2000
+              </button>
+              <span className="helper-text">Used for the target ILS storage estimate in quick calc.</span>
+            </div>
+            <label className="field">
               <span>Vessel speed (ly / sec)</span>
               <input
                 type="number"
@@ -2177,45 +2245,6 @@ function App() {
                 }
               />
             </label>
-          </section>
-          )}
-
-          {activeView === "settings" && (
-          <section className="panel">
-            <div className="section-heading">
-              <div>
-                <p className="eyebrow">Configuration</p>
-                <h2>Mining bonus</h2>
-              </div>
-            </div>
-            <label className="field">
-              <span>Mining research bonus %</span>
-              <input
-                type="number"
-                min={0}
-                max={500}
-                value={data.settings.miningResearchBonusPercent}
-                onChange={(event) =>
-                  void updateSettings({
-                    miningResearchBonusPercent: Number(event.target.value),
-                  })
-                }
-              />
-            </label>
-            <div className="action-row">
-              <button
-                type="button"
-                className="ghost-button"
-                onClick={() =>
-                  void updateSettings({
-                    miningResearchBonusPercent: data.settings.miningResearchBonusPercent + 10,
-                  })
-                }
-              >
-                +10%
-              </button>
-              <span className="helper-text">Applied to ore miners, pumps, and orbital collectors.</span>
-            </div>
           </section>
           )}
 

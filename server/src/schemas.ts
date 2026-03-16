@@ -32,6 +32,7 @@ export const patchSettingsSchema = z.object({
   vesselCapacityItems: z.number().int().min(1).max(100000).optional(),
   vesselSpeedLyPerSecond: z.number().positive().max(1000).optional(),
   vesselDockingSeconds: z.number().min(0).max(3600).optional(),
+  ilsStorageItems: z.number().int().min(1).max(1000000).optional(),
 });
 
 export const moveEntrySchema = z.object({
