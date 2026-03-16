@@ -997,7 +997,7 @@ function App() {
       URL.revokeObjectURL(url);
       return payload;
     }, (payload) => {
-      setNotice(`Exported snapshot and downloaded JSON. Server copy: ${payload.exportPath}`);
+      setNotice(`Exported snapshot and downloaded JSON. Source: ${payload.exportPath}`);
     });
   }
 
