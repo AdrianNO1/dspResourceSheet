@@ -29,6 +29,9 @@ export const patchSettingsSchema = z.object({
   currentSolarSystemId: z.string().uuid().nullable().optional(),
   currentPlanetId: z.string().uuid().nullable().optional(),
   miningResearchBonusPercent: z.number().min(0).max(500).optional(),
+  vesselCapacityItems: z.number().int().min(1).max(100000).optional(),
+  vesselSpeedLyPerSecond: z.number().positive().max(1000).optional(),
+  vesselDockingSeconds: z.number().min(0).max(3600).optional(),
 });
 
 export const moveEntrySchema = z.object({
@@ -114,9 +117,43 @@ export const createGasGiantSchema = z.object({
     .min(1),
 });
 
+export const systemDistanceSchema = z
+  .object({
+    systemAId: z.string().uuid(),
+    systemBId: z.string().uuid(),
+    distanceLy: z.number().positive().max(1000000),
+  })
+  .superRefine((value, ctx) => {
+    if (value.systemAId === value.systemBId) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["systemBId"],
+        message: "Distance pairs must use two different systems.",
+      });
+    }
+  });
+
+export const transportRouteSchema = z
+  .object({
+    sourceSystemId: z.string().uuid(),
+    destinationSystemId: z.string().uuid(),
+    resourceId: z.string().uuid(),
+    throughputPerMinute: z.number().positive().max(100000000),
+  })
+  .superRefine((value, ctx) => {
+    if (value.sourceSystemId === value.destinationSystemId) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["destinationSystemId"],
+        message: "Routes must use two different systems.",
+      });
+    }
+  });
+
 export const importSnapshotSchema = z.object({
   resources: z.array(z.record(z.string(), z.any())),
   solarSystems: z.array(z.record(z.string(), z.any())),
+  systemDistances: z.array(z.record(z.string(), z.any())).optional().default([]),
   planets: z.array(z.record(z.string(), z.any())),
   projects: z.array(z.record(z.string(), z.any())),
   projectGoals: z.array(z.record(z.string(), z.any())),
@@ -126,5 +163,6 @@ export const importSnapshotSchema = z.object({
   oilExtractors: z.array(z.record(z.string(), z.any())),
   gasGiantSites: z.array(z.record(z.string(), z.any())),
   gasGiantOutputs: z.array(z.record(z.string(), z.any())),
+  transportRoutes: z.array(z.record(z.string(), z.any())).optional().default([]),
   settings: z.record(z.string(), z.any()),
 });

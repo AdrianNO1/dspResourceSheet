@@ -6,10 +6,14 @@ import { deleteBootstrap, exportSnapshot, getBootstrap, importSnapshot, patchBoo
 import {
   getAdvancedMinerOutputPerMinute,
   getAdvancedMinerPowerMw,
+  getItemsPerMinutePerVessel,
   getOilOutputPerSecond,
   getOrbitalCollectorTrueBoost,
   getPumpOutputPerMinute,
   getRegularMinerOutputPerMinute,
+  getRequiredStations,
+  getRequiredVessels,
+  getTransportRoundTripSeconds,
   OIL_EXTRACTOR_POWER_MW,
   PUMP_POWER_MW,
   REGULAR_MINER_POWER_MW,
@@ -27,6 +31,8 @@ import type {
   ResourceDefinition,
   ResourceSummary,
   ResourceType,
+  SystemDistance,
+  TransportRoute,
 } from "./lib/types";
 
 type MinerDraft = {
@@ -40,9 +46,29 @@ type GasOutputDraft = {
   ratePerSecond: number;
 };
 
+type SystemDistanceDraft = {
+  systemAId: string;
+  systemBId: string;
+  distanceLy: number;
+};
+
+type TransportRouteDraft = {
+  sourceSystemId: string;
+  destinationSystemId: string;
+  resourceId: string;
+  throughputPerMinute: number;
+};
+
 function formatValue(value: number, digits = 1) {
   return new Intl.NumberFormat("en-US", {
     minimumFractionDigits: value % 1 === 0 ? 0 : digits,
+    maximumFractionDigits: digits,
+  }).format(value);
+}
+
+function formatFixedValue(value: number, digits = 1) {
+  return new Intl.NumberFormat("en-US", {
+    minimumFractionDigits: digits,
     maximumFractionDigits: digits,
   }).format(value);
 }
@@ -120,6 +146,14 @@ function sortResources(resources: ResourceDefinition[], type: ResourceType) {
     .sort((left, right) => left.sort_order - right.sort_order || left.name.localeCompare(right.name));
 }
 
+function sortAllResources(resources: ResourceDefinition[]) {
+  return resources.slice().sort((left, right) => left.sort_order - right.sort_order || left.name.localeCompare(right.name));
+}
+
+function getSystemPairKey(systemAId: string, systemBId: string) {
+  return [systemAId, systemBId].sort().join(":");
+}
+
 function getProgressPercent(summary: ResourceSummary) {
   if (summary.goalQuantity <= 0) {
     return 0;
@@ -173,7 +207,7 @@ function App() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
-  const [activeView, setActiveView] = useState<"log" | "overview" | "projects" | "settings">("log");
+  const [activeView, setActiveView] = useState<"log" | "overview" | "transport" | "projects" | "settings">("log");
   const [showAllLedger, setShowAllLedger] = useState(true);
   const [selectedProjectId, setSelectedProjectId] = useState("");
 
@@ -208,6 +242,32 @@ function App() {
 
   const [collectorCount, setCollectorCount] = useState(40);
   const [gasOutputs, setGasOutputs] = useState<GasOutputDraft[]>([{ resourceId: "", ratePerSecond: 1 }]);
+  const [routeDraft, setRouteDraft] = useState<TransportRouteDraft>({
+    sourceSystemId: "",
+    destinationSystemId: "",
+    resourceId: "",
+    throughputPerMinute: 0,
+  });
+  const [quickCalcDistanceLy, setQuickCalcDistanceLy] = useState(0);
+  const [quickCalcThroughputPerMinute, setQuickCalcThroughputPerMinute] = useState(0);
+  const [distanceDraft, setDistanceDraft] = useState<SystemDistanceDraft>({
+    systemAId: "",
+    systemBId: "",
+    distanceLy: 0,
+  });
+  const [editingDistanceId, setEditingDistanceId] = useState("");
+  const [editingDistanceDraft, setEditingDistanceDraft] = useState<SystemDistanceDraft>({
+    systemAId: "",
+    systemBId: "",
+    distanceLy: 0,
+  });
+  const [editingRouteId, setEditingRouteId] = useState("");
+  const [editingRouteDraft, setEditingRouteDraft] = useState<TransportRouteDraft>({
+    sourceSystemId: "",
+    destinationSystemId: "",
+    resourceId: "",
+    throughputPerMinute: 0,
+  });
 
   async function refreshBootstrap() {
     setLoading(true);
@@ -246,6 +306,7 @@ function App() {
     const liquidResources = sortResources(data.resources, "liquid_pump");
     const oilResources = sortResources(data.resources, "oil_extractor");
     const gasResources = sortResources(data.resources, "gas_giant_output");
+    const allResources = sortAllResources(data.resources);
 
     if (!oreResourceId && oreResources[0]) {
       setOreResourceId(oreResources[0].id);
@@ -262,7 +323,27 @@ function App() {
     if (gasResources.length > 0 && !gasOutputs[0]?.resourceId) {
       setGasOutputs([{ resourceId: gasResources[0].id, ratePerSecond: 1 }]);
     }
-  }, [data, gasOutputs, liquidResourceId, oilResourceId, oreResourceId]);
+
+    if (!routeDraft.resourceId && allResources[0]) {
+      setRouteDraft((current) => ({ ...current, resourceId: allResources[0].id }));
+    }
+
+    if (!routeDraft.sourceSystemId && data.solarSystems[0]) {
+      setRouteDraft((current) => ({
+        ...current,
+        sourceSystemId: data.solarSystems[0]?.id ?? "",
+        destinationSystemId: current.destinationSystemId || data.solarSystems[1]?.id || "",
+      }));
+    }
+
+    if (!distanceDraft.systemAId && data.solarSystems[0]) {
+      setDistanceDraft((current) => ({
+        ...current,
+        systemAId: data.solarSystems[0]?.id ?? "",
+        systemBId: current.systemBId || data.solarSystems[1]?.id || "",
+      }));
+    }
+  }, [data, distanceDraft.systemAId, gasOutputs, liquidResourceId, oilResourceId, oreResourceId, routeDraft.resourceId, routeDraft.sourceSystemId]);
 
   useEffect(() => {
     if (!data || !selectedProjectId) {
@@ -330,6 +411,7 @@ function App() {
   const liquidResources = sortResources(loadedData.resources, "liquid_pump");
   const oilResources = sortResources(loadedData.resources, "oil_extractor");
   const gasResources = sortResources(loadedData.resources, "gas_giant_output");
+  const allResources = sortAllResources(loadedData.resources);
 
   const gasOutputLookup = loadedData.gasGiantOutputs.reduce<Record<string, GasGiantOutput[]>>((acc, output) => {
     acc[output.gas_giant_site_id] ??= [];
@@ -346,6 +428,9 @@ function App() {
   const resourceLookup = new Map(loadedData.resources.map((resource) => [resource.id, resource]));
   const planetLookup = new Map(loadedData.planets.map((planet) => [planet.id, planet]));
   const systemLookup = new Map(loadedData.solarSystems.map((solarSystem) => [solarSystem.id, solarSystem]));
+  const systemDistanceLookup = new Map(
+    loadedData.systemDistances.map((distance) => [getSystemPairKey(distance.system_a_id, distance.system_b_id), distance]),
+  );
   const latestPlanetActivity = getLatestPlanetActivity(loadedData);
   const selectedOreSummary = loadedData.summary.resourceSummaries.find((summary) => summary.resourceId === oreResourceId) ?? null;
   const selectedLiquidSummary = loadedData.summary.resourceSummaries.find((summary) => summary.resourceId === liquidResourceId) ?? null;
@@ -353,6 +438,92 @@ function App() {
   const pendingOreNodeEquivalents = getDraftOreOutputPerMinute(oreMiners, loadedData.settings.miningResearchBonusPercent) / 30;
   const pendingLiquidOutputPerMinute = getPumpOutputPerMinute(pumpCount, loadedData.settings.miningResearchBonusPercent);
   const pendingOilPerMinute = getOilOutputPerSecond(oilPerSecond) * 60;
+  const quickCalcRoundTripSeconds = getTransportRoundTripSeconds(
+    quickCalcDistanceLy,
+    loadedData.settings.vesselSpeedLyPerSecond,
+    loadedData.settings.vesselDockingSeconds,
+  );
+  const quickCalcItemsPerMinutePerVessel = getItemsPerMinutePerVessel(
+    loadedData.settings.vesselCapacityItems,
+    quickCalcDistanceLy,
+    loadedData.settings.vesselSpeedLyPerSecond,
+    loadedData.settings.vesselDockingSeconds,
+  );
+  const quickCalcRequiredVessels = getRequiredVessels(
+    quickCalcThroughputPerMinute,
+    loadedData.settings.vesselCapacityItems,
+    quickCalcDistanceLy,
+    loadedData.settings.vesselSpeedLyPerSecond,
+    loadedData.settings.vesselDockingSeconds,
+  );
+  const quickCalcRequiredStations = getRequiredStations(
+    quickCalcThroughputPerMinute,
+    loadedData.settings.vesselCapacityItems,
+    quickCalcDistanceLy,
+    loadedData.settings.vesselSpeedLyPerSecond,
+    loadedData.settings.vesselDockingSeconds,
+  );
+  const sortedSystemDistances = loadedData.systemDistances
+    .slice()
+    .sort((left, right) => {
+      const leftLabel = `${systemLookup.get(left.system_a_id)?.name ?? ""} ${systemLookup.get(left.system_b_id)?.name ?? ""}`;
+      const rightLabel = `${systemLookup.get(right.system_a_id)?.name ?? ""} ${systemLookup.get(right.system_b_id)?.name ?? ""}`;
+      return leftLabel.localeCompare(rightLabel);
+    });
+  const routeEntries = loadedData.transportRoutes
+    .slice()
+    .sort((left, right) => new Date(right.created_at).getTime() - new Date(left.created_at).getTime())
+    .map((route) => {
+      const distance = systemDistanceLookup.get(getSystemPairKey(route.source_system_id, route.destination_system_id)) ?? null;
+      const distanceLy = distance ? Number(distance.distance_ly) : null;
+      const roundTripSeconds =
+        distanceLy === null
+          ? null
+          : getTransportRoundTripSeconds(
+              distanceLy,
+              loadedData.settings.vesselSpeedLyPerSecond,
+              loadedData.settings.vesselDockingSeconds,
+            );
+      const itemsPerMinutePerVessel =
+        distanceLy === null
+          ? null
+          : getItemsPerMinutePerVessel(
+              loadedData.settings.vesselCapacityItems,
+              distanceLy,
+              loadedData.settings.vesselSpeedLyPerSecond,
+              loadedData.settings.vesselDockingSeconds,
+            );
+      const requiredVessels =
+        distanceLy === null
+          ? null
+          : getRequiredVessels(
+              Number(route.throughput_per_minute),
+              loadedData.settings.vesselCapacityItems,
+              distanceLy,
+              loadedData.settings.vesselSpeedLyPerSecond,
+              loadedData.settings.vesselDockingSeconds,
+            );
+      const requiredStations =
+        distanceLy === null
+          ? null
+          : getRequiredStations(
+              Number(route.throughput_per_minute),
+              loadedData.settings.vesselCapacityItems,
+              distanceLy,
+              loadedData.settings.vesselSpeedLyPerSecond,
+              loadedData.settings.vesselDockingSeconds,
+            );
+
+      return {
+        route,
+        distance,
+        distanceLy,
+        roundTripSeconds,
+        itemsPerMinutePerVessel,
+        requiredVessels,
+        requiredStations,
+      };
+    });
 
   function getPreferredPlanetIdForSystem(systemId: string | null) {
     if (!systemId) {
@@ -684,6 +855,116 @@ function App() {
     );
   }
 
+  function startDistanceEdit(distance: SystemDistance) {
+    setEditingDistanceId(distance.id);
+    setEditingDistanceDraft({
+      systemAId: distance.system_a_id,
+      systemBId: distance.system_b_id,
+      distanceLy: Number(distance.distance_ly),
+    });
+  }
+
+  function cancelDistanceEdit() {
+    setEditingDistanceId("");
+    setEditingDistanceDraft({ systemAId: "", systemBId: "", distanceLy: 0 });
+  }
+
+  async function handleCreateSystemDistance() {
+    if (!distanceDraft.systemAId || !distanceDraft.systemBId || distanceDraft.distanceLy <= 0) {
+      return;
+    }
+
+    await mutate(
+      () =>
+        postBootstrap("/api/system-distances", {
+          systemAId: distanceDraft.systemAId,
+          systemBId: distanceDraft.systemBId,
+          distanceLy: Number(distanceDraft.distanceLy),
+        }),
+      (nextData) => {
+        applyBootstrap(nextData);
+      },
+    );
+  }
+
+  async function handleSaveDistanceEdit() {
+    if (!editingDistanceId || !editingDistanceDraft.systemAId || !editingDistanceDraft.systemBId || editingDistanceDraft.distanceLy <= 0) {
+      return;
+    }
+
+    await mutate(
+      () =>
+        patchBootstrap(`/api/system-distances/${editingDistanceId}`, {
+          systemAId: editingDistanceDraft.systemAId,
+          systemBId: editingDistanceDraft.systemBId,
+          distanceLy: Number(editingDistanceDraft.distanceLy),
+        }),
+      (nextData) => {
+        applyBootstrap(nextData);
+        cancelDistanceEdit();
+      },
+    );
+  }
+
+  function startRouteEdit(route: TransportRoute) {
+    setEditingRouteId(route.id);
+    setEditingRouteDraft({
+      sourceSystemId: route.source_system_id,
+      destinationSystemId: route.destination_system_id,
+      resourceId: route.resource_id,
+      throughputPerMinute: Number(route.throughput_per_minute),
+    });
+  }
+
+  function cancelRouteEdit() {
+    setEditingRouteId("");
+    setEditingRouteDraft({
+      sourceSystemId: "",
+      destinationSystemId: "",
+      resourceId: "",
+      throughputPerMinute: 0,
+    });
+  }
+
+  async function handleCreateTransportRoute() {
+    if (!routeDraft.sourceSystemId || !routeDraft.destinationSystemId || !routeDraft.resourceId || routeDraft.throughputPerMinute <= 0) {
+      return;
+    }
+
+    await mutate(
+      () =>
+        postBootstrap("/api/transport-routes", {
+          sourceSystemId: routeDraft.sourceSystemId,
+          destinationSystemId: routeDraft.destinationSystemId,
+          resourceId: routeDraft.resourceId,
+          throughputPerMinute: Number(routeDraft.throughputPerMinute),
+        }),
+      (nextData) => {
+        applyBootstrap(nextData);
+      },
+    );
+  }
+
+  async function handleSaveRouteEdit() {
+    if (!editingRouteId || !editingRouteDraft.sourceSystemId || !editingRouteDraft.destinationSystemId || !editingRouteDraft.resourceId || editingRouteDraft.throughputPerMinute <= 0) {
+      return;
+    }
+
+    await mutate(
+      () =>
+        patchBootstrap(`/api/transport-routes/${editingRouteId}`, {
+          sourceSystemId: editingRouteDraft.sourceSystemId,
+          destinationSystemId: editingRouteDraft.destinationSystemId,
+          resourceId: editingRouteDraft.resourceId,
+          throughputPerMinute: Number(editingRouteDraft.throughputPerMinute),
+        }),
+      (nextData) => {
+        applyBootstrap(nextData);
+        cancelRouteEdit();
+      },
+    );
+  }
+
   async function handleExport() {
     await mutate(async () => {
       const payload = await exportSnapshot();
@@ -728,6 +1009,7 @@ function App() {
         {[
           ["log", "Logging"],
           ["overview", "Overview"],
+          ["transport", "Transportation"],
           ["projects", "Projects"],
           ["settings", "Settings"],
         ].map(([viewKey, label]) => (
@@ -735,7 +1017,7 @@ function App() {
             key={viewKey}
             type="button"
             className={`view-tab ${activeView === viewKey ? "view-tab-active" : ""}`}
-            onClick={() => setActiveView(viewKey as "log" | "overview" | "projects" | "settings")}
+            onClick={() => setActiveView(viewKey as "log" | "overview" | "transport" | "projects" | "settings")}
           >
             {label}
           </button>
@@ -1277,6 +1559,419 @@ function App() {
           </section>
           )}
 
+          {activeView === "transport" && (
+          <>
+            <section className="panel">
+              <div className="section-heading">
+                <div>
+                  <p className="eyebrow">Transport Planner</p>
+                  <h2>Routes and instant calculator</h2>
+                </div>
+              </div>
+
+              <div className="transport-planner-grid">
+                <form
+                  className="entry-card"
+                  onSubmit={(event) => {
+                    event.preventDefault();
+                    void handleCreateTransportRoute();
+                  }}
+                >
+                  <div className="entry-card-header">
+                    <div>
+                      <p className="eyebrow">Saved route</p>
+                      <h3>New interstellar route</h3>
+                    </div>
+                  </div>
+
+                  <div className="transport-form-grid">
+                    <label className="field">
+                      <span>Source system</span>
+                      <select
+                        value={routeDraft.sourceSystemId}
+                        onChange={(event) => setRouteDraft((current) => ({ ...current, sourceSystemId: event.target.value }))}
+                      >
+                        <option value="">Select source</option>
+                        {data.solarSystems.map((solarSystem) => (
+                          <option key={solarSystem.id} value={solarSystem.id}>
+                            {solarSystem.name}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+
+                    <label className="field">
+                      <span>Destination system</span>
+                      <select
+                        value={routeDraft.destinationSystemId}
+                        onChange={(event) => setRouteDraft((current) => ({ ...current, destinationSystemId: event.target.value }))}
+                      >
+                        <option value="">Select destination</option>
+                        {data.solarSystems.map((solarSystem) => (
+                          <option key={solarSystem.id} value={solarSystem.id}>
+                            {solarSystem.name}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+
+                    <label className="field">
+                      <span>Resource</span>
+                      <ResourceSelect resources={allResources} value={routeDraft.resourceId} onChange={(value) => setRouteDraft((current) => ({ ...current, resourceId: value }))} disabled={busy} />
+                    </label>
+
+                    <label className="field">
+                      <span>Throughput / min</span>
+                      <input
+                        type="number"
+                        min={0}
+                        step="any"
+                        value={routeDraft.throughputPerMinute}
+                        onChange={(event) => setRouteDraft((current) => ({ ...current, throughputPerMinute: Number(event.target.value) }))}
+                      />
+                    </label>
+                  </div>
+
+                  <button type="submit" className="primary-button" disabled={busy || data.solarSystems.length < 2}>
+                    Save route
+                  </button>
+                </form>
+
+                <section className="entry-card">
+                  <div className="entry-card-header">
+                    <div>
+                      <p className="eyebrow">Quick calc</p>
+                      <h3>Raw ILS requirement</h3>
+                    </div>
+                  </div>
+
+                  <div className="transport-form-grid transport-form-grid-compact">
+                    <label className="field">
+                      <span>Distance (ly)</span>
+                      <input
+                        type="number"
+                        min={0}
+                        step="any"
+                        value={quickCalcDistanceLy}
+                        onChange={(event) => setQuickCalcDistanceLy(Number(event.target.value))}
+                      />
+                    </label>
+
+                    <label className="field">
+                      <span>Throughput / min</span>
+                      <input
+                        type="number"
+                        min={0}
+                        step="any"
+                        value={quickCalcThroughputPerMinute}
+                        onChange={(event) => setQuickCalcThroughputPerMinute(Number(event.target.value))}
+                      />
+                    </label>
+                  </div>
+
+                  <div className="transport-metric-grid">
+                    <div className="entry-stat">
+                      <span>Round trip</span>
+                      <strong>{quickCalcRoundTripSeconds === null ? "Incomplete" : `${formatFixedValue(quickCalcRoundTripSeconds, 1)} s`}</strong>
+                    </div>
+                    <div className="entry-stat">
+                      <span>Per vessel</span>
+                      <strong>{quickCalcItemsPerMinutePerVessel === null ? "Incomplete" : `${formatFixedValue(quickCalcItemsPerMinutePerVessel, 1)} / min`}</strong>
+                    </div>
+                    <div className="entry-stat">
+                      <span>Required vessels</span>
+                      <strong>{quickCalcRequiredVessels === null ? "Incomplete" : formatFixedValue(quickCalcRequiredVessels, 1)}</strong>
+                    </div>
+                    <div className="entry-stat">
+                      <span>Required ILS</span>
+                      <strong>{quickCalcRequiredStations === null ? "Incomplete" : formatFixedValue(quickCalcRequiredStations, 1)}</strong>
+                    </div>
+                  </div>
+                </section>
+              </div>
+            </section>
+
+            <section className="panel">
+              <div className="section-heading">
+                <div>
+                  <p className="eyebrow">System pairs</p>
+                  <h2>System distances</h2>
+                </div>
+              </div>
+
+              <form
+                className="transport-form-grid"
+                onSubmit={(event) => {
+                  event.preventDefault();
+                  void handleCreateSystemDistance();
+                }}
+              >
+                <label className="field">
+                  <span>System A</span>
+                  <select
+                    value={distanceDraft.systemAId}
+                    onChange={(event) => setDistanceDraft((current) => ({ ...current, systemAId: event.target.value }))}
+                  >
+                    <option value="">Select system</option>
+                    {data.solarSystems.map((solarSystem) => (
+                      <option key={solarSystem.id} value={solarSystem.id}>
+                        {solarSystem.name}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+
+                <label className="field">
+                  <span>System B</span>
+                  <select
+                    value={distanceDraft.systemBId}
+                    onChange={(event) => setDistanceDraft((current) => ({ ...current, systemBId: event.target.value }))}
+                  >
+                    <option value="">Select system</option>
+                    {data.solarSystems.map((solarSystem) => (
+                      <option key={solarSystem.id} value={solarSystem.id}>
+                        {solarSystem.name}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+
+                <label className="field">
+                  <span>Distance (ly)</span>
+                  <input
+                    type="number"
+                    min={0}
+                    step="any"
+                    value={distanceDraft.distanceLy}
+                    onChange={(event) => setDistanceDraft((current) => ({ ...current, distanceLy: Number(event.target.value) }))}
+                  />
+                </label>
+
+                <div className="transport-form-actions">
+                  <button type="submit" className="primary-button" disabled={busy || data.solarSystems.length < 2}>
+                    Save distance
+                  </button>
+                </div>
+              </form>
+
+              {sortedSystemDistances.length > 0 ? (
+                <div className="transport-ledger">
+                  {sortedSystemDistances.map((distance) => {
+                    const systemALabel = systemLookup.get(distance.system_a_id)?.name ?? "Unknown System";
+                    const systemBLabel = systemLookup.get(distance.system_b_id)?.name ?? "Unknown System";
+
+                    return (
+                      <article key={distance.id} className="transport-row-card">
+                        <div className="transport-row-main">
+                          <div>
+                            <h3>{systemALabel} {"->"} {systemBLabel}</h3>
+                            <p>{formatFixedValue(Number(distance.distance_ly), 1)} ly</p>
+                          </div>
+                          <div className="ledger-item-actions">
+                            <button type="button" className="ghost-button" onClick={() => startDistanceEdit(distance)}>
+                              Edit
+                            </button>
+                            <button type="button" className="ghost-button" onClick={() => void confirmAndDelete(`/api/system-distances/${distance.id}`, `distance ${systemALabel} to ${systemBLabel}`)}>
+                              Delete
+                            </button>
+                          </div>
+                        </div>
+
+                        {editingDistanceId === distance.id && (
+                          <div className="transport-inline-editor">
+                            <label className="field">
+                              <span>System A</span>
+                              <select
+                                value={editingDistanceDraft.systemAId}
+                                onChange={(event) => setEditingDistanceDraft((current) => ({ ...current, systemAId: event.target.value }))}
+                              >
+                                <option value="">Select system</option>
+                                {data.solarSystems.map((solarSystem) => (
+                                  <option key={solarSystem.id} value={solarSystem.id}>
+                                    {solarSystem.name}
+                                  </option>
+                                ))}
+                              </select>
+                            </label>
+
+                            <label className="field">
+                              <span>System B</span>
+                              <select
+                                value={editingDistanceDraft.systemBId}
+                                onChange={(event) => setEditingDistanceDraft((current) => ({ ...current, systemBId: event.target.value }))}
+                              >
+                                <option value="">Select system</option>
+                                {data.solarSystems.map((solarSystem) => (
+                                  <option key={solarSystem.id} value={solarSystem.id}>
+                                    {solarSystem.name}
+                                  </option>
+                                ))}
+                              </select>
+                            </label>
+
+                            <label className="field">
+                              <span>Distance (ly)</span>
+                              <input
+                                type="number"
+                                min={0}
+                                step="any"
+                                value={editingDistanceDraft.distanceLy}
+                                onChange={(event) => setEditingDistanceDraft((current) => ({ ...current, distanceLy: Number(event.target.value) }))}
+                              />
+                            </label>
+
+                            <div className="transport-form-actions">
+                              <button type="button" className="primary-button" onClick={() => void handleSaveDistanceEdit()} disabled={busy}>
+                                Save
+                              </button>
+                              <button type="button" className="ghost-button" onClick={cancelDistanceEdit} disabled={busy}>
+                                Cancel
+                              </button>
+                            </div>
+                          </div>
+                        )}
+                      </article>
+                    );
+                  })}
+                </div>
+              ) : (
+                <p className="empty-state">Add a system pair distance to resolve saved route calculations.</p>
+              )}
+            </section>
+
+            <section className="panel">
+              <div className="section-heading">
+                <div>
+                  <p className="eyebrow">Saved routes</p>
+                  <h2>Transportation ledger</h2>
+                </div>
+              </div>
+
+              {routeEntries.length > 0 ? (
+                <div className="transport-ledger">
+                  {routeEntries.map((entry) => {
+                    const route = entry.route;
+                    const resource = resourceLookup.get(route.resource_id);
+                    const sourceLabel = systemLookup.get(route.source_system_id)?.name ?? "Unknown System";
+                    const destinationLabel = systemLookup.get(route.destination_system_id)?.name ?? "Unknown System";
+
+                    return (
+                      <article key={route.id} className="transport-row-card">
+                        <div className="transport-row-main">
+                          <div className="transport-route-heading">
+                            {resource && (
+                              <ResourceIcon
+                                name={resource.name}
+                                iconUrl={resource.icon_url}
+                                colorStart={resource.color_start}
+                                colorEnd={resource.color_end}
+                                size="sm"
+                              />
+                            )}
+                            <div>
+                              <h3>{resource?.name ?? "Unknown Resource"}</h3>
+                              <p>{sourceLabel} {"->"} {destinationLabel}</p>
+                            </div>
+                          </div>
+
+                          <div className="ledger-item-actions">
+                            <button type="button" className="ghost-button" onClick={() => startRouteEdit(route)}>
+                              Edit
+                            </button>
+                            <button type="button" className="ghost-button" onClick={() => void confirmAndDelete(`/api/transport-routes/${route.id}`, `${resource?.name ?? "route"} route`)}>
+                              Delete
+                            </button>
+                          </div>
+                        </div>
+
+                        <div className="transport-route-stats">
+                          <span><strong>{formatFixedValue(Number(route.throughput_per_minute), 1)}</strong> / min</span>
+                          <span>
+                            {entry.distanceLy === null ? (
+                              <span className="transport-warning">Distance missing</span>
+                            ) : (
+                              `${formatFixedValue(entry.distanceLy, 1)} ly`
+                            )}
+                          </span>
+                          <span>{entry.requiredVessels === null ? "Incomplete" : `${formatFixedValue(entry.requiredVessels, 1)} vessels`}</span>
+                          <span>{entry.requiredStations === null ? "Incomplete" : `${formatFixedValue(entry.requiredStations, 1)} ILS`}</span>
+                        </div>
+
+                        {entry.itemsPerMinutePerVessel !== null && entry.roundTripSeconds !== null && (
+                          <p className="helper-text">
+                            {formatFixedValue(entry.itemsPerMinutePerVessel, 1)} items/min per vessel · round trip {formatFixedValue(entry.roundTripSeconds, 1)} s
+                          </p>
+                        )}
+
+                        {editingRouteId === route.id && (
+                          <div className="transport-inline-editor">
+                            <label className="field">
+                              <span>Source system</span>
+                              <select
+                                value={editingRouteDraft.sourceSystemId}
+                                onChange={(event) => setEditingRouteDraft((current) => ({ ...current, sourceSystemId: event.target.value }))}
+                              >
+                                <option value="">Select source</option>
+                                {data.solarSystems.map((solarSystem) => (
+                                  <option key={solarSystem.id} value={solarSystem.id}>
+                                    {solarSystem.name}
+                                  </option>
+                                ))}
+                              </select>
+                            </label>
+
+                            <label className="field">
+                              <span>Destination system</span>
+                              <select
+                                value={editingRouteDraft.destinationSystemId}
+                                onChange={(event) => setEditingRouteDraft((current) => ({ ...current, destinationSystemId: event.target.value }))}
+                              >
+                                <option value="">Select destination</option>
+                                {data.solarSystems.map((solarSystem) => (
+                                  <option key={solarSystem.id} value={solarSystem.id}>
+                                    {solarSystem.name}
+                                  </option>
+                                ))}
+                              </select>
+                            </label>
+
+                            <label className="field">
+                              <span>Resource</span>
+                              <ResourceSelect resources={allResources} value={editingRouteDraft.resourceId} onChange={(value) => setEditingRouteDraft((current) => ({ ...current, resourceId: value }))} disabled={busy} />
+                            </label>
+
+                            <label className="field">
+                              <span>Throughput / min</span>
+                              <input
+                                type="number"
+                                min={0}
+                                step="any"
+                                value={editingRouteDraft.throughputPerMinute}
+                                onChange={(event) => setEditingRouteDraft((current) => ({ ...current, throughputPerMinute: Number(event.target.value) }))}
+                              />
+                            </label>
+
+                            <div className="transport-form-actions">
+                              <button type="button" className="primary-button" onClick={() => void handleSaveRouteEdit()} disabled={busy}>
+                                Save
+                              </button>
+                              <button type="button" className="ghost-button" onClick={cancelRouteEdit} disabled={busy}>
+                                Cancel
+                              </button>
+                            </div>
+                          </div>
+                        )}
+                      </article>
+                    );
+                  })}
+                </div>
+              ) : (
+                <p className="empty-state">No transport routes saved yet.</p>
+              )}
+            </section>
+          </>
+          )}
+
           {activeView === "log" && (
           <section className="panel">
             <div className="section-heading">
@@ -1418,6 +2113,73 @@ function App() {
 
         {(activeView === "projects" || activeView === "settings") && (
         <aside className="sidebar-column">
+          {activeView === "settings" && (
+          <section className="panel">
+            <div className="section-heading">
+              <div>
+                <p className="eyebrow">Transportation</p>
+                <h2>Vessel settings</h2>
+              </div>
+            </div>
+            <label className="field">
+              <span>Vessel capacity</span>
+              <input
+                type="number"
+                min={1}
+                max={100000}
+                value={data.settings.vesselCapacityItems}
+                onChange={(event) =>
+                  void updateSettings({
+                    vesselCapacityItems: Number(event.target.value),
+                  })
+                }
+              />
+            </label>
+            <div className="action-row">
+              <button
+                type="button"
+                className="ghost-button"
+                onClick={() =>
+                  void updateSettings({
+                    vesselCapacityItems: data.settings.vesselCapacityItems + 200,
+                  })
+                }
+              >
+                +200
+              </button>
+              <span className="helper-text">Each interstellar station can house 10 vessels.</span>
+            </div>
+            <label className="field">
+              <span>Vessel speed (ly / sec)</span>
+              <input
+                type="number"
+                min={0.001}
+                step="any"
+                value={data.settings.vesselSpeedLyPerSecond}
+                onChange={(event) =>
+                  void updateSettings({
+                    vesselSpeedLyPerSecond: Number(event.target.value),
+                  })
+                }
+              />
+            </label>
+            <label className="field">
+              <span>Dock / undock seconds per leg</span>
+              <input
+                type="number"
+                min={0}
+                step="any"
+                value={data.settings.vesselDockingSeconds}
+                onChange={(event) =>
+                  void updateSettings({
+                    vesselDockingSeconds: Number(event.target.value),
+                  })
+                }
+              />
+            </label>
+          </section>
+          )}
+
           {activeView === "settings" && (
           <section className="panel">
             <div className="section-heading">

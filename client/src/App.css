@@ -62,6 +62,7 @@
 
 .grid-layout-log,
 .grid-layout-overview,
+.grid-layout-transport,
 .grid-layout-projects,
 .grid-layout-settings {
   grid-template-columns: 1fr;
@@ -106,7 +107,11 @@
 .two-column,
 .entry-grid,
 .slider-group,
-.gas-output-row {
+.gas-output-row,
+.transport-form-grid,
+.transport-inline-editor,
+.transport-metric-grid,
+.transport-planner-grid {
   display: grid;
   gap: 16px;
 }
@@ -119,6 +124,32 @@
 .entry-grid {
   grid-template-columns: minmax(0, 1.65fr) repeat(2, minmax(260px, 1fr));
   margin-top: 18px;
+}
+
+.transport-planner-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  margin-top: 18px;
+}
+
+.transport-form-grid {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  align-items: end;
+}
+
+.transport-form-grid-compact {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.transport-inline-editor {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid rgba(130, 153, 184, 0.14);
+}
+
+.transport-metric-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  margin-top: 16px;
 }
 
 .gas-entry-card {
@@ -392,10 +423,62 @@
 }
 
 .ledger-item-actions,
-.location-editor-actions {
+.location-editor-actions,
+.transport-form-actions {
   display: flex;
   flex-wrap: wrap;
   gap: 10px;
+}
+
+.transport-form-actions {
+  align-items: end;
+}
+
+.transport-ledger {
+  display: grid;
+  gap: 14px;
+  margin-top: 18px;
+}
+
+.transport-row-card {
+  padding: 18px;
+  border-radius: 20px;
+  border: 1px solid rgba(132, 156, 187, 0.18);
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.transport-row-main,
+.transport-route-heading,
+.transport-route-stats {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.transport-row-main {
+  justify-content: space-between;
+}
+
+.transport-route-heading > div {
+  display: grid;
+  gap: 4px;
+}
+
+.transport-route-stats {
+  flex-wrap: wrap;
+  margin-top: 14px;
+  color: rgba(211, 223, 235, 0.78);
+}
+
+.transport-route-stats span {
+  padding: 8px 12px;
+  border-radius: 999px;
+  border: 1px solid rgba(148, 172, 197, 0.16);
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.transport-warning {
+  color: #ffbf8f;
 }
 
 .location-editor {
@@ -578,14 +661,19 @@
 @media (max-width: 1180px) {
   .grid-layout,
   .entry-grid,
-  .two-column {
+  .two-column,
+  .transport-planner-grid {
     grid-template-columns: 1fr;
   }
 
   .entry-stat-strip,
   .location-editor,
   .gas-output-row,
-  .slider-group {
+  .slider-group,
+  .transport-form-grid,
+  .transport-inline-editor,
+  .transport-metric-grid,
+  .transport-form-grid-compact {
     grid-template-columns: 1fr;
   }
 

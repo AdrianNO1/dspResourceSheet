@@ -48,6 +48,15 @@ const seededResources: ResourceSeed[] = [
   { name: "Fire Ice", type: "gas_giant_output", sortOrder: 150, colorStart: "#d8ffff", colorEnd: "#37afdb", iconUrl: "/icons/resources/fire-ice.png", fuelValueMj: 4.8 },
 ];
 
+const settingsDefaults = new Map<string, string>([
+  ["currentSolarSystemId", ""],
+  ["currentPlanetId", ""],
+  ["miningResearchBonusPercent", "0"],
+  ["vesselCapacityItems", "1000"],
+  ["vesselSpeedLyPerSecond", "0.25"],
+  ["vesselDockingSeconds", "0"],
+]);
+
 function generateId() {
   return randomUUID();
 }
@@ -73,6 +82,25 @@ function ensureColumn(tableName: string, columnName: string, definition: string)
   db.exec(`ALTER TABLE ${tableName} ADD COLUMN ${columnName} ${definition}`);
 }
 
+function ensureSettingsDefaults() {
+  for (const [key, value] of settingsDefaults.entries()) {
+    runStatement(
+      `
+        INSERT INTO app_settings (key, value)
+        SELECT ?, ?
+        WHERE NOT EXISTS (SELECT 1 FROM app_settings WHERE key = ?)
+      `,
+      key,
+      value,
+      key,
+    );
+  }
+}
+
+function normalizeSystemPair(systemAId: string, systemBId: string) {
+  return [systemAId, systemBId].sort() as [string, string];
+}
+
 export function initializeDatabase() {
   db.exec(`
     CREATE TABLE IF NOT EXISTS resource_definitions (
@@ -90,6 +118,15 @@ export function initializeDatabase() {
     CREATE TABLE IF NOT EXISTS solar_systems (
       id TEXT PRIMARY KEY,
       name TEXT NOT NULL UNIQUE
+    );
+
+    CREATE TABLE IF NOT EXISTS system_distances (
+      id TEXT PRIMARY KEY,
+      system_a_id TEXT NOT NULL,
+      system_b_id TEXT NOT NULL,
+      distance_ly REAL NOT NULL,
+      FOREIGN KEY (system_a_id) REFERENCES solar_systems(id) ON DELETE CASCADE,
+      FOREIGN KEY (system_b_id) REFERENCES solar_systems(id) ON DELETE CASCADE
     );
 
     CREATE TABLE IF NOT EXISTS planets (
@@ -176,12 +213,25 @@ export function initializeDatabase() {
       FOREIGN KEY (resource_id) REFERENCES resource_definitions(id) ON DELETE CASCADE
     );
 
+    CREATE TABLE IF NOT EXISTS transport_routes (
+      id TEXT PRIMARY KEY,
+      source_system_id TEXT NOT NULL,
+      destination_system_id TEXT NOT NULL,
+      resource_id TEXT NOT NULL,
+      throughput_per_minute REAL NOT NULL,
+      created_at TEXT NOT NULL,
+      FOREIGN KEY (source_system_id) REFERENCES solar_systems(id) ON DELETE CASCADE,
+      FOREIGN KEY (destination_system_id) REFERENCES solar_systems(id) ON DELETE CASCADE,
+      FOREIGN KEY (resource_id) REFERENCES resource_definitions(id) ON DELETE CASCADE
+    );
+
     CREATE TABLE IF NOT EXISTS app_settings (
       key TEXT PRIMARY KEY,
       value TEXT NOT NULL
     );
 
     CREATE INDEX IF NOT EXISTS idx_planets_solar_system_id ON planets(solar_system_id);
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_system_distances_pair ON system_distances(system_a_id, system_b_id);
     CREATE INDEX IF NOT EXISTS idx_project_goals_project_id ON project_goals(project_id);
     CREATE INDEX IF NOT EXISTS idx_project_goals_resource_id ON project_goals(resource_id);
     CREATE INDEX IF NOT EXISTS idx_ore_veins_planet_id ON ore_veins(planet_id);
@@ -194,6 +244,10 @@ export function initializeDatabase() {
     CREATE INDEX IF NOT EXISTS idx_gas_giant_sites_planet_id ON gas_giant_sites(planet_id);
     CREATE INDEX IF NOT EXISTS idx_gas_giant_outputs_site_id ON gas_giant_outputs(gas_giant_site_id);
     CREATE INDEX IF NOT EXISTS idx_gas_giant_outputs_resource_id ON gas_giant_outputs(resource_id);
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_transport_routes_unique_route ON transport_routes(source_system_id, destination_system_id, resource_id);
+    CREATE INDEX IF NOT EXISTS idx_transport_routes_source_system_id ON transport_routes(source_system_id);
+    CREATE INDEX IF NOT EXISTS idx_transport_routes_destination_system_id ON transport_routes(destination_system_id);
+    CREATE INDEX IF NOT EXISTS idx_transport_routes_resource_id ON transport_routes(resource_id);
   `);
 
   ensureColumn("liquid_sites", "created_at", "TEXT");
@@ -263,24 +317,7 @@ function seedDefaults() {
     );
   }
 
-  const settingsDefaults = new Map<string, string>([
-    ["currentSolarSystemId", ""],
-    ["currentPlanetId", ""],
-    ["miningResearchBonusPercent", "0"],
-  ]);
-
-  for (const [key, value] of settingsDefaults.entries()) {
-    runStatement(
-      `
-        INSERT INTO app_settings (key, value)
-        SELECT ?, ?
-        WHERE NOT EXISTS (SELECT 1 FROM app_settings WHERE key = ?)
-      `,
-      key,
-      value,
-      key,
-    );
-  }
+  ensureSettingsDefaults();
 
   const hasProjects = readRow<{ count: number }>("SELECT COUNT(*) as count FROM projects");
   if ((hasProjects?.count ?? 0) > 0) {
@@ -413,6 +450,10 @@ export function createSolarSystem(name: string) {
   const id = generateId();
   runStatement("INSERT INTO solar_systems (id, name) VALUES (?, ?)", id, name);
   return id;
+}
+
+export function getSolarSystemById(id: string) {
+  return readRow<{ id: string; name: string }>("SELECT id, name FROM solar_systems WHERE id = ?", id);
 }
 
 export function createPlanet(input: { solarSystemId: string; name: string; planetType: PlanetType }) {
@@ -557,6 +598,154 @@ export function createGasGiantSite(input: {
   }
 }
 
+export function createSystemDistance(input: {
+  systemAId: string;
+  systemBId: string;
+  distanceLy: number;
+}) {
+  const [systemAId, systemBId] = normalizeSystemPair(input.systemAId, input.systemBId);
+  const existing = readRow<{ id: string }>(
+    "SELECT id FROM system_distances WHERE system_a_id = ? AND system_b_id = ?",
+    systemAId,
+    systemBId,
+  );
+
+  if (existing) {
+    runStatement("UPDATE system_distances SET distance_ly = ? WHERE id = ?", input.distanceLy, existing.id);
+    return existing.id;
+  }
+
+  const id = generateId();
+  runStatement(
+    "INSERT INTO system_distances (id, system_a_id, system_b_id, distance_ly) VALUES (?, ?, ?, ?)",
+    id,
+    systemAId,
+    systemBId,
+    input.distanceLy,
+  );
+  return id;
+}
+
+export function updateSystemDistance(id: string, input: {
+  systemAId: string;
+  systemBId: string;
+  distanceLy: number;
+}) {
+  const [systemAId, systemBId] = normalizeSystemPair(input.systemAId, input.systemBId);
+  const existing = readRow<{ id: string }>(
+    "SELECT id FROM system_distances WHERE system_a_id = ? AND system_b_id = ? AND id <> ?",
+    systemAId,
+    systemBId,
+    id,
+  );
+
+  if (existing) {
+    runStatement("UPDATE system_distances SET distance_ly = ? WHERE id = ?", input.distanceLy, existing.id);
+    runStatement("DELETE FROM system_distances WHERE id = ?", id);
+    return existing.id;
+  }
+
+  runStatement(
+    "UPDATE system_distances SET system_a_id = ?, system_b_id = ?, distance_ly = ? WHERE id = ?",
+    systemAId,
+    systemBId,
+    input.distanceLy,
+    id,
+  );
+  return id;
+}
+
+export function createTransportRoute(input: {
+  sourceSystemId: string;
+  destinationSystemId: string;
+  resourceId: string;
+  throughputPerMinute: number;
+}) {
+  const existing = readRow<{ id: string }>(
+    `
+      SELECT id
+      FROM transport_routes
+      WHERE source_system_id = ? AND destination_system_id = ? AND resource_id = ?
+    `,
+    input.sourceSystemId,
+    input.destinationSystemId,
+    input.resourceId,
+  );
+
+  if (existing) {
+    runStatement(
+      "UPDATE transport_routes SET throughput_per_minute = ? WHERE id = ?",
+      input.throughputPerMinute,
+      existing.id,
+    );
+    return existing.id;
+  }
+
+  const id = generateId();
+  runStatement(
+    `
+      INSERT INTO transport_routes (
+        id,
+        source_system_id,
+        destination_system_id,
+        resource_id,
+        throughput_per_minute,
+        created_at
+      ) VALUES (?, ?, ?, ?, ?, ?)
+    `,
+    id,
+    input.sourceSystemId,
+    input.destinationSystemId,
+    input.resourceId,
+    input.throughputPerMinute,
+    new Date().toISOString(),
+  );
+  return id;
+}
+
+export function updateTransportRoute(id: string, input: {
+  sourceSystemId: string;
+  destinationSystemId: string;
+  resourceId: string;
+  throughputPerMinute: number;
+}) {
+  const existing = readRow<{ id: string }>(
+    `
+      SELECT id
+      FROM transport_routes
+      WHERE source_system_id = ? AND destination_system_id = ? AND resource_id = ? AND id <> ?
+    `,
+    input.sourceSystemId,
+    input.destinationSystemId,
+    input.resourceId,
+    id,
+  );
+
+  if (existing) {
+    runStatement(
+      "UPDATE transport_routes SET throughput_per_minute = ? WHERE id = ?",
+      input.throughputPerMinute,
+      existing.id,
+    );
+    runStatement("DELETE FROM transport_routes WHERE id = ?", id);
+    return existing.id;
+  }
+
+  runStatement(
+    `
+      UPDATE transport_routes
+      SET source_system_id = ?, destination_system_id = ?, resource_id = ?, throughput_per_minute = ?
+      WHERE id = ?
+    `,
+    input.sourceSystemId,
+    input.destinationSystemId,
+    input.resourceId,
+    input.throughputPerMinute,
+    id,
+  );
+  return id;
+}
+
 export function deleteById(tableName: string, id: string) {
   runStatement(`DELETE FROM ${tableName} WHERE id = ?`, id);
 }
@@ -608,6 +797,7 @@ export function exportSnapshot() {
   return {
     resources: readRows<Record<string, unknown>>("SELECT * FROM resource_definitions ORDER BY sort_order, name"),
     solarSystems: readRows<Record<string, unknown>>("SELECT * FROM solar_systems ORDER BY name"),
+    systemDistances: readRows<Record<string, unknown>>("SELECT * FROM system_distances ORDER BY system_a_id, system_b_id"),
     planets: readRows<Record<string, unknown>>("SELECT * FROM planets ORDER BY name"),
     projects: readRows<Record<string, unknown>>("SELECT * FROM projects ORDER BY sort_order, name"),
     projectGoals: readRows<Record<string, unknown>>("SELECT * FROM project_goals"),
@@ -617,6 +807,7 @@ export function exportSnapshot() {
     oilExtractors: readRows<Record<string, unknown>>("SELECT * FROM oil_extractors ORDER BY created_at DESC"),
     gasGiantSites: readRows<Record<string, unknown>>("SELECT * FROM gas_giant_sites ORDER BY created_at DESC"),
     gasGiantOutputs: readRows<Record<string, unknown>>("SELECT * FROM gas_giant_outputs"),
+    transportRoutes: readRows<Record<string, unknown>>("SELECT * FROM transport_routes ORDER BY created_at DESC"),
     settings: getSettingsRecord(),
   };
 }
@@ -628,6 +819,7 @@ export function importSnapshot(snapshot: ReturnType<typeof exportSnapshot>) {
     db.exec(`
       DELETE FROM gas_giant_outputs;
       DELETE FROM gas_giant_sites;
+      DELETE FROM transport_routes;
       DELETE FROM oil_extractors;
       DELETE FROM liquid_sites;
       DELETE FROM ore_vein_miners;
@@ -635,6 +827,7 @@ export function importSnapshot(snapshot: ReturnType<typeof exportSnapshot>) {
       DELETE FROM project_goals;
       DELETE FROM projects;
       DELETE FROM planets;
+      DELETE FROM system_distances;
       DELETE FROM solar_systems;
       DELETE FROM resource_definitions;
       DELETE FROM app_settings;
@@ -661,6 +854,16 @@ export function importSnapshot(snapshot: ReturnType<typeof exportSnapshot>) {
 
     for (const row of snapshot.solarSystems) {
       runStatement("INSERT INTO solar_systems (id, name) VALUES (?, ?)", row.id, row.name);
+    }
+
+    for (const row of (snapshot.systemDistances ?? [])) {
+      runStatement(
+        "INSERT INTO system_distances (id, system_a_id, system_b_id, distance_ly) VALUES (?, ?, ?, ?)",
+        row.id,
+        row.system_a_id,
+        row.system_b_id,
+        row.distance_ly,
+      );
     }
 
     for (const row of snapshot.planets) {
@@ -764,9 +967,32 @@ export function importSnapshot(snapshot: ReturnType<typeof exportSnapshot>) {
       );
     }
 
+    for (const row of (snapshot.transportRoutes ?? [])) {
+      runStatement(
+        `
+          INSERT INTO transport_routes (
+            id,
+            source_system_id,
+            destination_system_id,
+            resource_id,
+            throughput_per_minute,
+            created_at
+          ) VALUES (?, ?, ?, ?, ?, ?)
+        `,
+        row.id,
+        row.source_system_id,
+        row.destination_system_id,
+        row.resource_id,
+        row.throughput_per_minute,
+        row.created_at ?? new Date().toISOString(),
+      );
+    }
+
     for (const [key, value] of Object.entries(snapshot.settings)) {
       runStatement("INSERT INTO app_settings (key, value) VALUES (?, ?)", key, String(value ?? ""));
     }
+
+    ensureSettingsDefaults();
 
     db.exec("COMMIT");
   } catch (error) {
@@ -934,6 +1160,9 @@ export function getBootstrapData() {
       currentSolarSystemId: settings.currentSolarSystemId || null,
       currentPlanetId: settings.currentPlanetId || null,
       miningResearchBonusPercent,
+      vesselCapacityItems: Number(settings.vesselCapacityItems ?? settingsDefaults.get("vesselCapacityItems") ?? "1000"),
+      vesselSpeedLyPerSecond: Number(settings.vesselSpeedLyPerSecond ?? settingsDefaults.get("vesselSpeedLyPerSecond") ?? "0.25"),
+      vesselDockingSeconds: Number(settings.vesselDockingSeconds ?? settingsDefaults.get("vesselDockingSeconds") ?? "0"),
     },
     summary: {
       totalResourcesTracked: resourceSummaries.length,

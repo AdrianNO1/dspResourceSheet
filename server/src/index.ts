@@ -15,6 +15,8 @@ import {
   moveEntrySchema,
   patchSettingsSchema,
   replaceGoalsSchema,
+  systemDistanceSchema,
+  transportRouteSchema,
   updateProjectSchema,
 } from "./schemas.js";
 import {
@@ -26,6 +28,8 @@ import {
   createProject,
   createResource,
   createSolarSystem,
+  createSystemDistance,
+  createTransportRoute,
   deleteById,
   deletePlanet,
   deleteSolarSystem,
@@ -33,11 +37,14 @@ import {
   getBootstrapData,
   getPlanetById,
   getResourceById,
+  getSolarSystemById,
   importSnapshot,
   initializeDatabase,
   moveEntryToPlanet,
   replaceProjectGoals,
   setSetting,
+  updateSystemDistance,
+  updateTransportRoute,
   updateProject,
 } from "./db.js";
 
@@ -284,6 +291,82 @@ app.post("/api/gas-giants", (req, res) => {
   return respondWithCreatedBootstrap(res, "create-gas-giant");
 });
 
+app.post("/api/system-distances", (req, res) => {
+  const parsed = systemDistanceSchema.safeParse(req.body);
+  if (!parsed.success) {
+    return res.status(400).json({ error: parsed.error.flatten() });
+  }
+
+  const systemA = getSolarSystemById(parsed.data.systemAId);
+  const systemB = getSolarSystemById(parsed.data.systemBId);
+  if (!systemA || !systemB) {
+    return res.status(400).json({ error: "Both systems must exist." });
+  }
+
+  createSystemDistance(parsed.data);
+  return respondWithCreatedBootstrap(res, "create-system-distance");
+});
+
+app.patch("/api/system-distances/:id", (req, res) => {
+  const parsed = systemDistanceSchema.safeParse(req.body);
+  if (!parsed.success) {
+    return res.status(400).json({ error: parsed.error.flatten() });
+  }
+
+  const systemA = getSolarSystemById(parsed.data.systemAId);
+  const systemB = getSolarSystemById(parsed.data.systemBId);
+  if (!systemA || !systemB) {
+    return res.status(400).json({ error: "Both systems must exist." });
+  }
+
+  updateSystemDistance(req.params.id, parsed.data);
+  return respondWithBootstrap(res, "update-system-distance");
+});
+
+app.post("/api/transport-routes", (req, res) => {
+  const parsed = transportRouteSchema.safeParse(req.body);
+  if (!parsed.success) {
+    return res.status(400).json({ error: parsed.error.flatten() });
+  }
+
+  const sourceSystem = getSolarSystemById(parsed.data.sourceSystemId);
+  const destinationSystem = getSolarSystemById(parsed.data.destinationSystemId);
+  const resource = getResourceById(parsed.data.resourceId);
+
+  if (!sourceSystem || !destinationSystem) {
+    return res.status(400).json({ error: "Both route systems must exist." });
+  }
+
+  if (!resource) {
+    return res.status(400).json({ error: "Selected route resource does not exist." });
+  }
+
+  createTransportRoute(parsed.data);
+  return respondWithCreatedBootstrap(res, "create-transport-route");
+});
+
+app.patch("/api/transport-routes/:id", (req, res) => {
+  const parsed = transportRouteSchema.safeParse(req.body);
+  if (!parsed.success) {
+    return res.status(400).json({ error: parsed.error.flatten() });
+  }
+
+  const sourceSystem = getSolarSystemById(parsed.data.sourceSystemId);
+  const destinationSystem = getSolarSystemById(parsed.data.destinationSystemId);
+  const resource = getResourceById(parsed.data.resourceId);
+
+  if (!sourceSystem || !destinationSystem) {
+    return res.status(400).json({ error: "Both route systems must exist." });
+  }
+
+  if (!resource) {
+    return res.status(400).json({ error: "Selected route resource does not exist." });
+  }
+
+  updateTransportRoute(req.params.id, parsed.data);
+  return respondWithBootstrap(res, "update-transport-route");
+});
+
 app.delete("/api/ore-veins/:id", (req, res) => {
   return respondAfterDelete(res, "delete-ore-vein", "ore-vein", req.params.id, () => {
     deleteById("ore_veins", req.params.id);
@@ -317,6 +400,18 @@ app.patch("/api/oil-extractors/:id/location", (req, res) => {
 app.delete("/api/gas-giants/:id", (req, res) => {
   return respondAfterDelete(res, "delete-gas-giant", "gas-giant", req.params.id, () => {
     deleteById("gas_giant_sites", req.params.id);
+  });
+});
+
+app.delete("/api/system-distances/:id", (req, res) => {
+  return respondAfterDelete(res, "delete-system-distance", "system-distance", req.params.id, () => {
+    deleteById("system_distances", req.params.id);
+  });
+});
+
+app.delete("/api/transport-routes/:id", (req, res) => {
+  return respondAfterDelete(res, "delete-transport-route", "transport-route", req.params.id, () => {
+    deleteById("transport_routes", req.params.id);
   });
 });
 

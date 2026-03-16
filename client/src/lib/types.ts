@@ -19,6 +19,13 @@ export type SolarSystem = {
   name: string;
 };
 
+export type SystemDistance = {
+  id: string;
+  system_a_id: string;
+  system_b_id: string;
+  distance_ly: number;
+};
+
 export type Planet = {
   id: string;
   solar_system_id: string;
@@ -90,6 +97,15 @@ export type GasGiantOutput = {
   rate_per_second: number;
 };
 
+export type TransportRoute = {
+  id: string;
+  source_system_id: string;
+  destination_system_id: string;
+  resource_id: string;
+  throughput_per_minute: number;
+  created_at: string;
+};
+
 export type ResourceSummary = {
   resourceId: string;
   name: string;
@@ -109,6 +125,7 @@ export type ResourceSummary = {
 export type BootstrapData = {
   resources: ResourceDefinition[];
   solarSystems: SolarSystem[];
+  systemDistances: SystemDistance[];
   planets: Planet[];
   projects: Project[];
   projectGoals: ProjectGoal[];
@@ -118,10 +135,14 @@ export type BootstrapData = {
   oilExtractors: OilExtractor[];
   gasGiantSites: GasGiantSite[];
   gasGiantOutputs: GasGiantOutput[];
+  transportRoutes: TransportRoute[];
   settings: {
     currentSolarSystemId: string | null;
     currentPlanetId: string | null;
     miningResearchBonusPercent: number;
+    vesselCapacityItems: number;
+    vesselSpeedLyPerSecond: number;
+    vesselDockingSeconds: number;
   };
   summary: {
     totalResourcesTracked: number;
