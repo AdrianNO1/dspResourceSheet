@@ -770,6 +770,39 @@ export async function mutateStore(url: string, method: string, body?: unknown) {
     });
     snapshot.settings.currentSolarSystemId = solarSystemId;
     snapshot.settings.currentPlanetId = id;
+  } else if (matchId(url, /^\/api\/systems\/([^/]+)$/) && method === "PATCH") {
+    const solarSystemId = matchId(url, /^\/api\/systems\/([^/]+)$/)!;
+    const solarSystem = snapshot.solarSystems.find((item) => item.id === solarSystemId);
+    if (!solarSystem) {
+      throw new Error("System not found.");
+    }
+
+    const name = String(payload.name ?? solarSystem.name).trim();
+    if (!name) {
+      throw new Error("System name is required.");
+    }
+    if (
+      snapshot.solarSystems.some(
+        (item) => item.id !== solarSystemId && item.name.toLowerCase() === name.toLowerCase(),
+      )
+    ) {
+      throw new Error("A system with that name already exists.");
+    }
+
+    solarSystem.name = name;
+  } else if (matchId(url, /^\/api\/planets\/([^/]+)$/) && method === "PATCH") {
+    const planetId = matchId(url, /^\/api\/planets\/([^/]+)$/)!;
+    const planet = snapshot.planets.find((item) => item.id === planetId);
+    if (!planet) {
+      throw new Error("Planet not found.");
+    }
+
+    const name = String(payload.name ?? planet.name).trim();
+    if (!name) {
+      throw new Error("Planet name is required.");
+    }
+
+    planet.name = name;
   } else if (url === "/api/settings" && method === "PATCH") {
     Object.entries(payload).forEach(([key, value]) => {
       snapshot.settings[key] = value === null ? "" : String(value);

@@ -1,4 +1,5 @@
-import { useEffect, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import type { ChangeEvent, TextareaHTMLAttributes } from "react";
 import "./App.css";
 import { ResourceIcon } from "./components/ResourceIcon";
 import { ResourceSelect } from "./components/ResourceSelect";
@@ -59,6 +60,521 @@ type TransportRouteDraft = {
   resourceId: string;
   throughputPerMinute: number;
 };
+
+type ResourceOriginEntry = {
+  planetId: string;
+  systemId: string;
+  supplyMetric: number;
+  supplyPerMinute: number;
+  supplyPerSecond: number;
+  placementId: string;
+};
+
+type ResourceOriginBreakdownRow = {
+  id: string;
+  name: string;
+  context: string;
+  supplyMetric: number;
+  supplyPerMinute: number;
+  supplyPerSecond: number;
+  placementCount: number;
+  percentOfTotal: number;
+};
+
+type MapSelection = {
+  scope: "system" | "planet";
+  id: string;
+};
+
+type ExtractionRollupRow = {
+  resourceId: string;
+  name: string;
+  type: ResourceType;
+  iconUrl: string | null;
+  colorStart: string;
+  colorEnd: string;
+  supplyMetric: number;
+  supplyPerMinute: number;
+  supplyPerSecond: number;
+  placementCount: number;
+};
+
+type ExtractionActivityRow = {
+  id: string;
+  kind: "ore" | "liquid" | "oil" | "gas";
+  title: string;
+  detail: string;
+  createdAt: string;
+  planetId: string;
+  planetName: string;
+  systemId: string;
+  systemName: string;
+};
+
+function describeExtractionRollup(row: ExtractionRollupRow) {
+  if (row.type === "ore_vein") {
+    return `${formatValue(row.supplyMetric)} node eq | ${formatValue(row.supplyPerMinute)} / min`;
+  }
+
+  if (row.type === "liquid_pump") {
+    return `${formatValue(row.supplyPerMinute)} / min`;
+  }
+
+  return `${formatValue(row.supplyPerSecond)} / sec | ${formatValue(row.supplyPerMinute)} / min`;
+}
+
+function getExtractionView(
+  data: BootstrapData,
+  planetIds: string[],
+  oreMinerLookup: Record<string, OreVeinMiner[]>,
+  gasOutputLookup: Record<string, GasGiantOutput[]>,
+  resourceLookup: Map<string, ResourceDefinition>,
+  planetLookup: Map<string, Planet>,
+  systemLookup: Map<string, { id: string; name: string }>,
+) {
+  type ExtractionRollupRecord = Omit<ExtractionRollupRow, "placementCount"> & {
+    placementIds: Set<string>;
+  };
+
+  const planetIdSet = new Set(planetIds);
+  const rollups = new Map<string, ExtractionRollupRecord>();
+  const activityRows: ExtractionActivityRow[] = [];
+
+  function getPlanetContext(planetId: string) {
+    const planet = planetLookup.get(planetId);
+    if (!planet) {
+      return null;
+    }
+
+    return {
+      planet,
+      planetName: planet.name,
+      systemId: planet.solar_system_id,
+      systemName: systemLookup.get(planet.solar_system_id)?.name ?? "Unknown System",
+    };
+  }
+
+  function ensureRollup(resourceId: string) {
+    const resource = resourceLookup.get(resourceId);
+    if (!resource) {
+      return null;
+    }
+
+    const existing = rollups.get(resourceId);
+    if (existing) {
+      return existing;
+    }
+
+    const created: ExtractionRollupRecord = {
+      resourceId,
+      name: resource.name,
+      type: resource.type,
+      iconUrl: resource.icon_url,
+      colorStart: resource.color_start,
+      colorEnd: resource.color_end,
+      supplyMetric: 0,
+      supplyPerMinute: 0,
+      supplyPerSecond: 0,
+      placementIds: new Set<string>(),
+    };
+    rollups.set(resourceId, created);
+    return created;
+  }
+
+  for (const vein of data.oreVeins) {
+    if (!planetIdSet.has(vein.planet_id)) {
+      continue;
+    }
+
+    const context = getPlanetContext(vein.planet_id);
+    if (!context) {
+      continue;
+    }
+
+    const miners = oreMinerLookup[vein.id] ?? [];
+    const supplyPerMinute = getOreVeinOutputPerMinute(miners, data.settings.miningResearchBonusPercent);
+    const rollup = ensureRollup(vein.resource_id);
+
+    if (rollup) {
+      rollup.placementIds.add(vein.id);
+      rollup.supplyPerMinute += supplyPerMinute;
+      rollup.supplyPerSecond = rollup.supplyPerMinute / 60;
+      rollup.supplyMetric = rollup.supplyPerMinute / 30;
+    }
+
+    activityRows.push({
+      id: vein.id,
+      kind: "ore",
+      title: getResourceName(data.resources, vein.resource_id),
+      detail: `${miners.length} ${miners.length === 1 ? "miner" : "miners"} | ${formatValue(supplyPerMinute)} ore/min | ${formatValue(supplyPerMinute / 30)} node eq`,
+      createdAt: vein.created_at,
+      planetId: context.planet.id,
+      planetName: context.planetName,
+      systemId: context.systemId,
+      systemName: context.systemName,
+    });
+  }
+
+  for (const site of data.liquidSites) {
+    if (!planetIdSet.has(site.planet_id)) {
+      continue;
+    }
+
+    const context = getPlanetContext(site.planet_id);
+    if (!context) {
+      continue;
+    }
+
+    const supplyPerMinute = getPumpOutputPerMinute(Number(site.pump_count), data.settings.miningResearchBonusPercent);
+    const rollup = ensureRollup(site.resource_id);
+
+    if (rollup) {
+      rollup.placementIds.add(site.id);
+      rollup.supplyPerMinute += supplyPerMinute;
+      rollup.supplyPerSecond = rollup.supplyPerMinute / 60;
+      rollup.supplyMetric = rollup.supplyPerMinute;
+    }
+
+    activityRows.push({
+      id: site.id,
+      kind: "liquid",
+      title: getResourceName(data.resources, site.resource_id),
+      detail: `${site.pump_count} ${site.pump_count === 1 ? "pump" : "pumps"} | ${formatValue(supplyPerMinute)} / min`,
+      createdAt: site.created_at,
+      planetId: context.planet.id,
+      planetName: context.planetName,
+      systemId: context.systemId,
+      systemName: context.systemName,
+    });
+  }
+
+  for (const extractor of data.oilExtractors) {
+    if (!planetIdSet.has(extractor.planet_id)) {
+      continue;
+    }
+
+    const context = getPlanetContext(extractor.planet_id);
+    if (!context) {
+      continue;
+    }
+
+    const supplyPerSecond = getOilOutputPerSecond(Number(extractor.oil_per_second));
+    const supplyPerMinute = supplyPerSecond * 60;
+    const rollup = ensureRollup(extractor.resource_id);
+
+    if (rollup) {
+      rollup.placementIds.add(extractor.id);
+      rollup.supplyPerSecond += supplyPerSecond;
+      rollup.supplyPerMinute = rollup.supplyPerSecond * 60;
+      rollup.supplyMetric = rollup.supplyPerMinute;
+    }
+
+    activityRows.push({
+      id: extractor.id,
+      kind: "oil",
+      title: getResourceName(data.resources, extractor.resource_id),
+      detail: `${formatValue(supplyPerSecond)} / sec | ${formatValue(supplyPerMinute)} / min`,
+      createdAt: extractor.created_at,
+      planetId: context.planet.id,
+      planetName: context.planetName,
+      systemId: context.systemId,
+      systemName: context.systemName,
+    });
+  }
+
+  for (const site of data.gasGiantSites) {
+    if (!planetIdSet.has(site.planet_id)) {
+      continue;
+    }
+
+    const context = getPlanetContext(site.planet_id);
+    if (!context) {
+      continue;
+    }
+
+    const outputs = gasOutputLookup[site.id] ?? [];
+    const trueBoost = getOrbitalCollectorTrueBoost(
+      outputs.map((output) => ({
+        ratePerSecond: Number(output.rate_per_second),
+        fuelValueMj: Number(resourceLookup.get(output.resource_id)?.fuel_value_mj ?? 0),
+      })),
+      data.settings.miningResearchBonusPercent,
+    );
+
+    for (const output of outputs) {
+      const rollup = ensureRollup(output.resource_id);
+      if (!rollup) {
+        continue;
+      }
+
+      rollup.placementIds.add(site.id);
+      rollup.supplyPerSecond += Number(output.rate_per_second) * trueBoost * Number(site.collector_count);
+      rollup.supplyPerMinute = rollup.supplyPerSecond * 60;
+      rollup.supplyMetric = rollup.supplyPerMinute;
+    }
+
+    activityRows.push({
+      id: site.id,
+      kind: "gas",
+      title: "Collector ring",
+      detail: outputs.length > 0
+        ? `${site.collector_count} collectors | ${outputs
+            .map(
+              (output) =>
+                `${getResourceName(data.resources, output.resource_id)} ${formatValue(
+                  output.rate_per_second * trueBoost * site.collector_count * 60,
+                )}/min`,
+            )
+            .join(" | ")}`
+        : `${site.collector_count} collectors | No outputs configured`,
+      createdAt: site.created_at,
+      planetId: context.planet.id,
+      planetName: context.planetName,
+      systemId: context.systemId,
+      systemName: context.systemName,
+    });
+  }
+
+  const resourceRows = Array.from(rollups.values())
+    .map<ExtractionRollupRow>((row) => ({
+      resourceId: row.resourceId,
+      name: row.name,
+      type: row.type,
+      iconUrl: row.iconUrl,
+      colorStart: row.colorStart,
+      colorEnd: row.colorEnd,
+      supplyMetric: row.supplyMetric,
+      supplyPerMinute: row.supplyPerMinute,
+      supplyPerSecond: row.supplyPerSecond,
+      placementCount: row.placementIds.size,
+    }))
+    .sort((left, right) => right.supplyMetric - left.supplyMetric || left.name.localeCompare(right.name));
+
+  activityRows.sort(
+    (left, right) =>
+      new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime() ||
+      left.title.localeCompare(right.title),
+  );
+
+  return {
+    resourceRows,
+    activityRows,
+  };
+}
+
+function getBreakdownSecondaryText(summary: ResourceSummary, row: ResourceOriginBreakdownRow) {
+  if (summary.type === "liquid_pump") {
+    return `${formatValue(row.supplyPerMinute)} / min`;
+  }
+
+  return `${formatValue(row.supplyPerSecond)} / sec | ${formatValue(row.supplyPerMinute)} / min`;
+}
+
+function getResourceOriginBreakdown(
+  data: BootstrapData,
+  summary: ResourceSummary,
+  oreMinerLookup: Record<string, OreVeinMiner[]>,
+  gasOutputLookup: Record<string, GasGiantOutput[]>,
+  resourceLookup: Map<string, ResourceDefinition>,
+  planetLookup: Map<string, Planet>,
+  systemLookup: Map<string, { id: string; name: string }>,
+) {
+  const originEntries: ResourceOriginEntry[] = [];
+  const totalMetric = summary.supplyMetric;
+
+  for (const vein of data.oreVeins) {
+    if (vein.resource_id !== summary.resourceId) {
+      continue;
+    }
+
+    const planet = planetLookup.get(vein.planet_id);
+    if (!planet) {
+      continue;
+    }
+
+    const supplyPerMinute = getOreVeinOutputPerMinute(
+      oreMinerLookup[vein.id] ?? [],
+      data.settings.miningResearchBonusPercent,
+    );
+
+    if (supplyPerMinute <= 0) {
+      continue;
+    }
+
+    originEntries.push({
+      planetId: planet.id,
+      systemId: planet.solar_system_id,
+      supplyMetric: supplyPerMinute / 30,
+      supplyPerMinute,
+      supplyPerSecond: supplyPerMinute / 60,
+      placementId: vein.id,
+    });
+  }
+
+  for (const site of data.liquidSites) {
+    if (site.resource_id !== summary.resourceId) {
+      continue;
+    }
+
+    const planet = planetLookup.get(site.planet_id);
+    if (!planet) {
+      continue;
+    }
+
+    const supplyPerMinute = getPumpOutputPerMinute(
+      Number(site.pump_count),
+      data.settings.miningResearchBonusPercent,
+    );
+
+    if (supplyPerMinute <= 0) {
+      continue;
+    }
+
+    originEntries.push({
+      planetId: planet.id,
+      systemId: planet.solar_system_id,
+      supplyMetric: supplyPerMinute,
+      supplyPerMinute,
+      supplyPerSecond: supplyPerMinute / 60,
+      placementId: site.id,
+    });
+  }
+
+  for (const extractor of data.oilExtractors) {
+    if (extractor.resource_id !== summary.resourceId) {
+      continue;
+    }
+
+    const planet = planetLookup.get(extractor.planet_id);
+    if (!planet) {
+      continue;
+    }
+
+    const supplyPerSecond = getOilOutputPerSecond(Number(extractor.oil_per_second));
+    const supplyPerMinute = supplyPerSecond * 60;
+
+    if (supplyPerMinute <= 0) {
+      continue;
+    }
+
+    originEntries.push({
+      planetId: planet.id,
+      systemId: planet.solar_system_id,
+      supplyMetric: supplyPerMinute,
+      supplyPerMinute,
+      supplyPerSecond,
+      placementId: extractor.id,
+    });
+  }
+
+  for (const site of data.gasGiantSites) {
+    const planet = planetLookup.get(site.planet_id);
+    if (!planet) {
+      continue;
+    }
+
+    const outputs = gasOutputLookup[site.id] ?? [];
+    const trueBoost = getOrbitalCollectorTrueBoost(
+      outputs.map((output) => ({
+        ratePerSecond: Number(output.rate_per_second),
+        fuelValueMj: Number(resourceLookup.get(output.resource_id)?.fuel_value_mj ?? 0),
+      })),
+      data.settings.miningResearchBonusPercent,
+    );
+
+    for (const output of outputs) {
+      if (output.resource_id !== summary.resourceId) {
+        continue;
+      }
+
+      const supplyPerSecond = Number(output.rate_per_second) * trueBoost * Number(site.collector_count);
+      const supplyPerMinute = supplyPerSecond * 60;
+
+      if (supplyPerMinute <= 0) {
+        continue;
+      }
+
+      originEntries.push({
+        planetId: planet.id,
+        systemId: planet.solar_system_id,
+        supplyMetric: supplyPerMinute,
+        supplyPerMinute,
+        supplyPerSecond,
+        placementId: site.id,
+      });
+    }
+  }
+
+  type AggregateRecord = {
+    id: string;
+    name: string;
+    context: string;
+    supplyMetric: number;
+    supplyPerMinute: number;
+    supplyPerSecond: number;
+    placementIds: Set<string>;
+  };
+
+  const systemAggregates = new Map<string, AggregateRecord>();
+  const planetAggregates = new Map<string, AggregateRecord>();
+
+  for (const entry of originEntries) {
+    const systemName = systemLookup.get(entry.systemId)?.name ?? "Unknown System";
+    const planet = planetLookup.get(entry.planetId);
+    const planetName = planet?.name ?? "Unknown Planet";
+    const planetContext = planet?.planet_type === "gas_giant" ? `${systemName} | gas giant` : systemName;
+
+    const systemAggregate = systemAggregates.get(entry.systemId) ?? {
+      id: entry.systemId,
+      name: systemName,
+      context: "",
+      supplyMetric: 0,
+      supplyPerMinute: 0,
+      supplyPerSecond: 0,
+      placementIds: new Set<string>(),
+    };
+    systemAggregate.supplyMetric += entry.supplyMetric;
+    systemAggregate.supplyPerMinute += entry.supplyPerMinute;
+    systemAggregate.supplyPerSecond += entry.supplyPerSecond;
+    systemAggregate.placementIds.add(entry.placementId);
+    systemAggregates.set(entry.systemId, systemAggregate);
+
+    const planetAggregate = planetAggregates.get(entry.planetId) ?? {
+      id: entry.planetId,
+      name: planetName,
+      context: planetContext,
+      supplyMetric: 0,
+      supplyPerMinute: 0,
+      supplyPerSecond: 0,
+      placementIds: new Set<string>(),
+    };
+    planetAggregate.supplyMetric += entry.supplyMetric;
+    planetAggregate.supplyPerMinute += entry.supplyPerMinute;
+    planetAggregate.supplyPerSecond += entry.supplyPerSecond;
+    planetAggregate.placementIds.add(entry.placementId);
+    planetAggregates.set(entry.planetId, planetAggregate);
+  }
+
+  function finalizeRows(aggregates: Map<string, AggregateRecord>) {
+    return Array.from(aggregates.values())
+      .map<ResourceOriginBreakdownRow>((aggregate) => ({
+        id: aggregate.id,
+        name: aggregate.name,
+        context: aggregate.context,
+        supplyMetric: aggregate.supplyMetric,
+        supplyPerMinute: aggregate.supplyPerMinute,
+        supplyPerSecond: aggregate.supplyPerSecond,
+        placementCount: aggregate.placementIds.size,
+        percentOfTotal: totalMetric > 0 ? (aggregate.supplyMetric / totalMetric) * 100 : 0,
+      }))
+      .sort((left, right) => right.supplyMetric - left.supplyMetric || left.name.localeCompare(right.name));
+  }
+
+  return {
+    systems: finalizeRows(systemAggregates),
+    planets: finalizeRows(planetAggregates),
+  };
+}
 
 function formatValue(value: number, digits = 1) {
   return new Intl.NumberFormat("en-US", {
@@ -210,19 +726,45 @@ function MachinePill({ label, variant }: { label: string; variant: "advanced" | 
   return <span className={`machine-pill machine-pill-${variant}`}>{label}</span>;
 }
 
+function AutoGrowTextarea({ onChange, ...props }: TextareaHTMLAttributes<HTMLTextAreaElement>) {
+  const textareaRef = useRef<HTMLTextAreaElement | null>(null);
+
+  useLayoutEffect(() => {
+    const textarea = textareaRef.current;
+    if (!textarea) {
+      return;
+    }
+
+    textarea.style.height = "0px";
+    textarea.style.height = `${textarea.scrollHeight}px`;
+  }, [props.value]);
+
+  function handleChange(event: ChangeEvent<HTMLTextAreaElement>) {
+    event.currentTarget.style.height = "0px";
+    event.currentTarget.style.height = `${event.currentTarget.scrollHeight}px`;
+    onChange?.(event);
+  }
+
+  return <textarea {...props} ref={textareaRef} onChange={handleChange} />;
+}
+
 function App() {
   const [data, setData] = useState<BootstrapData | null>(null);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
-  const [activeView, setActiveView] = useState<"log" | "overview" | "transport" | "projects" | "settings">("log");
+  const [activeView, setActiveView] = useState<"log" | "overview" | "map" | "transport" | "projects" | "settings">("log");
   const [showAllLedger, setShowAllLedger] = useState(true);
+  const [selectedOverviewResourceId, setSelectedOverviewResourceId] = useState("");
   const [selectedProjectId, setSelectedProjectId] = useState("");
+  const [selectedMapSelection, setSelectedMapSelection] = useState<MapSelection>({ scope: "system", id: "" });
 
   const [newSystemName, setNewSystemName] = useState("");
   const [newPlanetName, setNewPlanetName] = useState("");
   const [newPlanetType, setNewPlanetType] = useState<"solid" | "gas_giant">("solid");
+  const [systemNameDrafts, setSystemNameDrafts] = useState<Record<string, string>>({});
+  const [planetNameDrafts, setPlanetNameDrafts] = useState<Record<string, string>>({});
   const [newResourceName, setNewResourceName] = useState("");
   const [newResourceType, setNewResourceType] = useState<ResourceType>("ore_vein");
   const [projectNameDraft, setProjectNameDraft] = useState("");
@@ -371,6 +913,22 @@ function App() {
   }, [data, selectedProjectId]);
 
   useEffect(() => {
+    if (!data || !selectedOverviewResourceId) {
+      return;
+    }
+
+    const visibleResourceIds = new Set(
+      data.summary.resourceSummaries
+        .filter((summary) => summary.goalQuantity > 0 || summary.supplyMetric > 0)
+        .map((summary) => summary.resourceId),
+    );
+
+    if (!visibleResourceIds.has(selectedOverviewResourceId)) {
+      setSelectedOverviewResourceId("");
+    }
+  }, [data, selectedOverviewResourceId]);
+
+  useEffect(() => {
     if (!data || newPlanetName) {
       return;
     }
@@ -381,6 +939,51 @@ function App() {
       setNewPlanetName(buildPlanetNamePrefix(currentSystemName));
     }
   }, [data, newPlanetName]);
+
+  useEffect(() => {
+    if (!data) {
+      return;
+    }
+
+    setSystemNameDrafts(
+      Object.fromEntries(data.solarSystems.map((solarSystem) => [solarSystem.id, solarSystem.name])),
+    );
+    setPlanetNameDrafts(Object.fromEntries(data.planets.map((planet) => [planet.id, planet.name])));
+  }, [data]);
+
+  useEffect(() => {
+    if (!data) {
+      return;
+    }
+
+    const hasSelectedSystem =
+      selectedMapSelection.scope === "system" &&
+      data.solarSystems.some((solarSystem) => solarSystem.id === selectedMapSelection.id);
+    const hasSelectedPlanet =
+      selectedMapSelection.scope === "planet" &&
+      data.planets.some((planet) => planet.id === selectedMapSelection.id);
+
+    if (hasSelectedSystem || hasSelectedPlanet) {
+      return;
+    }
+
+    if (data.settings.currentPlanetId && data.planets.some((planet) => planet.id === data.settings.currentPlanetId)) {
+      setSelectedMapSelection({ scope: "planet", id: data.settings.currentPlanetId });
+      return;
+    }
+
+    if (
+      data.settings.currentSolarSystemId &&
+      data.solarSystems.some((solarSystem) => solarSystem.id === data.settings.currentSolarSystemId)
+    ) {
+      setSelectedMapSelection({ scope: "system", id: data.settings.currentSolarSystemId });
+      return;
+    }
+
+    if (data.solarSystems[0]) {
+      setSelectedMapSelection({ scope: "system", id: data.solarSystems[0].id });
+    }
+  }, [data, selectedMapSelection.id, selectedMapSelection.scope]);
 
   async function mutate<T>(request: () => Promise<T>, onSuccess?: (payload: T) => void) {
     setBusy(true);
@@ -447,17 +1050,116 @@ function App() {
   const pendingOreNodeEquivalents = getDraftOreOutputPerMinute(oreMiners, loadedData.settings.miningResearchBonusPercent) / 30;
   const pendingLiquidOutputPerMinute = getPumpOutputPerMinute(pumpCount, loadedData.settings.miningResearchBonusPercent);
   const pendingOilPerMinute = getOilOutputPerSecond(oilPerSecond) * 60;
+  const overviewResourceSummaries = loadedData.summary.resourceSummaries.filter(
+    (summary) => summary.goalQuantity > 0 || summary.supplyMetric > 0,
+  );
+  const selectedOverviewSummary =
+    overviewResourceSummaries.find((summary) => summary.resourceId === selectedOverviewResourceId) ?? null;
+  const selectedOverviewBreakdown = selectedOverviewSummary
+    ? getResourceOriginBreakdown(
+        loadedData,
+        selectedOverviewSummary,
+        oreMinerLookup,
+        gasOutputLookup,
+        resourceLookup,
+        planetLookup,
+        systemLookup,
+      )
+    : null;
   const targetedResourceSummaries = loadedData.summary.resourceSummaries.filter((summary) => summary.goalQuantity > 0);
   const combinedTargetPerMinute = targetedResourceSummaries.reduce(
     (sum, summary) => sum + getSummaryTargetPerMinute(summary),
     0,
   );
-  const combinedSupplyPerMinute = targetedResourceSummaries.reduce(
-    (sum, summary) => sum + summary.supplyPerMinute,
+  const combinedCappedSupplyPerMinute = targetedResourceSummaries.reduce(
+    (sum, summary) => sum + Math.min(summary.supplyPerMinute, getSummaryTargetPerMinute(summary)),
     0,
   );
+  const extractionSiteCountByPlanetId = new Map<string, number>();
+
+  const markExtractionSite = (planetId: string) => {
+    extractionSiteCountByPlanetId.set(planetId, (extractionSiteCountByPlanetId.get(planetId) ?? 0) + 1);
+  };
+
+  loadedData.oreVeins.forEach((vein) => markExtractionSite(vein.planet_id));
+  loadedData.liquidSites.forEach((site) => markExtractionSite(site.planet_id));
+  loadedData.oilExtractors.forEach((site) => markExtractionSite(site.planet_id));
+  loadedData.gasGiantSites.forEach((site) => markExtractionSite(site.planet_id));
+
+  const mapSystemCards = loadedData.solarSystems.map((solarSystem) => {
+    const planets = loadedData.planets
+      .filter((planet) => planet.solar_system_id === solarSystem.id)
+      .sort((left, right) => left.name.localeCompare(right.name));
+    const extractionSiteCount = planets.reduce(
+      (sum, planet) => sum + (extractionSiteCountByPlanetId.get(planet.id) ?? 0),
+      0,
+    );
+    const activePlanetCount = planets.filter((planet) => (extractionSiteCountByPlanetId.get(planet.id) ?? 0) > 0).length;
+
+    return {
+      solarSystem,
+      planets,
+      extractionSiteCount,
+      activePlanetCount,
+    };
+  });
+
+  const selectedMapSystem =
+    selectedMapSelection.scope === "system"
+      ? loadedData.solarSystems.find((solarSystem) => solarSystem.id === selectedMapSelection.id) ?? null
+      : null;
+  const selectedMapPlanet =
+    selectedMapSelection.scope === "planet"
+      ? loadedData.planets.find((planet) => planet.id === selectedMapSelection.id) ?? null
+      : null;
+  const selectedMapParentSystem = selectedMapPlanet
+    ? systemLookup.get(selectedMapPlanet.solar_system_id) ?? null
+    : selectedMapSystem;
+  const selectedMapPlanetIds = selectedMapPlanet
+    ? [selectedMapPlanet.id]
+    : selectedMapSystem
+      ? loadedData.planets
+          .filter((planet) => planet.solar_system_id === selectedMapSystem.id)
+          .map((planet) => planet.id)
+      : [];
+  const selectedMapPlanetIdSet = new Set(selectedMapPlanetIds);
+  const selectedMapExtraction = getExtractionView(
+    loadedData,
+    selectedMapPlanetIds,
+    oreMinerLookup,
+    gasOutputLookup,
+    resourceLookup,
+    planetLookup,
+    systemLookup,
+  );
+  const selectedMapExtractionSiteCount = selectedMapPlanetIds.reduce(
+    (sum, planetId) => sum + (extractionSiteCountByPlanetId.get(planetId) ?? 0),
+    0,
+  );
+  const selectedMapPowerDemandMw =
+    loadedData.oreVeins
+      .filter((vein) => selectedMapPlanetIdSet.has(vein.planet_id))
+      .reduce((sum, vein) => {
+        const miners = oreMinerLookup[vein.id] ?? [];
+        return (
+          sum +
+          miners.reduce((minerSum, miner) => {
+            if (miner.miner_type === "advanced") {
+              return minerSum + getAdvancedMinerPowerMw(Number(miner.advanced_speed_percent ?? 100));
+            }
+
+            return minerSum + REGULAR_MINER_POWER_MW;
+          }, 0)
+        );
+      }, 0) +
+    loadedData.liquidSites
+      .filter((site) => selectedMapPlanetIdSet.has(site.planet_id))
+      .reduce((sum, site) => sum + Number(site.pump_count) * PUMP_POWER_MW, 0) +
+    loadedData.oilExtractors
+      .filter((site) => selectedMapPlanetIdSet.has(site.planet_id))
+      .length * OIL_EXTRACTOR_POWER_MW;
   const combinedProgressPercent =
-    combinedTargetPerMinute > 0 ? Math.min(100, (combinedSupplyPerMinute / combinedTargetPerMinute) * 100) : 0;
+    combinedTargetPerMinute > 0 ? Math.min(100, (combinedCappedSupplyPerMinute / combinedTargetPerMinute) * 100) : 0;
   const quickCalcRoundTripSeconds = getTransportRoundTripSeconds(
     quickCalcDistanceLy,
     loadedData.settings.vesselSpeedLyPerSecond,
@@ -747,6 +1449,35 @@ function App() {
     await mutate(() => patchBootstrap("/api/settings", payload), applyBootstrap);
   }
 
+  async function handleRenameSystem(systemId: string) {
+    const nextName = systemNameDrafts[systemId]?.trim() ?? "";
+    if (!nextName) {
+      return;
+    }
+
+    await mutate(
+      () => patchBootstrap(`/api/systems/${systemId}`, { name: nextName }),
+      (nextData) => {
+        applyBootstrap(nextData);
+        if (nextData.settings.currentSolarSystemId === systemId && !newPlanetName.trim()) {
+          setNewPlanetName(buildPlanetNamePrefix(nextName));
+        }
+      },
+    );
+  }
+
+  async function handleRenamePlanet(planetId: string) {
+    const nextName = normalizePlanetName(planetNameDrafts[planetId] ?? "");
+    if (!nextName) {
+      return;
+    }
+
+    await mutate(
+      () => patchBootstrap(`/api/planets/${planetId}`, { name: nextName }),
+      applyBootstrap,
+    );
+  }
+
   async function handleSaveProject() {
     if (!selectedProject) {
       return;
@@ -1029,6 +1760,7 @@ function App() {
         {[
           ["log", "Logging"],
           ["overview", "Overview"],
+          ["map", "Map"],
           ["transport", "Transportation"],
           ["projects", "Projects"],
           ["settings", "Settings"],
@@ -1037,7 +1769,7 @@ function App() {
             key={viewKey}
             type="button"
             className={`view-tab ${activeView === viewKey ? "view-tab-active" : ""}`}
-            onClick={() => setActiveView(viewKey as "log" | "overview" | "transport" | "projects" | "settings")}
+            onClick={() => setActiveView(viewKey as "log" | "overview" | "map" | "transport" | "projects" | "settings")}
           >
             {label}
           </button>
@@ -1491,7 +2223,7 @@ function App() {
                         <span>Configured rate / sec</span>
                         <input
                           type="number"
-                          min={0.1}
+                          min={0}
                           step="any"
                           value={output.ratePerSecond}
                           onChange={(event) =>
@@ -1539,6 +2271,7 @@ function App() {
                 <p className="eyebrow">Live Totals</p>
                 <h2>Combined resource progress</h2>
               </div>
+              <span className="helper-text">Click any resource to inspect which systems and planets supply it.</span>
             </div>
             <article className="overview-total-card">
               <div className="overview-total-header">
@@ -1546,8 +2279,8 @@ function App() {
                   <h3>Total throughput</h3>
                   <p>All targeted resources combined, normalized to per-minute output.</p>
                 </div>
-                <div className={`metric-line metric-line-inline ${combinedSupplyPerMinute >= combinedTargetPerMinute && combinedTargetPerMinute > 0 ? "metric-line-done" : ""}`}>
-                  <strong>{formatValue(combinedSupplyPerMinute)}</strong>
+                <div className={`metric-line metric-line-inline ${combinedCappedSupplyPerMinute >= combinedTargetPerMinute && combinedTargetPerMinute > 0 ? "metric-line-done" : ""}`}>
+                  <strong>{formatValue(combinedCappedSupplyPerMinute)}</strong>
                   <span>/ {formatValue(combinedTargetPerMinute)} / min</span>
                 </div>
               </div>
@@ -1556,8 +2289,13 @@ function App() {
               </div>
             </article>
             <div className="resource-grid">
-              {data.summary.resourceSummaries.filter((summary) => summary.goalQuantity > 0 || summary.supplyMetric > 0).map((summary) => (
-                <article key={summary.resourceId} className="resource-card">
+              {overviewResourceSummaries.map((summary) => (
+                <button
+                  key={summary.resourceId}
+                  type="button"
+                  className={`resource-card resource-card-button ${selectedOverviewResourceId === summary.resourceId ? "resource-card-active" : ""}`}
+                  onClick={() => setSelectedOverviewResourceId(summary.resourceId)}
+                >
                   <div className="resource-card-top">
                     <div className="resource-title">
                       <ResourceIcon
@@ -1588,9 +2326,187 @@ function App() {
                       </span>
                     )}
                   </div>
-                </article>
+                </button>
               ))}
             </div>
+
+            {selectedOverviewSummary ? (
+              <article className="overview-detail-card">
+                <div className="section-heading">
+                  <div>
+                    <p className="eyebrow">Resource origins</p>
+                    <h3>{selectedOverviewSummary.name}</h3>
+                  </div>
+                  <button
+                    type="button"
+                    className="ghost-button"
+                    onClick={() => setSelectedOverviewResourceId("")}
+                  >
+                    Close
+                  </button>
+                </div>
+
+                <div className="overview-detail-summary">
+                  <div className="entry-stat">
+                    <span>Total tracked</span>
+                    <strong>{formatValue(selectedOverviewSummary.supplyMetric)}</strong>
+                    <span>{selectedOverviewSummary.goalUnitLabel}</span>
+                  </div>
+                  <div className="entry-stat">
+                    <span>Active setups</span>
+                    <strong>{selectedOverviewSummary.placementCount}</strong>
+                    <span>Logged locations</span>
+                  </div>
+                  <div className="entry-stat">
+                    <span>Throughput</span>
+                    <strong>{formatValue(selectedOverviewSummary.supplyPerMinute)}</strong>
+                    <span>/ min</span>
+                  </div>
+                </div>
+
+                {selectedOverviewBreakdown && (selectedOverviewBreakdown.systems.length > 0 || selectedOverviewBreakdown.planets.length > 0) ? (
+                  <div className="overview-breakdown-grid">
+                    <section className="overview-breakdown-panel">
+                      <div className="overview-breakdown-heading">
+                        <h4>By system</h4>
+                        <span>{selectedOverviewBreakdown.systems.length} systems</span>
+                      </div>
+                      <div className="overview-breakdown-list">
+                        {selectedOverviewBreakdown.systems.map((row) => (
+                          <article key={row.id} className="overview-breakdown-row">
+                            <div className="overview-breakdown-row-top">
+                              <div>
+                                <strong>{row.name}</strong>
+                              </div>
+                              <div className="overview-breakdown-values">
+                                <strong>{formatFixedValue(row.percentOfTotal, 1)}%</strong>
+                                <span>{formatValue(row.supplyMetric)} {selectedOverviewSummary.goalUnitLabel}</span>
+                              </div>
+                            </div>
+                            <div className="progress-rail overview-breakdown-bar">
+                              <span style={{ width: `${row.percentOfTotal}%` }} />
+                            </div>
+                            <div className="resource-meta">
+                              <span>{getBreakdownSecondaryText(selectedOverviewSummary, row)}</span>
+                              <span>{row.placementCount} setups</span>
+                            </div>
+                          </article>
+                        ))}
+                      </div>
+                    </section>
+
+                    <section className="overview-breakdown-panel">
+                      <div className="overview-breakdown-heading">
+                        <h4>By planet</h4>
+                        <span>{selectedOverviewBreakdown.planets.length} planets</span>
+                      </div>
+                      <div className="overview-breakdown-list">
+                        {selectedOverviewBreakdown.planets.map((row) => (
+                          <article key={row.id} className="overview-breakdown-row">
+                            <div className="overview-breakdown-row-top">
+                              <div>
+                                <strong>{row.name}</strong>
+                                <span>{row.context}</span>
+                              </div>
+                              <div className="overview-breakdown-values">
+                                <strong>{formatFixedValue(row.percentOfTotal, 1)}%</strong>
+                                <span>{formatValue(row.supplyMetric)} {selectedOverviewSummary.goalUnitLabel}</span>
+                              </div>
+                            </div>
+                            <div className="progress-rail overview-breakdown-bar">
+                              <span style={{ width: `${row.percentOfTotal}%` }} />
+                            </div>
+                            <div className="resource-meta">
+                              <span>{getBreakdownSecondaryText(selectedOverviewSummary, row)}</span>
+                              <span>{row.placementCount} setups</span>
+                            </div>
+                          </article>
+                        ))}
+                      </div>
+                    </section>
+                  </div>
+                ) : (
+                  <p className="empty-state">No supply sources are logged for this resource yet.</p>
+                )}
+              </article>
+            ) : (
+              <p className="empty-state">Select a resource card to open its planet and system breakdown.</p>
+            )}
+          </section>
+          )}
+
+          {activeView === "map" && (
+          <section className="panel">
+            <div className="section-heading">
+              <div>
+                <p className="eyebrow">Star Map</p>
+                <h2>Systems and planets</h2>
+              </div>
+              <span className="helper-text">Select a system or planet to inspect extraction and manage its name.</span>
+            </div>
+
+            {mapSystemCards.length > 0 ? (
+              <div className="map-system-grid">
+                {mapSystemCards.map(({ solarSystem, planets, extractionSiteCount, activePlanetCount }) => {
+                  const isSystemSelected =
+                    selectedMapSelection.scope === "system" && selectedMapSelection.id === solarSystem.id;
+
+                  return (
+                    <section
+                      key={solarSystem.id}
+                      className={`map-system-card ${isSystemSelected ? "map-system-card-active" : ""}`}
+                    >
+                      <button
+                        type="button"
+                        className="map-system-button"
+                        onClick={() => setSelectedMapSelection({ scope: "system", id: solarSystem.id })}
+                      >
+                        <div>
+                          <p className="ledger-system-name">Solar system</p>
+                          <h3>{solarSystem.name}</h3>
+                        </div>
+                        <div className="map-system-meta">
+                          <span>{planets.length} planets</span>
+                          <span>{extractionSiteCount} sites</span>
+                          <span>{activePlanetCount} active</span>
+                        </div>
+                      </button>
+
+                      <div className="map-planet-list">
+                        {planets.length > 0 ? (
+                          planets.map((planet) => {
+                            const isPlanetSelected =
+                              selectedMapSelection.scope === "planet" && selectedMapSelection.id === planet.id;
+                            const siteCount = extractionSiteCountByPlanetId.get(planet.id) ?? 0;
+
+                            return (
+                              <button
+                                key={planet.id}
+                                type="button"
+                                className={`map-planet-button ${isPlanetSelected ? "map-planet-button-active" : ""}`}
+                                onClick={() => setSelectedMapSelection({ scope: "planet", id: planet.id })}
+                              >
+                                <div className="map-planet-copy">
+                                  <strong>{planet.name}</strong>
+                                  <span>
+                                    {planet.planet_type === "gas_giant" ? "Gas giant" : "Solid planet"} | {siteCount} sites
+                                  </span>
+                                </div>
+                                {planet.id === data.settings.currentPlanetId && <span className="resource-badge">Current</span>}
+                              </button>
+                            );
+                          })
+                        ) : (
+                          <p className="helper-text">No planets in this system yet.</p>
+                        )}
+                      </div>
+                    </section>
+                  );
+                })}
+              </div>
+            ) : (
+              <p className="empty-state">Add a solar system from the logging tab to start building your map.</p>
+            )}
           </section>
           )}
 
@@ -2146,8 +3062,201 @@ function App() {
           )}
         </div>
 
-        {(activeView === "projects" || activeView === "settings") && (
+        {(activeView === "map" || activeView === "projects" || activeView === "settings") && (
         <aside className="sidebar-column">
+          {activeView === "map" && (
+          <>
+            <section className="panel">
+              <div className="section-heading">
+                <div>
+                  <p className="eyebrow">Selection</p>
+                  <h2>{selectedMapSelection.scope === "planet" ? "Planet details" : "System details"}</h2>
+                </div>
+              </div>
+
+              {selectedMapPlanet || selectedMapSystem ? (
+                <>
+                  <div className="map-detail-header">
+                    <div>
+                      <p className="eyebrow">{selectedMapPlanet ? "Planet" : "Solar System"}</p>
+                      <h3>{selectedMapPlanet?.name ?? selectedMapSystem?.name}</h3>
+                      <p className="helper-text">
+                        {selectedMapPlanet
+                          ? `${selectedMapParentSystem?.name ?? "Unknown System"} | ${
+                              selectedMapPlanet.planet_type === "gas_giant" ? "Gas giant" : "Solid planet"
+                            }`
+                          : `${selectedMapPlanetIds.length} planets in this system`}
+                      </p>
+                    </div>
+                    {selectedMapSystem?.id === data.settings.currentSolarSystemId && (
+                      <span className="resource-badge">Current system</span>
+                    )}
+                  </div>
+
+                  <div className="map-stat-grid">
+                    <article className="map-stat-card">
+                      <span>{selectedMapPlanet ? "Planet type" : "Planets"}</span>
+                      <strong>{selectedMapPlanet ? (selectedMapPlanet.planet_type === "gas_giant" ? "Gas giant" : "Solid") : selectedMapPlanetIds.length}</strong>
+                    </article>
+                    <article className="map-stat-card">
+                      <span>Extraction sites</span>
+                      <strong>{selectedMapExtractionSiteCount}</strong>
+                    </article>
+                    <article className="map-stat-card">
+                      <span>Tracked resources</span>
+                      <strong>{selectedMapExtraction.resourceRows.length}</strong>
+                    </article>
+                    <article className="map-stat-card">
+                      <span>Extraction power demand</span>
+                      <strong>{formatValue(selectedMapPowerDemandMw, 2)} MW</strong>
+                    </article>
+                  </div>
+
+                  <div className="divider" />
+
+                  {selectedMapSystem && (
+                    <>
+                      <label className="field">
+                        <span>System name</span>
+                        <input
+                          value={systemNameDrafts[selectedMapSystem.id] ?? selectedMapSystem.name}
+                          onChange={(event) =>
+                            setSystemNameDrafts((current) => ({
+                              ...current,
+                              [selectedMapSystem.id]: event.target.value,
+                            }))
+                          }
+                          disabled={busy}
+                        />
+                      </label>
+                      <div className="admin-actions">
+                        <button
+                          type="button"
+                          className="primary-button"
+                          onClick={() => void handleRenameSystem(selectedMapSystem.id)}
+                          disabled={busy || !(systemNameDrafts[selectedMapSystem.id] ?? selectedMapSystem.name).trim()}
+                        >
+                          Save system name
+                        </button>
+                        <button
+                          type="button"
+                          className="ghost-button"
+                          onClick={() => void confirmAndDelete(`/api/systems/${selectedMapSystem.id}`, `solar system ${selectedMapSystem.name}`)}
+                        >
+                          Delete system
+                        </button>
+                      </div>
+                    </>
+                  )}
+
+                  {selectedMapPlanet && (
+                    <>
+                      <label className="field">
+                        <span>Planet name</span>
+                        <input
+                          value={planetNameDrafts[selectedMapPlanet.id] ?? selectedMapPlanet.name}
+                          onChange={(event) =>
+                            setPlanetNameDrafts((current) => ({
+                              ...current,
+                              [selectedMapPlanet.id]: event.target.value.replace(/\s{2,}/g, " "),
+                            }))
+                          }
+                          disabled={busy}
+                        />
+                      </label>
+                      <div className="admin-actions">
+                        <button
+                          type="button"
+                          className="primary-button"
+                          onClick={() => void handleRenamePlanet(selectedMapPlanet.id)}
+                          disabled={busy || !normalizePlanetName(planetNameDrafts[selectedMapPlanet.id] ?? selectedMapPlanet.name)}
+                        >
+                          Save planet name
+                        </button>
+                        <button
+                          type="button"
+                          className="ghost-button"
+                          onClick={() => void confirmAndDelete(`/api/planets/${selectedMapPlanet.id}`, `planet ${selectedMapPlanet.name}`)}
+                        >
+                          Delete planet
+                        </button>
+                      </div>
+                    </>
+                  )}
+                </>
+              ) : (
+                <p className="empty-state">Choose a system or planet from the map to inspect it here.</p>
+              )}
+            </section>
+
+            <section className="panel">
+              <div className="section-heading">
+                <div>
+                  <p className="eyebrow">Extraction</p>
+                  <h2>Resource rollup</h2>
+                </div>
+              </div>
+
+              {selectedMapExtraction.resourceRows.length > 0 ? (
+                <div className="map-resource-list">
+                  {selectedMapExtraction.resourceRows.map((row) => (
+                    <article key={row.resourceId} className="map-resource-row">
+                      <div className="map-resource-title">
+                        <ResourceIcon
+                          name={row.name}
+                          iconUrl={row.iconUrl}
+                          colorStart={row.colorStart}
+                          colorEnd={row.colorEnd}
+                          size="sm"
+                        />
+                        <div>
+                          <strong>{row.name}</strong>
+                          <span>{row.placementCount} setups</span>
+                        </div>
+                      </div>
+                      <div className="map-resource-values">
+                        <strong>{describeExtractionRollup(row)}</strong>
+                      </div>
+                    </article>
+                  ))}
+                </div>
+              ) : (
+                <p className="empty-state">No extraction is logged for this selection yet.</p>
+              )}
+            </section>
+
+            <section className="panel">
+              <div className="section-heading">
+                <div>
+                  <p className="eyebrow">Activity</p>
+                  <h2>Logged extraction sites</h2>
+                </div>
+              </div>
+
+              {selectedMapExtraction.activityRows.length > 0 ? (
+                <div className="map-activity-list">
+                  {selectedMapExtraction.activityRows.map((row) => (
+                    <article key={`${row.kind}:${row.id}`} className="map-activity-row">
+                      <div className="map-activity-copy">
+                        <div className="map-activity-top">
+                          <strong>{row.title}</strong>
+                          <span>{row.kind === "gas" ? "Gas giant" : row.kind === "oil" ? "Oil" : row.kind === "liquid" ? "Liquid" : "Ore"}</span>
+                        </div>
+                        <p>{row.detail}</p>
+                        <span className="helper-text">
+                          {selectedMapPlanet ? row.systemName : `${row.systemName} | ${row.planetName}`}
+                        </span>
+                      </div>
+                    </article>
+                  ))}
+                </div>
+              ) : (
+                <p className="empty-state">No extraction sites are attached to this system or planet yet.</p>
+              )}
+            </section>
+          </>
+          )}
+
           {activeView === "settings" && (
           <section className="panel">
             <div className="section-heading">
@@ -2282,64 +3391,6 @@ function App() {
           </section>
           )}
 
-          {activeView === "settings" && (
-          <section className="panel">
-            <div className="section-heading">
-              <div>
-                <p className="eyebrow">Map</p>
-                <h2>Systems and planets</h2>
-              </div>
-            </div>
-            <div className="admin-stack">
-              {data.solarSystems.map((solarSystem) => {
-                const systemPlanets = data.planets.filter((planet) => planet.solar_system_id === solarSystem.id);
-
-                return (
-                  <section key={solarSystem.id} className="admin-card">
-                    <div className="admin-row">
-                      <div>
-                        <strong>{solarSystem.name}</strong>
-                        <span>{systemPlanets.length} planets</span>
-                      </div>
-                      <button
-                        type="button"
-                        className="ghost-button"
-                        onClick={() => void confirmAndDelete(`/api/systems/${solarSystem.id}`, `solar system ${solarSystem.name}`)}
-                      >
-                        Delete system
-                      </button>
-                    </div>
-                    <div className="admin-stack">
-                      {systemPlanets.length > 0 ? (
-                        systemPlanets
-                          .slice()
-                          .sort((left, right) => left.name.localeCompare(right.name))
-                          .map((planet) => (
-                            <div key={planet.id} className="admin-row">
-                              <div>
-                                <strong>{planet.name}</strong>
-                                {planet.planet_type === "gas_giant" && <span>Gas giant</span>}
-                              </div>
-                              <button
-                                type="button"
-                                className="ghost-button"
-                                onClick={() => void confirmAndDelete(`/api/planets/${planet.id}`, `planet ${planet.name}`)}
-                              >
-                                Delete planet
-                              </button>
-                            </div>
-                          ))
-                      ) : (
-                        <p className="helper-text">No planets in this system yet.</p>
-                      )}
-                    </div>
-                  </section>
-                );
-              })}
-            </div>
-          </section>
-          )}
-
           {activeView === "projects" && (
           <section className="panel">
             <div className="section-heading">
@@ -2371,7 +3422,7 @@ function App() {
                 </label>
                 <label className="field">
                   <span>Notes</span>
-                  <textarea value={projectNotesDraft} onChange={(event) => setProjectNotesDraft(event.target.value)} rows={3} />
+                  <AutoGrowTextarea value={projectNotesDraft} onChange={(event) => setProjectNotesDraft(event.target.value)} rows={3} />
                 </label>
                 <label className="toggle-field">
                   <input type="checkbox" checked={projectActiveDraft} onChange={(event) => setProjectActiveDraft(event.target.checked)} />
@@ -2425,7 +3476,7 @@ function App() {
             </label>
             <label className="field">
               <span>Notes</span>
-              <textarea value={newProjectNotes} onChange={(event) => setNewProjectNotes(event.target.value)} rows={2} />
+              <AutoGrowTextarea value={newProjectNotes} onChange={(event) => setNewProjectNotes(event.target.value)} rows={2} />
             </label>
             <button type="button" className="ghost-button full-width" onClick={() => void handleCreateProject()} disabled={busy}>
               Create project
