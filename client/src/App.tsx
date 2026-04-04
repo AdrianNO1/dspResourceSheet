@@ -1,5 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
-import type { ChangeEvent, TextareaHTMLAttributes } from "react";
+import type { ChangeEvent, DragEvent as ReactDragEvent, TextareaHTMLAttributes } from "react";
 import "./App.css";
 import { ResourceIcon } from "./components/ResourceIcon";
 import { ResourceSelect } from "./components/ResourceSelect";
@@ -889,6 +889,81 @@ function AutoGrowTextarea({ onChange, ...props }: TextareaHTMLAttributes<HTMLTex
   }
 
   return <textarea {...props} ref={textareaRef} onChange={handleChange} />;
+}
+
+type FileDropInputProps = {
+  accept: string;
+  description: string;
+  disabled?: boolean;
+  label: string;
+  onSelect: (file: File | undefined) => void;
+};
+
+function FileDropInput({ accept, description, disabled = false, label, onSelect }: FileDropInputProps) {
+  const inputRef = useRef<HTMLInputElement | null>(null);
+  const [isDragging, setIsDragging] = useState(false);
+
+  function handleFiles(fileList: FileList | null) {
+    const file = fileList?.[0];
+    onSelect(file);
+    if (inputRef.current) {
+      inputRef.current.value = "";
+    }
+  }
+
+  function handleDragOver(event: ReactDragEvent<HTMLDivElement>) {
+    event.preventDefault();
+    if (!disabled) {
+      setIsDragging(true);
+    }
+  }
+
+  function handleDragLeave(event: ReactDragEvent<HTMLDivElement>) {
+    event.preventDefault();
+    if (!event.currentTarget.contains(event.relatedTarget as Node | null)) {
+      setIsDragging(false);
+    }
+  }
+
+  function handleDrop(event: ReactDragEvent<HTMLDivElement>) {
+    event.preventDefault();
+    setIsDragging(false);
+    if (disabled) {
+      return;
+    }
+
+    handleFiles(event.dataTransfer.files);
+  }
+
+  return (
+    <div
+      className={`file-drop ${isDragging ? "file-drop-active" : ""} ${disabled ? "file-drop-disabled" : ""}`}
+      onDragOver={handleDragOver}
+      onDragEnter={handleDragOver}
+      onDragLeave={handleDragLeave}
+      onDrop={handleDrop}
+    >
+      <input
+        ref={inputRef}
+        className="visually-hidden"
+        type="file"
+        accept={accept}
+        disabled={disabled}
+        onChange={(event) => handleFiles(event.target.files)}
+      />
+      <button
+        type="button"
+        className="file-drop-surface"
+        onClick={() => inputRef.current?.click()}
+        disabled={disabled}
+      >
+        <span className="file-drop-kicker">{label}</span>
+        <strong className="file-drop-title">Drop a file here</strong>
+        <p className="file-drop-description">{description}</p>
+        <span className="file-drop-action">Browse files</span>
+      </button>
+    </div>
+  );
 }
 
 function App() {
@@ -4163,6 +4238,22 @@ function App() {
             <button type="button" className="ghost-button full-width" onClick={() => void handleCreateProject()} disabled={busy}>
               Create project
             </button>
+
+            <div className="divider" />
+
+            <div className="section-heading compact-section-heading">
+              <div>
+                <p className="eyebrow">Import</p>
+                <h3>New project from CSV</h3>
+              </div>
+            </div>
+            <FileDropInput
+              accept=".csv,text/csv"
+              description="Drop a FactorioLab CSV here to create a project from raw-resource requirements only."
+              disabled={busy}
+              label="Project CSV"
+              onSelect={(file) => void handleProjectCsvImport(file)}
+            />
           </section>
           )}
 
@@ -4218,17 +4309,16 @@ function App() {
                 <h2>Import / export</h2>
               </div>
             </div>
-            <label className="file-input">
-              <span>Import project CSV</span>
-              <input type="file" accept=".csv,text/csv" onChange={(event) => void handleProjectCsvImport(event.target.files?.[0])} />
-            </label>
             <button type="button" className="primary-button full-width" onClick={() => void handleExport()} disabled={busy}>
               Export JSON snapshot
             </button>
-            <label className="file-input">
-              <span>Import snapshot</span>
-              <input type="file" accept=".json,application/json" onChange={(event) => void handleImport(event.target.files?.[0])} />
-            </label>
+            <FileDropInput
+              accept=".json,application/json"
+              description="Drop a snapshot backup here to replace the current local dataset."
+              disabled={busy}
+              label="Snapshot JSON"
+              onSelect={(file) => void handleImport(file)}
+            />
           </section>
           )}
         </aside>
