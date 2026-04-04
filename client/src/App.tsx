@@ -8,6 +8,7 @@ import {
   getAdvancedMinerOutputPerMinute,
   getAdvancedMinerPowerMw,
   getItemsPerMinutePerVessel,
+  getMultiSourceTransportPlan,
   getOilOutputPerSecond,
   getOrbitalCollectorTrueBoost,
   getPumpOutputPerMinute,
@@ -79,6 +80,25 @@ type ResourceOriginBreakdownRow = {
   supplyPerSecond: number;
   placementCount: number;
   percentOfTotal: number;
+};
+
+type ResourceOriginTransportSource = {
+  id: string;
+  name: string;
+  context: string;
+  systemId: string;
+  systemName: string;
+  supplyMetric: number;
+  supplyPerMinute: number;
+  supplyPerSecond: number;
+  placementCount: number;
+};
+
+type OverviewTransportSystemRow = {
+  systemId: string;
+  systemName: string;
+  planetCount: number;
+  supplyPerMinute: number;
 };
 
 type MapSelection = {
@@ -370,17 +390,15 @@ function getBreakdownSecondaryText(summary: ResourceSummary, row: ResourceOrigin
   return `${formatValue(row.supplyPerSecond)} / sec | ${formatValue(row.supplyPerMinute)} / min`;
 }
 
-function getResourceOriginBreakdown(
+function getResourceOriginEntries(
   data: BootstrapData,
   summary: ResourceSummary,
   oreMinerLookup: Record<string, OreVeinMiner[]>,
   gasOutputLookup: Record<string, GasGiantOutput[]>,
   resourceLookup: Map<string, ResourceDefinition>,
   planetLookup: Map<string, Planet>,
-  systemLookup: Map<string, { id: string; name: string }>,
 ) {
   const originEntries: ResourceOriginEntry[] = [];
-  const totalMetric = summary.supplyMetric;
 
   for (const vein of data.oreVeins) {
     if (vein.resource_id !== summary.resourceId) {
@@ -505,6 +523,28 @@ function getResourceOriginBreakdown(
     }
   }
 
+  return originEntries;
+}
+
+function getResourceOriginBreakdown(
+  data: BootstrapData,
+  summary: ResourceSummary,
+  oreMinerLookup: Record<string, OreVeinMiner[]>,
+  gasOutputLookup: Record<string, GasGiantOutput[]>,
+  resourceLookup: Map<string, ResourceDefinition>,
+  planetLookup: Map<string, Planet>,
+  systemLookup: Map<string, { id: string; name: string }>,
+) {
+  const originEntries = getResourceOriginEntries(
+    data,
+    summary,
+    oreMinerLookup,
+    gasOutputLookup,
+    resourceLookup,
+    planetLookup,
+  );
+  const totalMetric = summary.supplyMetric;
+
   type AggregateRecord = {
     id: string;
     name: string;
@@ -574,6 +614,73 @@ function getResourceOriginBreakdown(
     systems: finalizeRows(systemAggregates),
     planets: finalizeRows(planetAggregates),
   };
+}
+
+function getResourceOriginTransportSources(
+  data: BootstrapData,
+  summary: ResourceSummary,
+  oreMinerLookup: Record<string, OreVeinMiner[]>,
+  gasOutputLookup: Record<string, GasGiantOutput[]>,
+  resourceLookup: Map<string, ResourceDefinition>,
+  planetLookup: Map<string, Planet>,
+  systemLookup: Map<string, { id: string; name: string }>,
+) {
+  const originEntries = getResourceOriginEntries(
+    data,
+    summary,
+    oreMinerLookup,
+    gasOutputLookup,
+    resourceLookup,
+    planetLookup,
+  );
+
+  const aggregates = new Map<
+    string,
+    Omit<ResourceOriginTransportSource, "placementCount"> & {
+      placementIds: Set<string>;
+    }
+  >();
+
+  for (const entry of originEntries) {
+    const planet = planetLookup.get(entry.planetId);
+    if (!planet) {
+      continue;
+    }
+
+    const systemName = systemLookup.get(entry.systemId)?.name ?? "Unknown System";
+    const context = planet.planet_type === "gas_giant" ? `${systemName} | gas giant` : systemName;
+    const aggregate = aggregates.get(entry.planetId) ?? {
+      id: entry.planetId,
+      name: planet.name,
+      context,
+      systemId: entry.systemId,
+      systemName,
+      supplyMetric: 0,
+      supplyPerMinute: 0,
+      supplyPerSecond: 0,
+      placementIds: new Set<string>(),
+    };
+
+    aggregate.supplyMetric += entry.supplyMetric;
+    aggregate.supplyPerMinute += entry.supplyPerMinute;
+    aggregate.supplyPerSecond += entry.supplyPerSecond;
+    aggregate.placementIds.add(entry.placementId);
+    aggregates.set(entry.planetId, aggregate);
+  }
+
+  return Array.from(aggregates.values())
+    .map<ResourceOriginTransportSource>((aggregate) => ({
+      id: aggregate.id,
+      name: aggregate.name,
+      context: aggregate.context,
+      systemId: aggregate.systemId,
+      systemName: aggregate.systemName,
+      supplyMetric: aggregate.supplyMetric,
+      supplyPerMinute: aggregate.supplyPerMinute,
+      supplyPerSecond: aggregate.supplyPerSecond,
+      placementCount: aggregate.placementIds.size,
+    }))
+    .sort((left, right) => right.supplyPerMinute - left.supplyPerMinute || left.name.localeCompare(right.name));
 }
 
 function formatValue(value: number, digits = 1) {
@@ -672,11 +779,12 @@ function getSystemPairKey(systemAId: string, systemBId: string) {
 }
 
 function getProgressPercent(summary: ResourceSummary) {
-  if (summary.goalQuantity <= 0) {
+  const targetPerMinute = getSummaryTargetPerMinute(summary);
+  if (targetPerMinute <= 0) {
     return 0;
   }
 
-  return Math.min(100, (summary.supplyMetric / summary.goalQuantity) * 100);
+  return Math.min(100, (summary.supplyPerMinute / targetPerMinute) * 100);
 }
 
 function getSummaryTargetPerMinute(summary: ResourceSummary) {
@@ -685,6 +793,40 @@ function getSummaryTargetPerMinute(summary: ResourceSummary) {
   }
 
   return summary.type === "ore_vein" ? summary.goalQuantity * 30 : summary.goalQuantity;
+}
+
+function getDefaultGasOutputs(resources: ResourceDefinition[]) {
+  const hydrogen = resources.find((resource) => resource.name === "Hydrogen");
+  const deuterium = resources.find((resource) => resource.name === "Deuterium");
+  const defaults = [hydrogen, deuterium].filter((resource): resource is ResourceDefinition => resource !== undefined);
+
+  if (defaults.length >= 2) {
+    return defaults.slice(0, 2).map((resource) => ({
+      resourceId: resource.id,
+      ratePerSecond: 1,
+    }));
+  }
+
+  if (resources.length >= 2) {
+    return resources.slice(0, 2).map((resource) => ({
+      resourceId: resource.id,
+      ratePerSecond: 1,
+    }));
+  }
+
+  if (resources[0]) {
+    return [
+      {
+        resourceId: resources[0].id,
+        ratePerSecond: 1,
+      },
+    ];
+  }
+
+  return [
+    { resourceId: "", ratePerSecond: 1 },
+    { resourceId: "", ratePerSecond: 1 },
+  ];
 }
 
 function getOreVeinOutputPerMinute(miners: OreVeinMiner[], miningResearchBonusPercent: number) {
@@ -749,6 +891,7 @@ function AutoGrowTextarea({ onChange, ...props }: TextareaHTMLAttributes<HTMLTex
 }
 
 function App() {
+  const overviewTransportDistanceSaveTimersRef = useRef<Record<string, number>>({});
   const [data, setData] = useState<BootstrapData | null>(null);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
@@ -757,6 +900,10 @@ function App() {
   const [activeView, setActiveView] = useState<"log" | "overview" | "map" | "transport" | "projects" | "settings">("log");
   const [showAllLedger, setShowAllLedger] = useState(true);
   const [selectedOverviewResourceId, setSelectedOverviewResourceId] = useState("");
+  const [isOverviewTransportModalOpen, setIsOverviewTransportModalOpen] = useState(false);
+  const [overviewTransportTargetSystemId, setOverviewTransportTargetSystemId] = useState("");
+  const [overviewTransportThroughputPerMinute, setOverviewTransportThroughputPerMinute] = useState(0);
+  const [overviewTransportDistanceDrafts, setOverviewTransportDistanceDrafts] = useState<Record<string, number>>({});
   const [selectedProjectId, setSelectedProjectId] = useState("");
   const [selectedMapSelection, setSelectedMapSelection] = useState<MapSelection>({ scope: "system", id: "" });
 
@@ -792,7 +939,10 @@ function App() {
   const [oilPerSecond, setOilPerSecond] = useState(0);
 
   const [collectorCount, setCollectorCount] = useState(40);
-  const [gasOutputs, setGasOutputs] = useState<GasOutputDraft[]>([{ resourceId: "", ratePerSecond: 1 }]);
+  const [gasOutputs, setGasOutputs] = useState<GasOutputDraft[]>([
+    { resourceId: "", ratePerSecond: 1 },
+    { resourceId: "", ratePerSecond: 1 },
+  ]);
   const [routeDraft, setRouteDraft] = useState<TransportRouteDraft>({
     sourceSystemId: "",
     destinationSystemId: "",
@@ -871,8 +1021,8 @@ function App() {
       setOilResourceId(oilResources[0].id);
     }
 
-    if (gasResources.length > 0 && !gasOutputs[0]?.resourceId) {
-      setGasOutputs([{ resourceId: gasResources[0].id, ratePerSecond: 1 }]);
+    if (gasResources.length > 0 && gasOutputs.every((output) => !output.resourceId)) {
+      setGasOutputs(getDefaultGasOutputs(gasResources));
     }
 
     if (!routeDraft.resourceId && allResources[0]) {
@@ -927,6 +1077,97 @@ function App() {
       setSelectedOverviewResourceId("");
     }
   }, [data, selectedOverviewResourceId]);
+
+  useEffect(() => {
+    if (!isOverviewTransportModalOpen) {
+      return;
+    }
+
+    const selectedOverviewSummary =
+      data?.summary.resourceSummaries.find((summary) => summary.resourceId === selectedOverviewResourceId) ?? null;
+
+    if (!data || !selectedOverviewSummary) {
+      setIsOverviewTransportModalOpen(false);
+    }
+  }, [data, isOverviewTransportModalOpen, selectedOverviewResourceId]);
+
+  useEffect(() => {
+    if (!data || !isOverviewTransportModalOpen) {
+      return;
+    }
+
+    const hasCurrentTarget = data.solarSystems.some((solarSystem) => solarSystem.id === overviewTransportTargetSystemId);
+    if (hasCurrentTarget) {
+      return;
+    }
+
+    const nextTargetSystemId =
+      data.settings.currentSolarSystemId && data.solarSystems.some((solarSystem) => solarSystem.id === data.settings.currentSolarSystemId)
+        ? data.settings.currentSolarSystemId
+        : data.solarSystems[0]?.id ?? "";
+    setOverviewTransportTargetSystemId(nextTargetSystemId);
+  }, [data, isOverviewTransportModalOpen, overviewTransportTargetSystemId]);
+
+  useEffect(() => {
+    if (!data || !isOverviewTransportModalOpen) {
+      return;
+    }
+
+    const selectedOverviewSummary =
+      data.summary.resourceSummaries.find((summary) => summary.resourceId === selectedOverviewResourceId) ?? null;
+    if (!selectedOverviewSummary) {
+      return;
+    }
+
+    const resourceLookup = new Map(data.resources.map((resource) => [resource.id, resource]));
+    const planetLookup = new Map(data.planets.map((planet) => [planet.id, planet]));
+    const systemLookup = new Map(data.solarSystems.map((solarSystem) => [solarSystem.id, solarSystem]));
+    const oreMinerLookup = data.oreVeinMiners.reduce<Record<string, OreVeinMiner[]>>((acc, miner) => {
+      acc[miner.ore_vein_id] ??= [];
+      acc[miner.ore_vein_id].push(miner);
+      return acc;
+    }, {});
+    const gasOutputLookup = data.gasGiantOutputs.reduce<Record<string, GasGiantOutput[]>>((acc, output) => {
+      acc[output.gas_giant_site_id] ??= [];
+      acc[output.gas_giant_site_id].push(output);
+      return acc;
+    }, {});
+
+    const sources = getResourceOriginTransportSources(
+      data,
+      selectedOverviewSummary,
+      oreMinerLookup,
+      gasOutputLookup,
+      resourceLookup,
+      planetLookup,
+      systemLookup,
+    );
+
+    const uniqueSystemIds = Array.from(new Set(sources.map((source) => source.systemId)));
+    const nextDrafts = uniqueSystemIds.reduce<Record<string, number>>((acc, systemId) => {
+      if (systemId === overviewTransportTargetSystemId) {
+        acc[systemId] = 0;
+        return acc;
+      }
+
+      const existingDistance = data.systemDistances.find(
+        (distance) => getSystemPairKey(distance.system_a_id, distance.system_b_id) === getSystemPairKey(systemId, overviewTransportTargetSystemId),
+      );
+      acc[systemId] = existingDistance ? Number(existingDistance.distance_ly) : 0;
+      return acc;
+    }, {});
+
+    setOverviewTransportDistanceDrafts(nextDrafts);
+  }, [data, isOverviewTransportModalOpen, overviewTransportTargetSystemId, selectedOverviewResourceId]);
+
+  useEffect(() => {
+    const timers = overviewTransportDistanceSaveTimersRef.current;
+    return () => {
+      Object.values(timers).forEach((timerId) => {
+        window.clearTimeout(timerId);
+      });
+    };
+  }, []);
 
   useEffect(() => {
     if (!data || newPlanetName) {
@@ -1050,11 +1291,53 @@ function App() {
   const pendingOreNodeEquivalents = getDraftOreOutputPerMinute(oreMiners, loadedData.settings.miningResearchBonusPercent) / 30;
   const pendingLiquidOutputPerMinute = getPumpOutputPerMinute(pumpCount, loadedData.settings.miningResearchBonusPercent);
   const pendingOilPerMinute = getOilOutputPerSecond(oilPerSecond) * 60;
+  const pendingGasTrueBoost = getOrbitalCollectorTrueBoost(
+    gasOutputs
+      .filter((output) => output.resourceId)
+      .map((output) => ({
+        ratePerSecond: Number(output.ratePerSecond),
+        fuelValueMj: resourceLookup.get(output.resourceId)?.fuel_value_mj ?? 0,
+      })),
+    loadedData.settings.miningResearchBonusPercent,
+  );
+  const pendingGasOutputPerMinuteByResourceId = gasOutputs.reduce<Record<string, number>>((acc, output) => {
+    if (!output.resourceId) {
+      return acc;
+    }
+
+    acc[output.resourceId] = (acc[output.resourceId] ?? 0) + Number(output.ratePerSecond) * pendingGasTrueBoost * collectorCount * 60;
+    return acc;
+  }, {});
+  const gasPreviewRows = Object.entries(pendingGasOutputPerMinuteByResourceId)
+    .map(([resourceId, pendingPerMinute]) => {
+      const summary = loadedData.summary.resourceSummaries.find((item) => item.resourceId === resourceId);
+      const resource = resourceLookup.get(resourceId);
+      if (!summary || !resource) {
+        return null;
+      }
+
+      return {
+        summary,
+        resource,
+        pendingPerMinute,
+      };
+    })
+    .filter((preview): preview is NonNullable<typeof preview> => preview !== null)
+    .sort((left, right) => left.resource.sort_order - right.resource.sort_order || left.resource.name.localeCompare(right.resource.name));
+  const gasPreviewLookup = new Map(
+    gasPreviewRows.map((preview) => [preview.summary.resourceId, preview]),
+  );
   const overviewResourceSummaries = loadedData.summary.resourceSummaries.filter(
     (summary) => summary.goalQuantity > 0 || summary.supplyMetric > 0,
   );
   const selectedOverviewSummary =
     overviewResourceSummaries.find((summary) => summary.resourceId === selectedOverviewResourceId) ?? null;
+  const overviewTransportDefaultThroughputPerMinute = selectedOverviewSummary
+    ? getSummaryTargetPerMinute(selectedOverviewSummary)
+    : 0;
+  const overviewTransportUsesDefault =
+    selectedOverviewSummary !== null &&
+    overviewTransportThroughputPerMinute === overviewTransportDefaultThroughputPerMinute;
   const selectedOverviewBreakdown = selectedOverviewSummary
     ? getResourceOriginBreakdown(
         loadedData,
@@ -1066,6 +1349,96 @@ function App() {
         systemLookup,
       )
     : null;
+  const selectedOverviewTransportSources = selectedOverviewSummary
+    ? getResourceOriginTransportSources(
+        loadedData,
+        selectedOverviewSummary,
+        oreMinerLookup,
+        gasOutputLookup,
+        resourceLookup,
+        planetLookup,
+        systemLookup,
+      )
+    : [];
+  const overviewTransportSystemRows = Array.from(
+    selectedOverviewTransportSources.reduce<Map<string, OverviewTransportSystemRow>>((acc, source) => {
+      const existing = acc.get(source.systemId);
+      if (existing) {
+        existing.planetCount += 1;
+        existing.supplyPerMinute += source.supplyPerMinute;
+        return acc;
+      }
+
+      acc.set(source.systemId, {
+        systemId: source.systemId,
+        systemName: source.systemName,
+        planetCount: 1,
+        supplyPerMinute: source.supplyPerMinute,
+      });
+      return acc;
+    }, new Map()).values(),
+  ).sort((left, right) => left.systemName.localeCompare(right.systemName));
+  const overviewTransportPlan = getMultiSourceTransportPlan(
+    selectedOverviewTransportSources.map((source) => {
+      const draftDistance = overviewTransportDistanceDrafts[source.systemId] ?? 0;
+      const distanceLy =
+        source.systemId === overviewTransportTargetSystemId
+          ? 0
+          : draftDistance > 0
+            ? draftDistance
+            : null;
+
+      return {
+        id: source.id,
+        supplyPerMinute: source.supplyPerMinute,
+        distanceLy,
+      };
+    }),
+    overviewTransportThroughputPerMinute,
+    loadedData.settings.vesselCapacityItems,
+    loadedData.settings.ilsStorageItems,
+    loadedData.settings.vesselSpeedLyPerSecond,
+    loadedData.settings.vesselDockingSeconds,
+  );
+  const overviewTransportPlanRowLookup = new Map(
+    overviewTransportPlan.rows.map((row) => [row.id, row]),
+  );
+  const overviewTransportRows = selectedOverviewTransportSources
+    .map((source) => {
+      const planRow = overviewTransportPlanRowLookup.get(source.id);
+      return {
+        ...source,
+        assignedPerMinute: planRow?.assignedPerMinute ?? 0,
+        utilizationPercent: planRow?.utilizationPercent ?? 0,
+        distanceLy: planRow?.distanceLy ?? null,
+        roundTripSeconds: planRow?.roundTripSeconds ?? null,
+        sourceStationsNeeded: planRow?.sourceStationsNeeded ?? null,
+        targetStationsNeeded: planRow?.targetStationsNeeded ?? null,
+        isComplete: planRow?.isComplete ?? false,
+      };
+    })
+    .sort((left, right) => {
+      const leftDistance = left.distanceLy ?? Number.POSITIVE_INFINITY;
+      const rightDistance = right.distanceLy ?? Number.POSITIVE_INFINITY;
+      return (
+        leftDistance - rightDistance ||
+        right.assignedPerMinute - left.assignedPerMinute ||
+        right.supplyPerMinute - left.supplyPerMinute ||
+        left.name.localeCompare(right.name)
+      );
+    });
+  const overviewTransportTotalSupplyPerMinute = selectedOverviewTransportSources.reduce(
+    (sum, source) => sum + source.supplyPerMinute,
+    0,
+  );
+  const overviewTransportCoveragePercent =
+    overviewTransportPlan.requestedThroughputPerMinute > 0
+      ? Math.min(100, (overviewTransportPlan.assignedThroughputPerMinute / overviewTransportPlan.requestedThroughputPerMinute) * 100)
+      : 0;
+  const overviewTransportIncompleteSystemCount = overviewTransportSystemRows.filter((row) => (
+    row.systemId !== overviewTransportTargetSystemId &&
+    (overviewTransportDistanceDrafts[row.systemId] ?? 0) <= 0
+  )).length;
   const targetedResourceSummaries = loadedData.summary.resourceSummaries.filter((summary) => summary.goalQuantity > 0);
   const combinedTargetPerMinute = targetedResourceSummaries.reduce(
     (sum, summary) => sum + getSummaryTargetPerMinute(summary),
@@ -1601,7 +1974,7 @@ function App() {
       (nextData) => {
         applyBootstrap(nextData);
         setCollectorCount(40);
-        setGasOutputs([{ resourceId: gasResources[0]?.id ?? "", ratePerSecond: 1 }]);
+        setGasOutputs(getDefaultGasOutputs(gasResources));
       },
     );
   }
@@ -1618,6 +1991,50 @@ function App() {
   function cancelDistanceEdit() {
     setEditingDistanceId("");
     setEditingDistanceDraft({ systemAId: "", systemBId: "", distanceLy: 0 });
+  }
+
+  function openOverviewTransportModal() {
+    if (!selectedOverviewSummary) {
+      return;
+    }
+
+    setOverviewTransportTargetSystemId(
+      loadedData.settings.currentSolarSystemId && loadedData.solarSystems.some((solarSystem) => solarSystem.id === loadedData.settings.currentSolarSystemId)
+        ? loadedData.settings.currentSolarSystemId
+        : loadedData.solarSystems[0]?.id ?? "",
+    );
+    setOverviewTransportThroughputPerMinute(overviewTransportDefaultThroughputPerMinute);
+    setOverviewTransportDistanceDrafts({});
+    setIsOverviewTransportModalOpen(true);
+  }
+
+  function closeOverviewTransportModal() {
+    setIsOverviewTransportModalOpen(false);
+  }
+
+  function queueOverviewTransportDistanceSave(sourceSystemId: string, distanceLy: number) {
+    const existingTimerId = overviewTransportDistanceSaveTimersRef.current[sourceSystemId];
+    if (existingTimerId) {
+      window.clearTimeout(existingTimerId);
+    }
+
+    if (!overviewTransportTargetSystemId || sourceSystemId === overviewTransportTargetSystemId || distanceLy <= 0) {
+      delete overviewTransportDistanceSaveTimersRef.current[sourceSystemId];
+      return;
+    }
+
+    overviewTransportDistanceSaveTimersRef.current[sourceSystemId] = window.setTimeout(() => {
+      delete overviewTransportDistanceSaveTimersRef.current[sourceSystemId];
+      void mutate(
+        () =>
+          postBootstrap("/api/system-distances", {
+            systemAId: sourceSystemId,
+            systemBId: overviewTransportTargetSystemId,
+            distanceLy,
+          }),
+        applyBootstrap,
+      );
+    }, 350);
   }
 
   async function handleCreateSystemDistance() {
@@ -2219,6 +2636,23 @@ function App() {
                           disabled={busy}
                         />
                       </label>
+                      {(() => {
+                        const preview = output.resourceId ? gasPreviewLookup.get(output.resourceId) : null;
+                        const goalReached = preview ? preview.summary.supplyMetric + preview.pendingPerMinute >= preview.summary.goalQuantity : false;
+
+                        return (
+                          <div className="gas-output-preview">
+                            <div className={`gas-output-preview-stat ${goalReached ? "gas-output-preview-stat-done" : ""}`}>
+                              <span>Current</span>
+                              <strong>{preview ? formatCurrentWithPending(preview.summary.supplyMetric, preview.pendingPerMinute) : "Incomplete"}</strong>
+                            </div>
+                            <div className={`gas-output-preview-stat ${goalReached ? "gas-output-preview-stat-done" : ""}`}>
+                              <span>Target</span>
+                              <strong>{preview ? formatValue(preview.summary.goalQuantity) : "Incomplete"}</strong>
+                            </div>
+                          </div>
+                        );
+                      })()}
                       <label className="field">
                         <span>Configured rate / sec</span>
                         <input
@@ -2251,7 +2685,12 @@ function App() {
                   <button
                     type="button"
                     className="ghost-button"
-                    onClick={() => setGasOutputs((current) => [...current, { resourceId: gasResources[0]?.id ?? "", ratePerSecond: 1 }])}
+                    onClick={() =>
+                      setGasOutputs((current) => [
+                        ...current,
+                        { resourceId: gasResources.find((resource) => !current.some((entry) => entry.resourceId === resource.id))?.id ?? gasResources[0]?.id ?? "", ratePerSecond: 1 },
+                      ])
+                    }
                   >
                     Add output
                   </button>
@@ -2306,14 +2745,14 @@ function App() {
                       />
                       <div>
                         <h3>{summary.name}</h3>
-                        <p>{summary.goalUnitLabel}</p>
+                        <p>Per minute</p>
                       </div>
                     </div>
                   </div>
 
-                  <div className={`metric-line metric-line-inline ${summary.supplyMetric >= summary.goalQuantity ? "metric-line-done" : ""}`}>
-                    <strong>{formatValue(summary.supplyMetric)}</strong>
-                    <span>/ {formatValue(summary.goalQuantity)}</span>
+                  <div className={`metric-line metric-line-inline ${summary.supplyPerMinute >= getSummaryTargetPerMinute(summary) && getSummaryTargetPerMinute(summary) > 0 ? "metric-line-done" : ""}`}>
+                    <strong>{formatValue(summary.supplyPerMinute)}</strong>
+                    <span>/ {formatValue(getSummaryTargetPerMinute(summary))} / min</span>
                   </div>
                   <div className="progress-rail">
                     <span style={{ width: `${getProgressPercent(summary)}%` }} />
@@ -2337,20 +2776,30 @@ function App() {
                     <p className="eyebrow">Resource origins</p>
                     <h3>{selectedOverviewSummary.name}</h3>
                   </div>
-                  <button
-                    type="button"
-                    className="ghost-button"
-                    onClick={() => setSelectedOverviewResourceId("")}
-                  >
-                    Close
-                  </button>
+                  <div className="overview-detail-actions">
+                    <button
+                      type="button"
+                      className="primary-button"
+                      onClick={openOverviewTransportModal}
+                      disabled={selectedOverviewTransportSources.length === 0 || loadedData.solarSystems.length === 0}
+                    >
+                      Open transport calc
+                    </button>
+                    <button
+                      type="button"
+                      className="ghost-button"
+                      onClick={() => setSelectedOverviewResourceId("")}
+                    >
+                      Close
+                    </button>
+                  </div>
                 </div>
 
                 <div className="overview-detail-summary">
                   <div className="entry-stat">
-                    <span>Total tracked</span>
-                    <strong>{formatValue(selectedOverviewSummary.supplyMetric)}</strong>
-                    <span>{selectedOverviewSummary.goalUnitLabel}</span>
+                    <span>Project target</span>
+                    <strong>{formatValue(getSummaryTargetPerMinute(selectedOverviewSummary))}</strong>
+                    <span>/ min</span>
                   </div>
                   <div className="entry-stat">
                     <span>Active setups</span>
@@ -2358,7 +2807,7 @@ function App() {
                     <span>Logged locations</span>
                   </div>
                   <div className="entry-stat">
-                    <span>Throughput</span>
+                    <span>Tracked output</span>
                     <strong>{formatValue(selectedOverviewSummary.supplyPerMinute)}</strong>
                     <span>/ min</span>
                   </div>
@@ -2380,7 +2829,7 @@ function App() {
                               </div>
                               <div className="overview-breakdown-values">
                                 <strong>{formatFixedValue(row.percentOfTotal, 1)}%</strong>
-                                <span>{formatValue(row.supplyMetric)} {selectedOverviewSummary.goalUnitLabel}</span>
+                                <span>{formatValue(row.supplyPerMinute)} / min</span>
                               </div>
                             </div>
                             <div className="progress-rail overview-breakdown-bar">
@@ -2410,7 +2859,7 @@ function App() {
                               </div>
                               <div className="overview-breakdown-values">
                                 <strong>{formatFixedValue(row.percentOfTotal, 1)}%</strong>
-                                <span>{formatValue(row.supplyMetric)} {selectedOverviewSummary.goalUnitLabel}</span>
+                                <span>{formatValue(row.supplyPerMinute)} / min</span>
                               </div>
                             </div>
                             <div className="progress-rail overview-breakdown-bar">
@@ -2433,6 +2882,205 @@ function App() {
               <p className="empty-state">Select a resource card to open its planet and system breakdown.</p>
             )}
           </section>
+          )}
+
+          {isOverviewTransportModalOpen && selectedOverviewSummary && (
+            <div className="modal-backdrop" onClick={closeOverviewTransportModal}>
+              <section
+                className="modal-card overview-transport-modal"
+                onClick={(event) => event.stopPropagation()}
+              >
+                <div className="section-heading">
+                  <div>
+                    <p className="eyebrow">Resource transport</p>
+                    <h2>{selectedOverviewSummary.name}</h2>
+                  </div>
+                  <button type="button" className="ghost-button" onClick={closeOverviewTransportModal}>
+                    Close
+                  </button>
+                </div>
+
+                <p className="helper-text">
+                  Closest systems fill first. Sources at the same distance split the remaining demand proportionally to their tracked output.
+                </p>
+
+                <div className="overview-transport-controls">
+                  <label className="field">
+                    <span>Target system</span>
+                    <select
+                      value={overviewTransportTargetSystemId}
+                      onChange={(event) => setOverviewTransportTargetSystemId(event.target.value)}
+                    >
+                      <option value="">Select system</option>
+                      {loadedData.solarSystems.map((solarSystem) => (
+                        <option key={solarSystem.id} value={solarSystem.id}>
+                          {solarSystem.name}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+
+                  <label className="field">
+                    <span>Throughput needed / min</span>
+                    <div className="input-with-hint">
+                      <input
+                        type="number"
+                        min={0}
+                        step="any"
+                        value={overviewTransportThroughputPerMinute}
+                        onChange={(event) => setOverviewTransportThroughputPerMinute(Number(event.target.value))}
+                        className={overviewTransportUsesDefault ? "input-with-inline-tag" : ""}
+                      />
+                      {overviewTransportUsesDefault && <span className="input-inline-hint">(default)</span>}
+                    </div>
+                  </label>
+                </div>
+
+                <div className="overview-transport-stat-grid">
+                  <div className="entry-stat">
+                    <span>Requested</span>
+                    <strong>{formatValue(overviewTransportPlan.requestedThroughputPerMinute)}</strong>
+                    <span>/ min</span>
+                  </div>
+                  <div className="entry-stat">
+                    <span>Assigned</span>
+                    <strong>{formatValue(overviewTransportPlan.assignedThroughputPerMinute)}</strong>
+                    <span>{formatFixedValue(overviewTransportCoveragePercent, 1)}% coverage</span>
+                  </div>
+                  <div className="entry-stat">
+                    <span>Target ILS needed</span>
+                    <strong>{formatFixedValue(overviewTransportPlan.totalTargetStationsNeeded, 1)}</strong>
+                    <span>Raw requirement</span>
+                  </div>
+                  <div className="entry-stat">
+                    <span>Total tracked supply</span>
+                    <strong>{formatValue(overviewTransportTotalSupplyPerMinute)}</strong>
+                    <span>{overviewTransportIncompleteSystemCount} systems need distances</span>
+                  </div>
+                </div>
+
+                {(overviewTransportIncompleteSystemCount > 0 || overviewTransportPlan.remainingThroughputPerMinute > 0) && (
+                  <div className="overview-transport-alerts">
+                    {overviewTransportIncompleteSystemCount > 0 && (
+                      <div className="overview-transport-alert">
+                        <strong>Missing distances</strong>
+                        <span>Enter the missing source-system distances below to include every planet in the calculation.</span>
+                      </div>
+                    )}
+                    {overviewTransportPlan.remainingThroughputPerMinute > 0 && (
+                      <div className="overview-transport-alert">
+                        <strong>Uncovered demand</strong>
+                        <span>{formatValue(overviewTransportPlan.remainingThroughputPerMinute)} / min is still uncovered after the current closest-first allocation.</span>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                <div className="overview-transport-grid">
+                  <section className="overview-breakdown-panel">
+                    <div className="overview-breakdown-heading">
+                      <h4>System distances</h4>
+                      <span>{overviewTransportSystemRows.length} source systems</span>
+                    </div>
+
+                    {overviewTransportSystemRows.length > 0 ? (
+                      <div className="overview-transport-system-list">
+                        {overviewTransportSystemRows.map((row) => {
+                          const isTargetSystem = row.systemId === overviewTransportTargetSystemId;
+                          const distanceLy = isTargetSystem ? 0 : Number(overviewTransportDistanceDrafts[row.systemId] ?? 0);
+
+                          return (
+                            <article key={row.systemId} className="overview-transport-system-row">
+                              <div className="overview-transport-system-copy">
+                                <strong>{row.systemName}</strong>
+                                <span>{row.planetCount} planets | {formatValue(row.supplyPerMinute)} / min tracked</span>
+                              </div>
+
+                              {isTargetSystem ? (
+                                <span className="context-chip">Local route (0 ly)</span>
+                              ) : (
+                                <div className="overview-transport-system-actions">
+                                  <label className="field compact-field">
+                                    <span>Distance (ly)</span>
+                                    <input
+                                      type="number"
+                                      min={0}
+                                      step="any"
+                                      value={distanceLy}
+                                      onChange={(event) => {
+                                        const nextDistanceLy = Number(event.target.value);
+                                        setOverviewTransportDistanceDrafts((current) => ({
+                                          ...current,
+                                          [row.systemId]: nextDistanceLy,
+                                        }));
+                                        queueOverviewTransportDistanceSave(row.systemId, nextDistanceLy);
+                                      }}
+                                    />
+                                  </label>
+                                </div>
+                              )}
+                            </article>
+                          );
+                        })}
+                      </div>
+                    ) : (
+                      <p className="empty-state">No supply planets are logged for this resource yet.</p>
+                    )}
+                  </section>
+
+                  <section className="overview-breakdown-panel">
+                    <div className="overview-breakdown-heading">
+                      <h4>Source planets</h4>
+                      <span>{overviewTransportRows.length} planets</span>
+                    </div>
+
+                    {overviewTransportRows.length > 0 ? (
+                      <div className="overview-breakdown-list">
+                        {overviewTransportRows.map((row) => (
+                          <article
+                            key={row.id}
+                            className={`overview-breakdown-row ${row.isComplete ? "" : "overview-transport-row-incomplete"}`}
+                          >
+                            <div className="overview-breakdown-row-top">
+                              <div>
+                                <strong>{row.name}</strong>
+                                <span>{row.context}</span>
+                              </div>
+                              <div className="overview-breakdown-values">
+                                <strong>{formatFixedValue(row.utilizationPercent, 1)}%</strong>
+                                <span>{formatValue(row.assignedPerMinute)} / {formatValue(row.supplyPerMinute)} / min</span>
+                              </div>
+                            </div>
+
+                            <div className="progress-rail overview-breakdown-bar">
+                              <span style={{ width: `${Math.min(100, row.utilizationPercent)}%` }} />
+                            </div>
+
+                            {row.isComplete ? (
+                              <div className="resource-meta overview-transport-row-meta">
+                                <span>
+                                  {row.distanceLy === 0
+                                    ? "Local route"
+                                    : `${formatFixedValue(row.distanceLy ?? 0, 1)} ly | ${formatFixedValue(row.roundTripSeconds ?? 0, 1)} s round trip`}
+                                </span>
+                                <span>Source ILS {row.sourceStationsNeeded === null ? "Incomplete" : formatFixedValue(row.sourceStationsNeeded, 1)}</span>
+                              </div>
+                            ) : (
+                              <div className="resource-meta overview-transport-row-meta">
+                                <span className="transport-warning">Enter the {row.systemName} distance to include this planet.</span>
+                                <span>{formatValue(row.supplyPerMinute)} / min tracked</span>
+                              </div>
+                            )}
+                          </article>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="empty-state">No source planets are available for this transport calculation.</p>
+                    )}
+                  </section>
+                </div>
+              </section>
+            </div>
           )}
 
           {activeView === "map" && (

@@ -60,21 +60,21 @@ const snapshotStoreName = "app";
 const snapshotKey = "snapshot";
 
 const seededResources: ResourceSeed[] = [
-  { id: "8cd50eb9-d303-46cb-94ed-0cf4dfd12d11", name: "Stalagmite Crystal", type: "ore_vein", sort_order: 10, color_start: "#6af7d9", color_end: "#127f73", icon_url: "/icons/resources/stalagmite-crystal.png", fuel_value_mj: null },
-  { id: "ee8f2c6e-5e85-4a42-a98a-5ea575b2ba45", name: "Silicon Ore", type: "ore_vein", sort_order: 20, color_start: "#f7e6a6", color_end: "#7f6c2b", icon_url: "/icons/resources/silicon-ore.png", fuel_value_mj: null },
-  { id: "9fc63cc0-e433-4e09-b2b7-3fd22f4c6b79", name: "Iron Ore", type: "ore_vein", sort_order: 30, color_start: "#d7dce7", color_end: "#4f5e78", icon_url: "/icons/resources/iron-ore.png", fuel_value_mj: null },
-  { id: "e34e4651-2eb8-4734-99cb-ccf61d77de83", name: "Grating Crystal", type: "ore_vein", sort_order: 40, color_start: "#95f0ff", color_end: "#246d96", icon_url: "/icons/resources/grating-crystal.png", fuel_value_mj: null },
-  { id: "1ac25922-6ec1-4664-8884-cbfeb4afe634", name: "Coal", type: "ore_vein", sort_order: 50, color_start: "#858993", color_end: "#252833", icon_url: "/icons/resources/coal.png", fuel_value_mj: null },
-  { id: "7d62ac20-79a7-4ec4-b1d8-904eb636453c", name: "Copper Ore", type: "ore_vein", sort_order: 60, color_start: "#feb375", color_end: "#8a3d22", icon_url: "/icons/resources/copper-ore.png", fuel_value_mj: null },
-  { id: "350efd4a-514d-4cec-b421-0ec7e36ce9a2", name: "Titanium Ore", type: "ore_vein", sort_order: 70, color_start: "#d3c4ff", color_end: "#6153c5", icon_url: "/icons/resources/titanium-ore.png", fuel_value_mj: null },
-  { id: "71870674-5da7-4062-bf26-cde403d17ed8", name: "Stone", type: "ore_vein", sort_order: 80, color_start: "#e2dfcf", color_end: "#7c725c", icon_url: "/icons/resources/stone.png", fuel_value_mj: null },
-  { id: "9c2cedcb-10ee-430c-a512-d523b80f8771", name: "Kimberlite Ore", type: "ore_vein", sort_order: 90, color_start: "#c7f9ff", color_end: "#387e95", icon_url: "/icons/resources/kimberlite-ore.png", fuel_value_mj: null },
-  { id: "dcb9e99e-a9a9-470d-b465-5174cd8d536f", name: "Water", type: "liquid_pump", sort_order: 100, color_start: "#89cfff", color_end: "#1f5cc6", icon_url: "/icons/resources/water.png", fuel_value_mj: null },
-  { id: "2bd99a79-75fc-4a54-af63-5886dd05f179", name: "Sulfuric Acid", type: "liquid_pump", sort_order: 110, color_start: "#f3ff92", color_end: "#8b9133", icon_url: "/icons/resources/sulfuric-acid.png", fuel_value_mj: null },
-  { id: "33be1ca4-c877-4829-bb7c-fd44e4a0de53", name: "Crude Oil", type: "oil_extractor", sort_order: 120, color_start: "#e8a065", color_end: "#6b2a21", icon_url: "/icons/resources/crude-oil.png", fuel_value_mj: null },
-  { id: "d4e3ebfe-bc56-48ba-b7cd-0879b40f5f4e", name: "Hydrogen", type: "gas_giant_output", sort_order: 130, color_start: "#fbfbff", color_end: "#87acff", icon_url: "/icons/resources/hydrogen.png", fuel_value_mj: 9 },
-  { id: "cff31929-7765-4a06-8d8f-085932cb0fec", name: "Deuterium", type: "gas_giant_output", sort_order: 140, color_start: "#ffe6a4", color_end: "#c28d23", icon_url: "/icons/resources/deuterium.png", fuel_value_mj: 9 },
-  { id: "c70fccf4-ac16-4ae5-960c-4f612c56ac74", name: "Fire Ice", type: "gas_giant_output", sort_order: 150, color_start: "#d8ffff", color_end: "#37afdb", icon_url: "/icons/resources/fire-ice.png", fuel_value_mj: 4.8 },
+  { id: "8cd50eb9-d303-46cb-94ed-0cf4dfd12d11", name: "Stalagmite Crystal", type: "ore_vein", sort_order: 10, color_start: "#6af7d9", color_end: "#127f73", icon_url: "icons/resources/stalagmite-crystal.png", fuel_value_mj: null },
+  { id: "ee8f2c6e-5e85-4a42-a98a-5ea575b2ba45", name: "Silicon Ore", type: "ore_vein", sort_order: 20, color_start: "#f7e6a6", color_end: "#7f6c2b", icon_url: "icons/resources/silicon-ore.png", fuel_value_mj: null },
+  { id: "9fc63cc0-e433-4e09-b2b7-3fd22f4c6b79", name: "Iron Ore", type: "ore_vein", sort_order: 30, color_start: "#d7dce7", color_end: "#4f5e78", icon_url: "icons/resources/iron-ore.png", fuel_value_mj: null },
+  { id: "e34e4651-2eb8-4734-99cb-ccf61d77de83", name: "Grating Crystal", type: "ore_vein", sort_order: 40, color_start: "#95f0ff", color_end: "#246d96", icon_url: "icons/resources/grating-crystal.png", fuel_value_mj: null },
+  { id: "1ac25922-6ec1-4664-8884-cbfeb4afe634", name: "Coal", type: "ore_vein", sort_order: 50, color_start: "#858993", color_end: "#252833", icon_url: "icons/resources/coal.png", fuel_value_mj: null },
+  { id: "7d62ac20-79a7-4ec4-b1d8-904eb636453c", name: "Copper Ore", type: "ore_vein", sort_order: 60, color_start: "#feb375", color_end: "#8a3d22", icon_url: "icons/resources/copper-ore.png", fuel_value_mj: null },
+  { id: "350efd4a-514d-4cec-b421-0ec7e36ce9a2", name: "Titanium Ore", type: "ore_vein", sort_order: 70, color_start: "#d3c4ff", color_end: "#6153c5", icon_url: "icons/resources/titanium-ore.png", fuel_value_mj: null },
+  { id: "71870674-5da7-4062-bf26-cde403d17ed8", name: "Stone", type: "ore_vein", sort_order: 80, color_start: "#e2dfcf", color_end: "#7c725c", icon_url: "icons/resources/stone.png", fuel_value_mj: null },
+  { id: "9c2cedcb-10ee-430c-a512-d523b80f8771", name: "Kimberlite Ore", type: "ore_vein", sort_order: 90, color_start: "#c7f9ff", color_end: "#387e95", icon_url: "icons/resources/kimberlite-ore.png", fuel_value_mj: null },
+  { id: "dcb9e99e-a9a9-470d-b465-5174cd8d536f", name: "Water", type: "liquid_pump", sort_order: 100, color_start: "#89cfff", color_end: "#1f5cc6", icon_url: "icons/resources/water.png", fuel_value_mj: null },
+  { id: "2bd99a79-75fc-4a54-af63-5886dd05f179", name: "Sulfuric Acid", type: "liquid_pump", sort_order: 110, color_start: "#f3ff92", color_end: "#8b9133", icon_url: "icons/resources/sulfuric-acid.png", fuel_value_mj: null },
+  { id: "33be1ca4-c877-4829-bb7c-fd44e4a0de53", name: "Crude Oil", type: "oil_extractor", sort_order: 120, color_start: "#e8a065", color_end: "#6b2a21", icon_url: "icons/resources/crude-oil.png", fuel_value_mj: null },
+  { id: "d4e3ebfe-bc56-48ba-b7cd-0879b40f5f4e", name: "Hydrogen", type: "gas_giant_output", sort_order: 130, color_start: "#fbfbff", color_end: "#87acff", icon_url: "icons/resources/hydrogen.png", fuel_value_mj: 9 },
+  { id: "cff31929-7765-4a06-8d8f-085932cb0fec", name: "Deuterium", type: "gas_giant_output", sort_order: 140, color_start: "#ffe6a4", color_end: "#c28d23", icon_url: "icons/resources/deuterium.png", fuel_value_mj: 9 },
+  { id: "c70fccf4-ac16-4ae5-960c-4f612c56ac74", name: "Fire Ice", type: "gas_giant_output", sort_order: 150, color_start: "#d8ffff", color_end: "#37afdb", icon_url: "icons/resources/fire-ice.png", fuel_value_mj: 4.8 },
 ];
 
 const settingsDefaults = new Map<string, string>([
