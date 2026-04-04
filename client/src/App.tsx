@@ -3200,7 +3200,7 @@ function App() {
             </div>
           )}
 
-                    {false && activeView === "production" && (
+                    {activeView === "production" && (
           <>
             <section className="panel">
               <div className="section-heading">
