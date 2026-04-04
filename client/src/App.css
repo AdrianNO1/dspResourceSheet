@@ -62,6 +62,8 @@
 
 .grid-layout-log,
 .grid-layout-overview,
+.grid-layout-raw,
+.grid-layout-production,
 .grid-layout-transport,
 .grid-layout-projects,
 .grid-layout-settings {
@@ -474,6 +476,16 @@
   border-top: 1px solid rgba(148, 172, 197, 0.12);
 }
 
+.warning-card-warning {
+  border-color: rgba(241, 160, 79, 0.24);
+  background: rgba(241, 160, 79, 0.08);
+}
+
+.warning-card-danger {
+  border-color: rgba(240, 107, 99, 0.24);
+  background: rgba(240, 107, 99, 0.08);
+}
+
 .overview-total-card {
   margin-top: 18px;
   margin-bottom: 18px;
@@ -622,6 +634,54 @@
 .overview-transport-system-list {
   display: grid;
   gap: 18px;
+}
+
+.production-modal,
+.production-modal-layout,
+.production-modal-main,
+.production-modal-side,
+.production-ingredient-body {
+  display: grid;
+  gap: 18px;
+}
+
+.production-modal-layout {
+  grid-template-columns: minmax(0, 1.55fr) minmax(280px, 0.8fr);
+}
+
+.production-modal-side {
+  align-content: start;
+}
+
+.production-ingredient-detail {
+  border-radius: 18px;
+  border: 1px solid rgba(148, 172, 197, 0.14);
+  background: rgba(7, 13, 23, 0.38);
+  overflow: hidden;
+}
+
+.production-ingredient-summary {
+  list-style: none;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 14px 16px;
+  cursor: pointer;
+}
+
+.production-ingredient-summary::-webkit-details-marker {
+  display: none;
+}
+
+.production-ingredient-summary > div:first-child,
+.production-ingredient-body {
+  display: grid;
+  gap: 4px;
+}
+
+.production-ingredient-body {
+  padding: 0 16px 16px;
 }
 
 .overview-transport-controls,
@@ -1315,7 +1375,8 @@
 
   .overview-transport-controls,
   .overview-transport-stat-grid,
-  .overview-transport-grid {
+  .overview-transport-grid,
+  .production-modal-layout {
     grid-template-columns: 1fr;
   }
 

@@ -36,6 +36,7 @@ export type Planet = {
   solar_system_id: string;
   name: string;
   planet_type: PlanetType;
+  extraction_outbound_ils_count: number | null;
 };
 
 export type Project = {

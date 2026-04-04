@@ -332,6 +332,10 @@ function normalizeSnapshot(input: unknown): Snapshot {
     solar_system_id: getSortableValue(item.solar_system_id),
     name: getSortableValue(item.name) || "Unnamed Planet",
     planet_type: item.planet_type === "gas_giant" ? "gas_giant" : "solid",
+    extraction_outbound_ils_count:
+      typeof item.extraction_outbound_ils_count === "number" && Number.isFinite(item.extraction_outbound_ils_count)
+        ? item.extraction_outbound_ils_count
+        : null,
   }));
 
   snapshot.projects = ensureArray<Project>(source.projects).map((item) => ({
@@ -923,6 +927,7 @@ export async function mutateStore(url: string, method: string, body?: unknown) {
       solar_system_id: solarSystemId,
       name,
       planet_type: planetType,
+      extraction_outbound_ils_count: null,
     });
     snapshot.settings.currentSolarSystemId = solarSystemId;
     snapshot.settings.currentPlanetId = id;
@@ -962,6 +967,15 @@ export async function mutateStore(url: string, method: string, body?: unknown) {
     }
 
     planet.name = name;
+    if ("extractionOutboundIlsCount" in payload) {
+      const nextIlsCount = payload.extractionOutboundIlsCount;
+      planet.extraction_outbound_ils_count =
+        nextIlsCount === null || nextIlsCount === ""
+          ? null
+          : Number.isFinite(Number(nextIlsCount))
+            ? Number(nextIlsCount)
+            : planet.extraction_outbound_ils_count;
+    }
   } else if (url === "/api/settings" && method === "PATCH") {
     Object.entries(payload).forEach(([key, value]) => {
       snapshot.settings[key] = value === null ? "" : String(value);

@@ -5,7 +5,7 @@ import { ResourceIcon } from "./components/ResourceIcon";
 import { ResourceSelect } from "./components/ResourceSelect";
 import { deleteBootstrap, exportSnapshot, getBootstrap, importSnapshot, patchBootstrap, postBootstrap } from "./lib/api";
 import { parseClusterAddress, getSystemDistanceLy as getGeneratedSystemDistanceLy } from "./lib/dspCluster";
-import { buildProductionPlanner } from "./lib/productionPlanner";
+import { buildProductionDraftPreview, buildProductionPlanner } from "./lib/productionPlanner";
 import { parseFactorioLabProjectCsv } from "./lib/projectImport";
 import {
   getAdvancedMinerOutputPerMinute,
@@ -958,17 +958,19 @@ function App() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
-  const [activeView, setActiveView] = useState<"log" | "overview" | "map" | "production" | "transport" | "projects" | "settings">("log");
+  const [activeView, setActiveView] = useState<"log" | "overview" | "raw" | "map" | "production" | "projects" | "settings">("log");
   const [showAllLedger, setShowAllLedger] = useState(true);
   const [selectedOverviewResourceId, setSelectedOverviewResourceId] = useState("");
   const [isOverviewTransportModalOpen, setIsOverviewTransportModalOpen] = useState(false);
   const [overviewTransportTargetSystemId, setOverviewTransportTargetSystemId] = useState("");
   const [overviewTransportThroughputPerMinute, setOverviewTransportThroughputPerMinute] = useState(0);
   const [overviewTransportDistanceDrafts, setOverviewTransportDistanceDrafts] = useState<Record<string, number>>({});
-  const [selectedProjectId, setSelectedProjectId] = useState("");
+  const [selectedProjectId, setSelectedProjectId] = useState(() => window.localStorage.getItem("dsp-resource-sheet:selected-project-id") ?? "");
   const [selectedProductionItemKey, setSelectedProductionItemKey] = useState("");
   const [selectedMapSelection, setSelectedMapSelection] = useState<MapSelection>({ scope: "system", id: "" });
   const [clusterAddressDraft, setClusterAddressDraft] = useState("");
+  const [planetExtractionIlsDrafts, setPlanetExtractionIlsDrafts] = useState<Record<string, string>>({});
+  const [isProductionModalOpen, setIsProductionModalOpen] = useState(false);
 
   const [newSystemName, setNewSystemName] = useState("");
   const [newPlanetName, setNewPlanetName] = useState("");
@@ -1057,6 +1059,12 @@ function App() {
   }, [data, selectedProjectId]);
 
   useEffect(() => {
+    if (selectedProjectId) {
+      window.localStorage.setItem("dsp-resource-sheet:selected-project-id", selectedProjectId);
+    }
+  }, [selectedProjectId]);
+
+  useEffect(() => {
     if (!data) {
       return;
     }
@@ -1113,6 +1121,12 @@ function App() {
     }
 
     setClusterAddressDraft(data.settings.clusterAddress ?? "");
+    setPlanetExtractionIlsDrafts(
+      data.planets.reduce<Record<string, string>>((acc, planet) => {
+        acc[planet.id] = planet.extraction_outbound_ils_count === null ? "" : String(planet.extraction_outbound_ils_count);
+        return acc;
+      }, {}),
+    );
   }, [data]);
 
   useEffect(() => {
@@ -1656,9 +1670,15 @@ function App() {
   const productionPlanner = buildProductionPlanner(loadedData, selectedProjectId || null);
   const productionItemChoices = productionPlanner.itemChoices;
   const productionItemSummaries = productionPlanner.itemSummaries;
+  const productionWarnings = productionPlanner.warnings;
+  const productionOverview = productionPlanner.overview;
   const selectedProductionSummary =
     productionItemSummaries.find((summary) => summary.itemKey === selectedProductionItemKey) ??
     productionItemSummaries[0] ??
+    null;
+  const selectedProductionTemplate =
+    productionItemChoices.find((item) => item.item_key === selectedProductionSummary?.itemKey) ??
+    productionItemChoices.find((item) => item.item_key === productionDraft.itemKey) ??
     null;
   const selectedProductionSiteViews = selectedProductionSummary
     ? productionPlanner.siteViews.filter((siteView) => siteView.site.item_key === selectedProductionSummary.itemKey)
@@ -1666,6 +1686,34 @@ function App() {
   const productionDraftPlanetOptions = loadedData.planets
     .filter((planet) => planet.solar_system_id === productionDraft.solarSystemId && planet.planet_type === "solid")
     .sort((left, right) => left.name.localeCompare(right.name));
+  const productionDraftPreview = buildProductionDraftPreview(
+    loadedData,
+    selectedProjectId || null,
+    productionDraft.itemKey,
+    Number(productionDraft.throughputPerMinute),
+    productionDraft.solarSystemId,
+    productionDraft.planetId,
+  );
+  const selectedProjectGoalRows = selectedProject
+    ? loadedData.projectGoals
+        .filter((goal) => goal.project_id === selectedProject.id && Number(goal.quantity) > 0)
+        .map((goal) => {
+          const resource = resourceLookup.get(goal.resource_id);
+          const summary = loadedData.summary.resourceSummaries.find((entry) => entry.resourceId === goal.resource_id);
+          const targetPerMinute = resource ? (resource.type === "ore_vein" ? goal.quantity * 30 : goal.quantity) : 0;
+          const coveragePercent = targetPerMinute > 0 && summary
+            ? Math.min(100, (summary.supplyPerMinute / targetPerMinute) * 100)
+            : 0;
+          return {
+            id: goal.id,
+            resourceName: resource?.name ?? goal.resource_id,
+            targetPerMinute,
+            supplyPerMinute: summary?.supplyPerMinute ?? 0,
+            coveragePercent,
+          };
+        })
+        .sort((left, right) => right.targetPerMinute - left.targetPerMinute || left.resourceName.localeCompare(right.resourceName))
+    : [];
   const parsedClusterAddress = (() => {
     const trimmed = clusterAddressDraft.trim();
     if (!trimmed) {
@@ -1915,6 +1963,38 @@ function App() {
       () => patchBootstrap(`/api/planets/${planetId}`, { name: nextName }),
       applyBootstrap,
     );
+  }
+
+  async function handleSavePlanetExtractionIls(planetId: string) {
+    const rawValue = planetExtractionIlsDrafts[planetId] ?? "";
+    const nextValue = rawValue.trim() === "" ? null : Number(rawValue);
+    if (nextValue !== null && (!Number.isFinite(nextValue) || nextValue < 0)) {
+      return;
+    }
+
+    await mutate(
+      () => patchBootstrap(`/api/planets/${planetId}`, { extractionOutboundIlsCount: nextValue }),
+      applyBootstrap,
+    );
+  }
+
+  function openProductionSiteModal(itemKey: string) {
+    const nextTemplate = productionItemChoices.find((item) => item.item_key === itemKey) ?? null;
+    if (!nextTemplate) {
+      return;
+    }
+
+    setSelectedProductionItemKey(itemKey);
+    setProductionDraft((current) => ({
+      ...current,
+      itemKey,
+      throughputPerMinute: Number(nextTemplate.imported_throughput_per_minute),
+    }));
+    setIsProductionModalOpen(true);
+  }
+
+  function closeProductionSiteModal() {
+    setIsProductionModalOpen(false);
   }
 
   async function handleSaveProject() {
@@ -2257,6 +2337,7 @@ function App() {
           (item) => item.project_id === selectedProjectId && item.item_key === productionDraft.itemKey,
         );
         setSelectedProductionItemKey(productionDraft.itemKey);
+        setIsProductionModalOpen(false);
         setProductionDraft((current) => ({
           ...current,
           throughputPerMinute: Number(importedItem?.imported_throughput_per_minute ?? current.throughputPerMinute),
@@ -2293,7 +2374,8 @@ function App() {
       <nav className="view-tabs">
         {[
           ["log", "Logging"],
-          ["overview", "Raw"],
+          ["overview", "Overview"],
+          ["raw", "Raw"],
           ["map", "Map"],
           ["production", "Production"],
           ["projects", "Projects"],
@@ -2303,7 +2385,7 @@ function App() {
             key={viewKey}
             type="button"
             className={`view-tab ${activeView === viewKey ? "view-tab-active" : ""}`}
-            onClick={() => setActiveView(viewKey as "log" | "overview" | "map" | "production" | "projects" | "settings")}
+            onClick={() => setActiveView(viewKey as "log" | "overview" | "raw" | "map" | "production" | "projects" | "settings")}
           >
             {label}
           </button>
@@ -2824,6 +2906,115 @@ function App() {
           <section className="panel">
             <div className="section-heading">
               <div>
+                <p className="eyebrow">Overview</p>
+                <h2>{selectedProject ? `${selectedProject.name} progress` : "Project progress"}</h2>
+              </div>
+              <span className="helper-text">Selected project is shared with the Production and Projects tabs.</span>
+            </div>
+
+            <div className="project-pills">
+              {loadedData.projects.map((project: Project) => (
+                <button
+                  key={project.id}
+                  type="button"
+                  className={`project-pill ${project.id === selectedProjectId ? "project-pill-active" : ""}`}
+                  onClick={() => setSelectedProjectId(project.id)}
+                >
+                  {project.name}
+                  <span>{project.is_active === 1 ? "Active" : "Archived"}</span>
+                </button>
+              ))}
+            </div>
+
+            {selectedProject ? (
+              <>
+                <div className="transport-metric-grid">
+                  <article className="entry-stat">
+                    <span>Crafted targets</span>
+                    <strong>{productionOverview.importedCraftedCount}</strong>
+                    <span>{formatValue(productionOverview.plannedCraftedThroughput)} / min total</span>
+                  </article>
+                  <article className="entry-stat">
+                    <span>Planned lines</span>
+                    <strong>{productionOverview.plannedLineCount}</strong>
+                    <span>Imported factory footprint</span>
+                  </article>
+                  <article className="entry-stat">
+                    <span>Placed sites</span>
+                    <strong>{productionOverview.placedSiteCount}</strong>
+                    <span>{productionOverview.finishedSiteCount} count as finished</span>
+                  </article>
+                  <article className="entry-stat">
+                    <span>Raw goals covered</span>
+                    <strong>{productionOverview.totalRawGoals === 0 ? "None" : `${productionOverview.coveredRawGoals}/${productionOverview.totalRawGoals}`}</strong>
+                    <span>{formatFixedValue(productionOverview.rawCoveragePercent, 1)}% coverage</span>
+                  </article>
+                </div>
+
+                <div className="overview-breakdown-grid">
+                  <section className="overview-breakdown-panel">
+                    <div className="overview-breakdown-heading">
+                      <h4>Top raw goals</h4>
+                      <span>{selectedProjectGoalRows.length} tracked</span>
+                    </div>
+                    {selectedProjectGoalRows.length > 0 ? (
+                      <div className="overview-breakdown-list">
+                        {selectedProjectGoalRows.slice(0, 8).map((row) => (
+                          <article key={row.id} className="overview-breakdown-row">
+                            <div className="overview-breakdown-row-top">
+                              <div>
+                                <strong>{row.resourceName}</strong>
+                                <span>{formatValue(row.supplyPerMinute)} / {formatValue(row.targetPerMinute)} / min</span>
+                              </div>
+                              <div className="overview-breakdown-values">
+                                <strong>{formatFixedValue(row.coveragePercent, 1)}%</strong>
+                              </div>
+                            </div>
+                            <div className="progress-rail overview-breakdown-bar">
+                              <span style={{ width: `${Math.min(100, row.coveragePercent)}%` }} />
+                            </div>
+                          </article>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="empty-state">This project has no raw requirements yet.</p>
+                    )}
+                  </section>
+
+                  <section className="overview-breakdown-panel">
+                    <div className="overview-breakdown-heading">
+                      <h4>Warnings</h4>
+                      <span>{productionWarnings.length}</span>
+                    </div>
+                    {productionWarnings.length > 0 ? (
+                      <div className="overview-breakdown-list">
+                        {productionWarnings.map((warning) => (
+                          <article key={warning.id} className={`overview-breakdown-row ${warning.severity === "danger" ? "warning-card-danger" : "warning-card-warning"}`}>
+                            <div className="overview-breakdown-row-top">
+                              <div>
+                                <strong>{warning.title}</strong>
+                                <span>{warning.detail}</span>
+                              </div>
+                            </div>
+                          </article>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="empty-state">No planner warnings for this project right now.</p>
+                    )}
+                  </section>
+                </div>
+              </>
+            ) : (
+              <p className="empty-state">Create or select a project to see project-level progress.</p>
+            )}
+          </section>
+          )}
+
+          {activeView === "raw" && (
+          <section className="panel">
+            <div className="section-heading">
+              <div>
                 <p className="eyebrow">Live Totals</p>
                 <h2>Combined resource progress</h2>
               </div>
@@ -3206,8 +3397,9 @@ function App() {
               <div className="section-heading">
                 <div>
                   <p className="eyebrow">Production</p>
-                  <h2>Factory sites</h2>
+                  <h2>{selectedProject ? `${selectedProject.name} factory plan` : "Factory plan"}</h2>
                 </div>
+                <span className="helper-text">Pick an imported crafted item first, then place one planet build at a time.</span>
               </div>
 
               <div className="project-pills">
@@ -3224,114 +3416,31 @@ function App() {
                 ))}
               </div>
 
-              {selectedProject && productionItemChoices.length > 0 ? (
-                <form
-                  className="entry-card"
-                  onSubmit={(event) => {
-                    event.preventDefault();
-                    void handleCreateProductionSite();
-                  }}
-                >
-                  <div className="entry-card-header">
-                    <div>
-                      <p className="eyebrow">New site</p>
-                      <h3>Add one planet build</h3>
-                    </div>
-                  </div>
-                  <div className="transport-form-grid">
-                    <label className="field">
-                      <span>Imported item</span>
-                      <select
-                        value={productionDraft.itemKey}
-                        onChange={(event) => {
-                          const nextItemKey = event.target.value;
-                          const nextTemplate = productionItemChoices.find((item) => item.item_key === nextItemKey) ?? null;
-                          setSelectedProductionItemKey(nextItemKey);
-                          setProductionDraft((current) => ({
-                            ...current,
-                            itemKey: nextItemKey,
-                            throughputPerMinute: Number(nextTemplate?.imported_throughput_per_minute ?? 0),
-                          }));
-                        }}
-                      >
-                        <option value="">Select item</option>
-                        {productionItemChoices.map((item) => (
-                          <option key={item.item_key} value={item.item_key}>
-                            {item.display_name}
-                          </option>
-                        ))}
-                      </select>
-                    </label>
-                    <label className="field">
-                      <span>Throughput / min</span>
-                      <input
-                        type="number"
-                        min={0}
-                        step="any"
-                        value={productionDraft.throughputPerMinute}
-                        onChange={(event) => setProductionDraft((current) => ({ ...current, throughputPerMinute: Number(event.target.value) }))}
-                      />
-                    </label>
-                    <label className="field">
-                      <span>Outbound ILS</span>
-                      <input
-                        type="number"
-                        min={0}
-                        step={1}
-                        value={productionDraft.outboundIlsCount}
-                        onChange={(event) => setProductionDraft((current) => ({ ...current, outboundIlsCount: Number(event.target.value) }))}
-                      />
-                    </label>
-                    <label className="field">
-                      <span>System</span>
-                      <select
-                        value={productionDraft.solarSystemId}
-                        onChange={(event) =>
-                          setProductionDraft((current) => ({
-                            ...current,
-                            solarSystemId: event.target.value,
-                            planetId:
-                              loadedData.planets.find((planet) => planet.solar_system_id === event.target.value && planet.planet_type === "solid")?.id ?? "",
-                          }))
-                        }
-                      >
-                        <option value="">Select system</option>
-                        {loadedData.solarSystems.map((solarSystem) => (
-                          <option key={solarSystem.id} value={solarSystem.id}>
-                            {solarSystem.name}
-                          </option>
-                        ))}
-                      </select>
-                    </label>
-                    <label className="field">
-                      <span>Planet</span>
-                      <select
-                        value={productionDraft.planetId}
-                        onChange={(event) => setProductionDraft((current) => ({ ...current, planetId: event.target.value }))}
-                      >
-                        <option value="">Select planet</option>
-                        {productionDraftPlanetOptions.map((planet) => (
-                          <option key={planet.id} value={planet.id}>
-                            {planet.name}
-                          </option>
-                        ))}
-                      </select>
-                    </label>
-                  </div>
-                  <label className="toggle-field">
-                    <input
-                      type="checkbox"
-                      checked={productionDraft.isFinished}
-                      onChange={(event) => setProductionDraft((current) => ({ ...current, isFinished: event.target.checked }))}
-                    />
-                    <span>Counts as finished supply</span>
-                  </label>
-                  <button type="submit" className="primary-button" disabled={busy || !productionDraft.itemKey}>
-                    Add production site
-                  </button>
-                </form>
+              {selectedProject ? (
+                <div className="transport-metric-grid">
+                  <article className="entry-stat">
+                    <span>Imported crafted items</span>
+                    <strong>{productionOverview.importedCraftedCount}</strong>
+                    <span>{formatValue(productionOverview.plannedCraftedThroughput)} / min planned</span>
+                  </article>
+                  <article className="entry-stat">
+                    <span>Total lines</span>
+                    <strong>{productionOverview.plannedLineCount}</strong>
+                    <span>Imported line count</span>
+                  </article>
+                  <article className="entry-stat">
+                    <span>Placed sites</span>
+                    <strong>{productionOverview.placedSiteCount}</strong>
+                    <span>{productionOverview.finishedSiteCount} finished</span>
+                  </article>
+                  <article className="entry-stat">
+                    <span>Warnings</span>
+                    <strong>{productionOverview.warningCount}</strong>
+                    <span>Review Overview for global warnings</span>
+                  </article>
+                </div>
               ) : (
-                <p className="empty-state">Import a FactorioLab CSV in Projects to populate crafted production choices.</p>
+                <p className="empty-state">Select a project to plan crafted production.</p>
               )}
             </section>
 
@@ -3341,6 +3450,7 @@ function App() {
                   <p className="eyebrow">Summary</p>
                   <h2>Produced items</h2>
                 </div>
+                <span className="helper-text">Each card shows the imported target rate and line count before you place any sites.</span>
               </div>
               {productionItemSummaries.length > 0 ? (
                 <div className="overview-card-grid">
@@ -3360,26 +3470,84 @@ function App() {
                         <span>{formatValue(summary.finishedThroughput)} / min finished</span>
                       </div>
                       <div className="overview-resource-footnote">
+                        <span>{summary.plannedLineCount} lines | {formatFixedValue(summary.plannedMachineCount, 1)} machines</span>
                         <span>{formatFixedValue(summary.coveragePercent, 1)}% input coverage</span>
+                      </div>
+                      <div className="overview-resource-footnote">
                         <span>{summary.hasShortage ? "Needs inputs" : "Inputs covered"}</span>
+                        <span>{summary.siteCount > 0 ? `${summary.siteCount} placed` : "No placed sites yet"}</span>
                       </div>
                     </button>
                   ))}
                 </div>
               ) : (
-                <p className="empty-state">No crafted production sites added yet.</p>
+                <p className="empty-state">Import a FactorioLab CSV onto this project to populate produced items.</p>
               )}
             </section>
 
             <section className="panel">
               <div className="section-heading">
                 <div>
-                  <p className="eyebrow">Detail</p>
+                  <p className="eyebrow">Selected item</p>
                   <h2>{selectedProductionSummary?.displayName ?? "Production detail"}</h2>
+                </div>
+                <div className="overview-detail-actions">
+                  <button
+                    type="button"
+                    className="primary-button"
+                    disabled={!selectedProductionSummary}
+                    onClick={() => selectedProductionSummary && openProductionSiteModal(selectedProductionSummary.itemKey)}
+                  >
+                    New production site
+                  </button>
                 </div>
               </div>
 
-              {selectedProductionSiteViews.length > 0 ? (
+              {selectedProductionSummary && selectedProductionTemplate ? (
+                <>
+                  <div className="overview-detail-summary">
+                    <div className="entry-stat">
+                      <span>Imported target</span>
+                      <strong>{formatValue(selectedProductionSummary.totalPlannedThroughput)}</strong>
+                      <span>/ min</span>
+                    </div>
+                    <div className="entry-stat">
+                      <span>Lines needed</span>
+                      <strong>{selectedProductionSummary.plannedLineCount}</strong>
+                      <span>{formatFixedValue(selectedProductionSummary.plannedMachineCount, 1)} machines total</span>
+                    </div>
+                    <div className="entry-stat">
+                      <span>Placed sites</span>
+                      <strong>{selectedProductionSummary.siteCount}</strong>
+                      <span>{formatValue(selectedProductionSummary.finishedThroughput)} / min finished</span>
+                    </div>
+                  </div>
+
+                  <div className="overview-breakdown-list">
+                    {selectedProductionTemplate.dependencies.map((dependency) => (
+                          <article key={dependency.item_key} className="overview-breakdown-row">
+                            <div className="overview-breakdown-row-top">
+                              <div>
+                                <strong>{dependency.display_name}</strong>
+                                <span>{formatValue(dependency.imported_demand_per_minute)} / min total</span>
+                              </div>
+                              <div className="overview-breakdown-values">
+                                <strong>{
+                                  selectedProductionSummary.plannedLineCount > 0 && selectedProductionTemplate.belt_speed_per_minute
+                                    ? `${formatFixedValue(
+                                        Math.ceil(((dependency.imported_demand_per_minute / selectedProductionTemplate.belt_speed_per_minute) / Math.max(selectedProductionSummary.plannedLineCount, 1)) * 100) / 100,
+                                        2,
+                                      )} belts/line`
+                                    : "Belt speed n/a"
+                                }</strong>
+                                <span>{dependency.dependency_type === "raw" ? "Raw input" : "Crafted input"}</span>
+                              </div>
+                            </div>
+                          </article>
+                    ))}
+                  </div>
+
+                  {selectedProductionSiteViews.length > 0 ? (
                 <div className="transport-ledger">
                   {selectedProductionSiteViews.map((siteView) => (
                     <article key={siteView.site.id} className="transport-row-card">
@@ -3442,10 +3610,193 @@ function App() {
                   ))}
                 </div>
               ) : (
-                <p className="empty-state">No production entries match the selected item yet.</p>
+                    <p className="empty-state">No production sites placed for this item yet. Use the button above to place one.</p>
+                  )}
+                </>
+              ) : (
+                <p className="empty-state">Select a produced item card to review its lines, inputs, and placed sites.</p>
               )}
             </section>
           </>
+          )}
+
+          {isProductionModalOpen && selectedProductionTemplate && (
+            <div className="modal-backdrop" onClick={closeProductionSiteModal}>
+              <section className="modal-card production-modal" onClick={(event) => event.stopPropagation()}>
+                <div className="section-heading">
+                  <div>
+                    <p className="eyebrow">New production site</p>
+                    <h2>{selectedProductionTemplate.display_name}</h2>
+                  </div>
+                  <button type="button" className="ghost-button" onClick={closeProductionSiteModal}>
+                    Close
+                  </button>
+                </div>
+
+                <form
+                  className="production-modal-layout"
+                  onSubmit={(event) => {
+                    event.preventDefault();
+                    void handleCreateProductionSite();
+                  }}
+                >
+                  <div className="production-modal-main">
+                    <div className="transport-form-grid">
+                      <label className="field">
+                        <span>Throughput / min</span>
+                        <input
+                          type="number"
+                          min={0}
+                          step="any"
+                          value={productionDraft.throughputPerMinute}
+                          onChange={(event) => setProductionDraft((current) => ({ ...current, throughputPerMinute: Number(event.target.value) }))}
+                        />
+                      </label>
+                      <label className="field">
+                        <span>Outbound ILS</span>
+                        <input
+                          type="number"
+                          min={0}
+                          step={1}
+                          value={productionDraft.outboundIlsCount}
+                          onChange={(event) => setProductionDraft((current) => ({ ...current, outboundIlsCount: Number(event.target.value) }))}
+                        />
+                      </label>
+                      <label className="field">
+                        <span>System</span>
+                        <select
+                          value={productionDraft.solarSystemId}
+                          onChange={(event) =>
+                            setProductionDraft((current) => ({
+                              ...current,
+                              solarSystemId: event.target.value,
+                              planetId:
+                                loadedData.planets.find((planet) => planet.solar_system_id === event.target.value && planet.planet_type === "solid")?.id ?? "",
+                            }))
+                          }
+                        >
+                          <option value="">Select system</option>
+                          {loadedData.solarSystems.map((solarSystem) => (
+                            <option key={solarSystem.id} value={solarSystem.id}>
+                              {solarSystem.name}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+                      <label className="field">
+                        <span>Planet</span>
+                        <select
+                          value={productionDraft.planetId}
+                          onChange={(event) => setProductionDraft((current) => ({ ...current, planetId: event.target.value }))}
+                        >
+                          <option value="">Select planet</option>
+                          {productionDraftPlanetOptions.map((planet) => (
+                            <option key={planet.id} value={planet.id}>
+                              {planet.name}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+                    </div>
+
+                    <label className="toggle-field">
+                      <input
+                        type="checkbox"
+                        checked={productionDraft.isFinished}
+                        onChange={(event) => setProductionDraft((current) => ({ ...current, isFinished: event.target.checked }))}
+                      />
+                      <span>Counts as finished supply</span>
+                    </label>
+
+                    {productionDraftPreview ? (
+                      <>
+                        <div className="overview-detail-summary">
+                          <div className="entry-stat">
+                            <span>Lines needed</span>
+                            <strong>{productionDraftPreview.lineCount}</strong>
+                            <span>{formatFixedValue(productionDraftPreview.assemblersPerLine, 1)} machines/line</span>
+                          </div>
+                          <div className="entry-stat">
+                            <span>Output belts</span>
+                            <strong>{formatFixedValue(productionDraftPreview.outputBelts, 2)}</strong>
+                            <span>{formatFixedValue(productionDraftPreview.outputBeltsPerLine, 2)} belts/line</span>
+                          </div>
+                          <div className="entry-stat">
+                            <span>Location</span>
+                            <strong>{productionDraftPreview.planetName || "Select planet"}</strong>
+                            <span>{productionDraftPreview.solarSystemName || "Select system"}</span>
+                          </div>
+                        </div>
+
+                        <div className="overview-breakdown-list">
+                          {productionDraftPreview.dependencies.map((dependency) => (
+                            <details key={dependency.dependency.item_key} className="production-ingredient-detail">
+                              <summary className="production-ingredient-summary">
+                                <div>
+                                  <strong>{dependency.dependency.display_name}</strong>
+                                  <span>{formatValue(dependency.requiredPerMinute)} / min | {formatFixedValue(dependency.beltsPerLine, 2)} belts/line</span>
+                                </div>
+                                <div className="overview-breakdown-values">
+                                  <strong>{formatFixedValue(dependency.coveragePercent, 1)}%</strong>
+                                  <span>{dependency.targetIlsFraction === null ? "ILS n/a" : `${formatFixedValue(dependency.targetIlsFraction, 2)} target ILS`}</span>
+                                </div>
+                              </summary>
+                              <div className="production-ingredient-body">
+                                <p className="helper-text">
+                                  {dependency.sourcesLabel}
+                                  {dependency.shortagePerMinute > 0 ? ` | Missing ${formatValue(dependency.shortagePerMinute)} / min.` : ""}
+                                  {dependency.hasOutboundIlsWarning ? " Source outbound ILS is overbooked." : ""}
+                                </p>
+                                {dependency.sources.length > 0 && (
+                                  <div className="overview-breakdown-list">
+                                    {dependency.sources.map((source) => (
+                                      <article key={`${dependency.dependency.item_key}:${source.producerId}`} className="overview-breakdown-row">
+                                        <div className="overview-breakdown-row-top">
+                                          <div>
+                                            <strong>{source.planetName}</strong>
+                                            <span>{source.solarSystemName} | {source.producerName}</span>
+                                          </div>
+                                          <div className="overview-breakdown-values">
+                                            <strong>{formatValue(source.throughputPerMinute)} / min</strong>
+                                            <span>
+                                              {source.isLocalPlanet
+                                                ? "Local planet"
+                                                : source.isLocalSystem
+                                                  ? "Local system"
+                                                  : `Source ILS ${source.sourceStationsNeeded === null ? "n/a" : formatFixedValue(source.sourceStationsNeeded, 2)}`}
+                                            </span>
+                                          </div>
+                                        </div>
+                                      </article>
+                                    ))}
+                                  </div>
+                                )}
+                              </div>
+                            </details>
+                          ))}
+                        </div>
+                      </>
+                    ) : (
+                      <p className="empty-state">Pick a valid system and planet to preview this site.</p>
+                    )}
+                  </div>
+
+                  <div className="production-modal-side">
+                    <div className="overview-breakdown-panel">
+                      <div className="overview-breakdown-heading">
+                        <h4>Recipe</h4>
+                        <span>{selectedProductionTemplate.recipe || "Imported"}</span>
+                      </div>
+                      <p className="helper-text">{selectedProductionTemplate.outputs || "Single-output imported recipe."}</p>
+                    </div>
+
+                    <button type="submit" className="primary-button full-width" disabled={busy || !productionDraft.itemKey || !productionDraft.planetId}>
+                      Add production site
+                    </button>
+                  </div>
+                </form>
+              </section>
+            </div>
           )}
 
           {activeView === "map" && (
@@ -3783,6 +4134,36 @@ function App() {
                         >
                           Delete planet
                         </button>
+                      </div>
+
+                      <div className="divider" />
+
+                      <label className="field">
+                        <span>Outbound raw ILS on this planet</span>
+                        <input
+                          type="number"
+                          min={0}
+                          step="1"
+                          value={planetExtractionIlsDrafts[selectedMapPlanet.id] ?? ""}
+                          onChange={(event) =>
+                            setPlanetExtractionIlsDrafts((current) => ({
+                              ...current,
+                              [selectedMapPlanet.id]: event.target.value,
+                            }))
+                          }
+                          placeholder="Leave blank if unknown"
+                        />
+                      </label>
+                      <div className="action-row">
+                        <button
+                          type="button"
+                          className="ghost-button"
+                          onClick={() => void handleSavePlanetExtractionIls(selectedMapPlanet.id)}
+                          disabled={busy}
+                        >
+                          Save raw ILS count
+                        </button>
+                        <span className="helper-text">Used by project warnings when this extraction planet feeds remote production.</span>
                       </div>
                     </>
                   )}
