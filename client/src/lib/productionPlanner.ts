@@ -496,7 +496,7 @@ export function buildProductionPlanner(data: BootstrapData, projectId: string | 
     return {
       itemKey: item.item_key,
       displayName: item.display_name,
-      totalPlannedThroughput: relatedSites.reduce((sum, siteView) => sum + Number(siteView.site.throughput_per_minute), 0),
+      totalPlannedThroughput: Number(item.imported_throughput_per_minute),
       finishedThroughput: relatedSites
         .filter((siteView) => Number(siteView.site.is_finished) === 1)
         .reduce((sum, siteView) => sum + Number(siteView.site.throughput_per_minute), 0),
