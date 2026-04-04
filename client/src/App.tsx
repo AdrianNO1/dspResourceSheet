@@ -4,6 +4,8 @@ import "./App.css";
 import { ResourceIcon } from "./components/ResourceIcon";
 import { ResourceSelect } from "./components/ResourceSelect";
 import { deleteBootstrap, exportSnapshot, getBootstrap, importSnapshot, patchBootstrap, postBootstrap } from "./lib/api";
+import { parseClusterAddress, getSystemDistanceLy as getGeneratedSystemDistanceLy } from "./lib/dspCluster";
+import { buildProductionPlanner } from "./lib/productionPlanner";
 import { parseFactorioLabProjectCsv } from "./lib/projectImport";
 import {
   getAdvancedMinerOutputPerMinute,
@@ -15,7 +17,6 @@ import {
   getPumpOutputPerMinute,
   getRegularMinerOutputPerMinute,
   getRequiredStations,
-  getRequiredVessels,
   getTargetStationsNeeded,
   getTransportRoundTripSeconds,
   OIL_EXTRACTOR_POWER_MW,
@@ -36,7 +37,6 @@ import type {
   ResourceSummary,
   ResourceType,
   SystemDistance,
-  TransportRoute,
 } from "./lib/types";
 
 type MinerDraft = {
@@ -54,13 +54,6 @@ type SystemDistanceDraft = {
   systemAId: string;
   systemBId: string;
   distanceLy: number;
-};
-
-type TransportRouteDraft = {
-  sourceSystemId: string;
-  destinationSystemId: string;
-  resourceId: string;
-  throughputPerMinute: number;
 };
 
 type ResourceOriginEntry = {
@@ -724,7 +717,7 @@ function getCurrentSystemPlanets(data: BootstrapData | null) {
 }
 
 function describePlanet(planet: Planet) {
-  return planet.planet_type === "gas_giant" ? `${planet.name} · Gas giant` : planet.name;
+  return planet.planet_type === "gas_giant" ? `${planet.name} | Gas giant` : planet.name;
 }
 
 function buildPlanetNamePrefix(systemName: string) {
@@ -769,14 +762,6 @@ function sortResources(resources: ResourceDefinition[], type: ResourceType) {
   return resources
     .filter((resource) => resource.type === type)
     .sort((left, right) => left.sort_order - right.sort_order || left.name.localeCompare(right.name));
-}
-
-function sortAllResources(resources: ResourceDefinition[]) {
-  return resources.slice().sort((left, right) => left.sort_order - right.sort_order || left.name.localeCompare(right.name));
-}
-
-function getSystemPairKey(systemAId: string, systemBId: string) {
-  return [systemAId, systemBId].sort().join(":");
 }
 
 function getProgressPercent(summary: ResourceSummary) {
@@ -973,7 +958,7 @@ function App() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
-  const [activeView, setActiveView] = useState<"log" | "overview" | "map" | "transport" | "projects" | "settings">("log");
+  const [activeView, setActiveView] = useState<"log" | "overview" | "map" | "production" | "transport" | "projects" | "settings">("log");
   const [showAllLedger, setShowAllLedger] = useState(true);
   const [selectedOverviewResourceId, setSelectedOverviewResourceId] = useState("");
   const [isOverviewTransportModalOpen, setIsOverviewTransportModalOpen] = useState(false);
@@ -981,7 +966,9 @@ function App() {
   const [overviewTransportThroughputPerMinute, setOverviewTransportThroughputPerMinute] = useState(0);
   const [overviewTransportDistanceDrafts, setOverviewTransportDistanceDrafts] = useState<Record<string, number>>({});
   const [selectedProjectId, setSelectedProjectId] = useState("");
+  const [selectedProductionItemKey, setSelectedProductionItemKey] = useState("");
   const [selectedMapSelection, setSelectedMapSelection] = useState<MapSelection>({ scope: "system", id: "" });
+  const [clusterAddressDraft, setClusterAddressDraft] = useState("");
 
   const [newSystemName, setNewSystemName] = useState("");
   const [newPlanetName, setNewPlanetName] = useState("");
@@ -1019,12 +1006,6 @@ function App() {
     { resourceId: "", ratePerSecond: 1 },
     { resourceId: "", ratePerSecond: 1 },
   ]);
-  const [routeDraft, setRouteDraft] = useState<TransportRouteDraft>({
-    sourceSystemId: "",
-    destinationSystemId: "",
-    resourceId: "",
-    throughputPerMinute: 0,
-  });
   const [quickCalcDistanceLy, setQuickCalcDistanceLy] = useState(0);
   const [quickCalcThroughputPerMinute, setQuickCalcThroughputPerMinute] = useState(0);
   const [distanceDraft, setDistanceDraft] = useState<SystemDistanceDraft>({
@@ -1038,12 +1019,13 @@ function App() {
     systemBId: "",
     distanceLy: 0,
   });
-  const [editingRouteId, setEditingRouteId] = useState("");
-  const [editingRouteDraft, setEditingRouteDraft] = useState<TransportRouteDraft>({
-    sourceSystemId: "",
-    destinationSystemId: "",
-    resourceId: "",
+  const [productionDraft, setProductionDraft] = useState({
+    itemKey: "",
     throughputPerMinute: 0,
+    outboundIlsCount: 0,
+    isFinished: true,
+    solarSystemId: "",
+    planetId: "",
   });
 
   async function refreshBootstrap() {
@@ -1083,7 +1065,6 @@ function App() {
     const liquidResources = sortResources(data.resources, "liquid_pump");
     const oilResources = sortResources(data.resources, "oil_extractor");
     const gasResources = sortResources(data.resources, "gas_giant_output");
-    const allResources = sortAllResources(data.resources);
 
     if (!oreResourceId && oreResources[0]) {
       setOreResourceId(oreResources[0].id);
@@ -1100,19 +1081,6 @@ function App() {
     if (gasResources.length > 0 && gasOutputs.every((output) => !output.resourceId)) {
       setGasOutputs(getDefaultGasOutputs(gasResources));
     }
-
-    if (!routeDraft.resourceId && allResources[0]) {
-      setRouteDraft((current) => ({ ...current, resourceId: allResources[0].id }));
-    }
-
-    if (!routeDraft.sourceSystemId && data.solarSystems[0]) {
-      setRouteDraft((current) => ({
-        ...current,
-        sourceSystemId: data.solarSystems[0]?.id ?? "",
-        destinationSystemId: current.destinationSystemId || data.solarSystems[1]?.id || "",
-      }));
-    }
-
     if (!distanceDraft.systemAId && data.solarSystems[0]) {
       setDistanceDraft((current) => ({
         ...current,
@@ -1120,7 +1088,8 @@ function App() {
         systemBId: current.systemBId || data.solarSystems[1]?.id || "",
       }));
     }
-  }, [data, distanceDraft.systemAId, gasOutputs, liquidResourceId, oilResourceId, oreResourceId, routeDraft.resourceId, routeDraft.sourceSystemId]);
+
+  }, [data, distanceDraft.systemAId, gasOutputs, liquidResourceId, oilResourceId, oreResourceId]);
 
   useEffect(() => {
     if (!data || !selectedProjectId) {
@@ -1136,6 +1105,58 @@ function App() {
     setProjectNotesDraft(selectedProject.notes);
     setProjectActiveDraft(selectedProject.is_active === 1);
     setGoalDrafts(toProjectGoalMap(data.projectGoals, selectedProjectId));
+  }, [data, selectedProjectId]);
+
+  useEffect(() => {
+    if (!data) {
+      return;
+    }
+
+    setClusterAddressDraft(data.settings.clusterAddress ?? "");
+  }, [data]);
+
+  useEffect(() => {
+    if (!data || !selectedProjectId) {
+      setSelectedProductionItemKey("");
+      return;
+    }
+
+    const projectItems = data.projectImportedItems.filter((item) => item.project_id === selectedProjectId);
+    if (!projectItems.some((item) => item.item_key === selectedProductionItemKey)) {
+      setSelectedProductionItemKey(projectItems[0]?.item_key ?? "");
+    }
+  }, [data, selectedProjectId, selectedProductionItemKey]);
+
+  useEffect(() => {
+    if (!data || !selectedProjectId) {
+      return;
+    }
+
+    const latestSite = data.productionSites
+      .filter((site) => site.project_id === selectedProjectId)
+      .sort((left, right) => new Date(right.created_at).getTime() - new Date(left.created_at).getTime())[0];
+    const defaultSystemId = latestSite?.solar_system_id ?? data.settings.currentSolarSystemId ?? data.solarSystems[0]?.id ?? "";
+    const defaultPlanetId =
+      latestSite?.planet_id ??
+      data.settings.currentPlanetId ??
+      data.planets.find((planet) => planet.solar_system_id === defaultSystemId && planet.planet_type === "solid")?.id ??
+      "";
+
+    setProductionDraft((current) => {
+      const projectItems = data.projectImportedItems.filter((item) => item.project_id === selectedProjectId);
+      const nextItemKey = current.itemKey || projectItems[0]?.item_key || "";
+      const nextTemplate = projectItems.find((item) => item.item_key === nextItemKey) ?? null;
+      return {
+        ...current,
+        itemKey: nextItemKey,
+        throughputPerMinute:
+          current.throughputPerMinute > 0
+            ? current.throughputPerMinute
+            : Number(nextTemplate?.imported_throughput_per_minute ?? 0),
+        solarSystemId: current.solarSystemId || defaultSystemId,
+        planetId: current.planetId || defaultPlanetId,
+      };
+    });
   }, [data, selectedProjectId]);
 
   useEffect(() => {
@@ -1226,10 +1247,12 @@ function App() {
         return acc;
       }
 
-      const existingDistance = data.systemDistances.find(
-        (distance) => getSystemPairKey(distance.system_a_id, distance.system_b_id) === getSystemPairKey(systemId, overviewTransportTargetSystemId),
+      const existingDistance = getGeneratedSystemDistanceLy(
+        data.solarSystems.find((solarSystem) => solarSystem.id === systemId),
+        data.solarSystems.find((solarSystem) => solarSystem.id === overviewTransportTargetSystemId),
+        data.systemDistances,
       );
-      acc[systemId] = existingDistance ? Number(existingDistance.distance_ly) : 0;
+      acc[systemId] = existingDistance ?? 0;
       return acc;
     }, {});
 
@@ -1340,7 +1363,6 @@ function App() {
   const liquidResources = sortResources(loadedData.resources, "liquid_pump");
   const oilResources = sortResources(loadedData.resources, "oil_extractor");
   const gasResources = sortResources(loadedData.resources, "gas_giant_output");
-  const allResources = sortAllResources(loadedData.resources);
 
   const gasOutputLookup = loadedData.gasGiantOutputs.reduce<Record<string, GasGiantOutput[]>>((acc, output) => {
     acc[output.gas_giant_site_id] ??= [];
@@ -1357,9 +1379,6 @@ function App() {
   const resourceLookup = new Map(loadedData.resources.map((resource) => [resource.id, resource]));
   const planetLookup = new Map(loadedData.planets.map((planet) => [planet.id, planet]));
   const systemLookup = new Map(loadedData.solarSystems.map((solarSystem) => [solarSystem.id, solarSystem]));
-  const systemDistanceLookup = new Map(
-    loadedData.systemDistances.map((distance) => [getSystemPairKey(distance.system_a_id, distance.system_b_id), distance]),
-  );
   const latestPlanetActivity = getLatestPlanetActivity(loadedData);
   const selectedOreSummary = loadedData.summary.resourceSummaries.find((summary) => summary.resourceId === oreResourceId) ?? null;
   const selectedLiquidSummary = loadedData.summary.resourceSummaries.find((summary) => summary.resourceId === liquidResourceId) ?? null;
@@ -1634,66 +1653,37 @@ function App() {
     loadedData.settings.vesselSpeedLyPerSecond,
     loadedData.settings.vesselDockingSeconds,
   );
+  const productionPlanner = buildProductionPlanner(loadedData, selectedProjectId || null);
+  const productionItemChoices = productionPlanner.itemChoices;
+  const productionItemSummaries = productionPlanner.itemSummaries;
+  const selectedProductionSummary =
+    productionItemSummaries.find((summary) => summary.itemKey === selectedProductionItemKey) ??
+    productionItemSummaries[0] ??
+    null;
+  const selectedProductionSiteViews = selectedProductionSummary
+    ? productionPlanner.siteViews.filter((siteView) => siteView.site.item_key === selectedProductionSummary.itemKey)
+    : productionPlanner.siteViews;
+  const productionDraftPlanetOptions = loadedData.planets
+    .filter((planet) => planet.solar_system_id === productionDraft.solarSystemId && planet.planet_type === "solid")
+    .sort((left, right) => left.name.localeCompare(right.name));
+  const parsedClusterAddress = (() => {
+    const trimmed = clusterAddressDraft.trim();
+    if (!trimmed) {
+      return null;
+    }
+
+    try {
+      return parseClusterAddress(trimmed);
+    } catch {
+      return null;
+    }
+  })();
   const sortedSystemDistances = loadedData.systemDistances
     .slice()
     .sort((left, right) => {
       const leftLabel = `${systemLookup.get(left.system_a_id)?.name ?? ""} ${systemLookup.get(left.system_b_id)?.name ?? ""}`;
       const rightLabel = `${systemLookup.get(right.system_a_id)?.name ?? ""} ${systemLookup.get(right.system_b_id)?.name ?? ""}`;
       return leftLabel.localeCompare(rightLabel);
-    });
-  const routeEntries = loadedData.transportRoutes
-    .slice()
-    .sort((left, right) => new Date(right.created_at).getTime() - new Date(left.created_at).getTime())
-    .map((route) => {
-      const distance = systemDistanceLookup.get(getSystemPairKey(route.source_system_id, route.destination_system_id)) ?? null;
-      const distanceLy = distance ? Number(distance.distance_ly) : null;
-      const roundTripSeconds =
-        distanceLy === null
-          ? null
-          : getTransportRoundTripSeconds(
-              distanceLy,
-              loadedData.settings.vesselSpeedLyPerSecond,
-              loadedData.settings.vesselDockingSeconds,
-            );
-      const itemsPerMinutePerVessel =
-        distanceLy === null
-          ? null
-          : getItemsPerMinutePerVessel(
-              loadedData.settings.vesselCapacityItems,
-              distanceLy,
-              loadedData.settings.vesselSpeedLyPerSecond,
-              loadedData.settings.vesselDockingSeconds,
-            );
-      const requiredVessels =
-        distanceLy === null
-          ? null
-          : getRequiredVessels(
-              Number(route.throughput_per_minute),
-              loadedData.settings.vesselCapacityItems,
-              distanceLy,
-              loadedData.settings.vesselSpeedLyPerSecond,
-              loadedData.settings.vesselDockingSeconds,
-            );
-      const requiredStations =
-        distanceLy === null
-          ? null
-          : getRequiredStations(
-              Number(route.throughput_per_minute),
-              loadedData.settings.vesselCapacityItems,
-              distanceLy,
-              loadedData.settings.vesselSpeedLyPerSecond,
-              loadedData.settings.vesselDockingSeconds,
-            );
-
-      return {
-        route,
-        distance,
-        distanceLy,
-        roundTripSeconds,
-        itemsPerMinutePerVessel,
-        requiredVessels,
-        requiredStations,
-      };
     });
 
   function getPreferredPlanetIdForSystem(systemId: string | null) {
@@ -2150,65 +2140,6 @@ function App() {
     );
   }
 
-  function startRouteEdit(route: TransportRoute) {
-    setEditingRouteId(route.id);
-    setEditingRouteDraft({
-      sourceSystemId: route.source_system_id,
-      destinationSystemId: route.destination_system_id,
-      resourceId: route.resource_id,
-      throughputPerMinute: Number(route.throughput_per_minute),
-    });
-  }
-
-  function cancelRouteEdit() {
-    setEditingRouteId("");
-    setEditingRouteDraft({
-      sourceSystemId: "",
-      destinationSystemId: "",
-      resourceId: "",
-      throughputPerMinute: 0,
-    });
-  }
-
-  async function handleCreateTransportRoute() {
-    if (!routeDraft.sourceSystemId || !routeDraft.destinationSystemId || !routeDraft.resourceId || routeDraft.throughputPerMinute <= 0) {
-      return;
-    }
-
-    await mutate(
-      () =>
-        postBootstrap("/api/transport-routes", {
-          sourceSystemId: routeDraft.sourceSystemId,
-          destinationSystemId: routeDraft.destinationSystemId,
-          resourceId: routeDraft.resourceId,
-          throughputPerMinute: Number(routeDraft.throughputPerMinute),
-        }),
-      (nextData) => {
-        applyBootstrap(nextData);
-      },
-    );
-  }
-
-  async function handleSaveRouteEdit() {
-    if (!editingRouteId || !editingRouteDraft.sourceSystemId || !editingRouteDraft.destinationSystemId || !editingRouteDraft.resourceId || editingRouteDraft.throughputPerMinute <= 0) {
-      return;
-    }
-
-    await mutate(
-      () =>
-        patchBootstrap(`/api/transport-routes/${editingRouteId}`, {
-          sourceSystemId: editingRouteDraft.sourceSystemId,
-          destinationSystemId: editingRouteDraft.destinationSystemId,
-          resourceId: editingRouteDraft.resourceId,
-          throughputPerMinute: Number(editingRouteDraft.throughputPerMinute),
-        }),
-      (nextData) => {
-        applyBootstrap(nextData);
-        cancelRouteEdit();
-      },
-    );
-  }
-
   async function handleExport() {
     await mutate(async () => {
       const payload = await exportSnapshot();
@@ -2253,6 +2184,7 @@ function App() {
           name: importedProject.projectName,
           notes: importedProject.projectNotes,
           goals: importedProject.goals,
+          importedItems: importedProject.importedItems,
         }),
         importedProject,
       };
@@ -2269,8 +2201,54 @@ function App() {
       const skippedLabel = importedProject.skippedRawResources.length > 0
         ? ` Skipped unsupported raw entries: ${importedProject.skippedRawResources.join(", ")}.`
         : "";
-      setNotice(`Imported project from CSV.${skippedLabel}`);
+      setNotice(`Imported project from CSV with ${importedProject.importedItems.length} crafted items.${skippedLabel}`);
     });
+  }
+
+  async function handleCreateProductionSite() {
+    if (!selectedProjectId || !productionDraft.itemKey || !productionDraft.solarSystemId || !productionDraft.planetId) {
+      return;
+    }
+
+    await mutate(
+      () =>
+        postBootstrap("/api/production-sites", {
+          projectId: selectedProjectId,
+          itemKey: productionDraft.itemKey,
+          throughputPerMinute: Number(productionDraft.throughputPerMinute),
+          outboundIlsCount: Number(productionDraft.outboundIlsCount),
+          isFinished: productionDraft.isFinished,
+          solarSystemId: productionDraft.solarSystemId,
+          planetId: productionDraft.planetId,
+        }),
+      (nextData) => {
+        applyBootstrap(nextData);
+        const importedItem = nextData.projectImportedItems.find(
+          (item) => item.project_id === selectedProjectId && item.item_key === productionDraft.itemKey,
+        );
+        setSelectedProductionItemKey(productionDraft.itemKey);
+        setProductionDraft((current) => ({
+          ...current,
+          throughputPerMinute: Number(importedItem?.imported_throughput_per_minute ?? current.throughputPerMinute),
+          outboundIlsCount: 0,
+          isFinished: true,
+        }));
+      },
+    );
+  }
+
+  async function handleImportClusterAddress() {
+    if (!parsedClusterAddress) {
+      return;
+    }
+
+    await mutate(
+      () => postBootstrap("/api/cluster/import", { clusterAddress: parsedClusterAddress.clusterAddress }),
+      (nextData) => {
+        applyBootstrap(nextData);
+        setNotice(`Imported ${parsedClusterAddress.clusterStarCount} generated systems from cluster address.`);
+      },
+    );
   }
 
   return (
@@ -2285,9 +2263,9 @@ function App() {
       <nav className="view-tabs">
         {[
           ["log", "Logging"],
-          ["overview", "Overview"],
+          ["overview", "Raw"],
           ["map", "Map"],
-          ["transport", "Transportation"],
+          ["production", "Production"],
           ["projects", "Projects"],
           ["settings", "Settings"],
         ].map(([viewKey, label]) => (
@@ -2295,7 +2273,7 @@ function App() {
             key={viewKey}
             type="button"
             className={`view-tab ${activeView === viewKey ? "view-tab-active" : ""}`}
-            onClick={() => setActiveView(viewKey as "log" | "overview" | "map" | "transport" | "projects" | "settings")}
+            onClick={() => setActiveView(viewKey as "log" | "overview" | "map" | "production" | "projects" | "settings")}
           >
             {label}
           </button>
@@ -2870,7 +2848,7 @@ function App() {
                     <span>{summary.placementCount} setups</span>
                     {summary.type !== "liquid_pump" && (
                       <span>
-                        {formatValue(summary.supplyPerSecond)} / sec · {formatValue(summary.supplyPerMinute)} / min
+                        {formatValue(summary.supplyPerSecond)} / sec | {formatValue(summary.supplyPerMinute)} / min
                       </span>
                     )}
                   </div>
@@ -3192,6 +3170,254 @@ function App() {
             </div>
           )}
 
+                    {false && activeView === "production" && (
+          <>
+            <section className="panel">
+              <div className="section-heading">
+                <div>
+                  <p className="eyebrow">Production</p>
+                  <h2>Factory sites</h2>
+                </div>
+              </div>
+
+              <div className="project-pills">
+                {loadedData.projects.map((project: Project) => (
+                  <button
+                    key={project.id}
+                    type="button"
+                    className={`project-pill ${project.id === selectedProjectId ? "project-pill-active" : ""}`}
+                    onClick={() => setSelectedProjectId(project.id)}
+                  >
+                    {project.name}
+                    <span>{project.is_active === 1 ? "Active" : "Archived"}</span>
+                  </button>
+                ))}
+              </div>
+
+              {selectedProject && productionItemChoices.length > 0 ? (
+                <form
+                  className="entry-card"
+                  onSubmit={(event) => {
+                    event.preventDefault();
+                    void handleCreateProductionSite();
+                  }}
+                >
+                  <div className="entry-card-header">
+                    <div>
+                      <p className="eyebrow">New site</p>
+                      <h3>Add one planet build</h3>
+                    </div>
+                  </div>
+                  <div className="transport-form-grid">
+                    <label className="field">
+                      <span>Imported item</span>
+                      <select
+                        value={productionDraft.itemKey}
+                        onChange={(event) => {
+                          const nextItemKey = event.target.value;
+                          const nextTemplate = productionItemChoices.find((item) => item.item_key === nextItemKey) ?? null;
+                          setSelectedProductionItemKey(nextItemKey);
+                          setProductionDraft((current) => ({
+                            ...current,
+                            itemKey: nextItemKey,
+                            throughputPerMinute: Number(nextTemplate?.imported_throughput_per_minute ?? 0),
+                          }));
+                        }}
+                      >
+                        <option value="">Select item</option>
+                        {productionItemChoices.map((item) => (
+                          <option key={item.item_key} value={item.item_key}>
+                            {item.display_name}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    <label className="field">
+                      <span>Throughput / min</span>
+                      <input
+                        type="number"
+                        min={0}
+                        step="any"
+                        value={productionDraft.throughputPerMinute}
+                        onChange={(event) => setProductionDraft((current) => ({ ...current, throughputPerMinute: Number(event.target.value) }))}
+                      />
+                    </label>
+                    <label className="field">
+                      <span>Outbound ILS</span>
+                      <input
+                        type="number"
+                        min={0}
+                        step={1}
+                        value={productionDraft.outboundIlsCount}
+                        onChange={(event) => setProductionDraft((current) => ({ ...current, outboundIlsCount: Number(event.target.value) }))}
+                      />
+                    </label>
+                    <label className="field">
+                      <span>System</span>
+                      <select
+                        value={productionDraft.solarSystemId}
+                        onChange={(event) =>
+                          setProductionDraft((current) => ({
+                            ...current,
+                            solarSystemId: event.target.value,
+                            planetId:
+                              loadedData.planets.find((planet) => planet.solar_system_id === event.target.value && planet.planet_type === "solid")?.id ?? "",
+                          }))
+                        }
+                      >
+                        <option value="">Select system</option>
+                        {loadedData.solarSystems.map((solarSystem) => (
+                          <option key={solarSystem.id} value={solarSystem.id}>
+                            {solarSystem.name}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    <label className="field">
+                      <span>Planet</span>
+                      <select
+                        value={productionDraft.planetId}
+                        onChange={(event) => setProductionDraft((current) => ({ ...current, planetId: event.target.value }))}
+                      >
+                        <option value="">Select planet</option>
+                        {productionDraftPlanetOptions.map((planet) => (
+                          <option key={planet.id} value={planet.id}>
+                            {planet.name}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                  </div>
+                  <label className="toggle-field">
+                    <input
+                      type="checkbox"
+                      checked={productionDraft.isFinished}
+                      onChange={(event) => setProductionDraft((current) => ({ ...current, isFinished: event.target.checked }))}
+                    />
+                    <span>Counts as finished supply</span>
+                  </label>
+                  <button type="submit" className="primary-button" disabled={busy || !productionDraft.itemKey}>
+                    Add production site
+                  </button>
+                </form>
+              ) : (
+                <p className="empty-state">Import a FactorioLab CSV in Projects to populate crafted production choices.</p>
+              )}
+            </section>
+
+            <section className="panel">
+              <div className="section-heading">
+                <div>
+                  <p className="eyebrow">Summary</p>
+                  <h2>Produced items</h2>
+                </div>
+              </div>
+              {productionItemSummaries.length > 0 ? (
+                <div className="overview-card-grid">
+                  {productionItemSummaries.map((summary) => (
+                    <button
+                      key={summary.itemKey}
+                      type="button"
+                      className={`overview-resource-card ${selectedProductionSummary?.itemKey === summary.itemKey ? "overview-resource-card-active" : ""}`}
+                      onClick={() => setSelectedProductionItemKey(summary.itemKey)}
+                    >
+                      <div className="overview-resource-top">
+                        <strong>{summary.displayName}</strong>
+                        <span>{summary.siteCount} sites</span>
+                      </div>
+                      <div className="overview-resource-metrics">
+                        <span>{formatValue(summary.totalPlannedThroughput)} / min planned</span>
+                        <span>{formatValue(summary.finishedThroughput)} / min finished</span>
+                      </div>
+                      <div className="overview-resource-footnote">
+                        <span>{formatFixedValue(summary.coveragePercent, 1)}% input coverage</span>
+                        <span>{summary.hasShortage ? "Needs inputs" : "Inputs covered"}</span>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              ) : (
+                <p className="empty-state">No crafted production sites added yet.</p>
+              )}
+            </section>
+
+            <section className="panel">
+              <div className="section-heading">
+                <div>
+                  <p className="eyebrow">Detail</p>
+                  <h2>{selectedProductionSummary?.displayName ?? "Production detail"}</h2>
+                </div>
+              </div>
+
+              {selectedProductionSiteViews.length > 0 ? (
+                <div className="transport-ledger">
+                  {selectedProductionSiteViews.map((siteView) => (
+                    <article key={siteView.site.id} className="transport-row-card">
+                      <div className="transport-row-main">
+                        <div>
+                          <h3>{siteView.importedItem.display_name}</h3>
+                          <p>{siteView.solarSystemName} | {siteView.planetName}</p>
+                        </div>
+                        <div className="ledger-item-actions">
+                          <button
+                            type="button"
+                            className="ghost-button"
+                            onClick={() => void confirmAndDelete(`/api/production-sites/${siteView.site.id}`, `${siteView.importedItem.display_name} site`)}
+                          >
+                            Delete
+                          </button>
+                        </div>
+                      </div>
+
+                      <div className="transport-route-stats">
+                        <span><strong>{formatValue(siteView.site.throughput_per_minute)}</strong> / min</span>
+                        <span>{formatFixedValue(siteView.machineCount, 1)} machines</span>
+                        <span>{formatFixedValue(siteView.outputBeltsPerLine * siteView.lineCount, 2)} output belts</span>
+                        <span>{formatFixedValue(siteView.outboundIlsRequired, 2)} / {formatValue(siteView.site.outbound_ils_count)} outbound ILS</span>
+                      </div>
+
+                      <p className="helper-text">
+                        {siteView.lineCount} lines · {formatFixedValue(siteView.assemblersPerLine, 1)} machines/line · {formatFixedValue(siteView.outputBeltsPerLine, 2)} output belts/line
+                      </p>
+
+                      <div className="overview-breakdown-list">
+                        {siteView.dependencies.map((ingredient) => (
+                          <article key={ingredient.dependency.item_key} className="overview-breakdown-row">
+                            <div className="overview-breakdown-row-top">
+                              <div>
+                                <strong>{ingredient.dependency.display_name}</strong>
+                                <p>{formatValue(ingredient.requiredPerMinute)} / min required · {formatValue(ingredient.coveragePerMinute)} covered</p>
+                              </div>
+                              <div className="overview-breakdown-values">
+                                <strong>{formatFixedValue(ingredient.beltsPerLine, 2)} belts/line</strong>
+                                <span>{ingredient.targetIlsFraction === null ? "ILS n/a" : `${formatFixedValue(ingredient.targetIlsFraction, 2)} target ILS`}</span>
+                              </div>
+                            </div>
+                            <p className="helper-text">
+                              {ingredient.sourcesLabel}
+                              {ingredient.shortagePerMinute > 0 ? ` · Missing ${formatValue(ingredient.shortagePerMinute)} / min.` : ""}
+                              {ingredient.hasOutboundIlsWarning ? " Source outbound ILS is overbooked." : ""}
+                            </p>
+                          </article>
+                        ))}
+                      </div>
+
+                      <p className="helper-text">
+                        Mixed target ILS {siteView.mixedIlsFullStationCount + siteView.mixedIlsBins.length}
+                        {siteView.mixedIlsBins.length > 0
+                          ? ` · shared bins: ${siteView.mixedIlsBins.map((bin) => `[${bin.entries.map((item) => `${item.itemName} ${formatFixedValue(item.fraction, 2)}`).join(", ")}]`).join(" | ")}`
+                          : ""}
+                      </p>
+                    </article>
+                  ))}
+                </div>
+              ) : (
+                <p className="empty-state">No production entries match the selected item yet.</p>
+              )}
+            </section>
+          </>
+          )}
+
           {activeView === "map" && (
           <section className="panel">
             <div className="section-heading">
@@ -3267,420 +3493,7 @@ function App() {
           </section>
           )}
 
-          {activeView === "transport" && (
-          <>
-            <section className="panel">
-              <div className="section-heading">
-                <div>
-                  <p className="eyebrow">Transport Planner</p>
-                  <h2>Routes and instant calculator</h2>
-                </div>
-              </div>
-
-              <div className="transport-planner-grid">
-                <form
-                  className="entry-card"
-                  onSubmit={(event) => {
-                    event.preventDefault();
-                    void handleCreateTransportRoute();
-                  }}
-                >
-                  <div className="entry-card-header">
-                    <div>
-                      <p className="eyebrow">Saved route</p>
-                      <h3>New interstellar route</h3>
-                    </div>
-                  </div>
-
-                  <div className="transport-form-grid">
-                    <label className="field">
-                      <span>Source system</span>
-                      <select
-                        value={routeDraft.sourceSystemId}
-                        onChange={(event) => setRouteDraft((current) => ({ ...current, sourceSystemId: event.target.value }))}
-                      >
-                        <option value="">Select source</option>
-                        {data.solarSystems.map((solarSystem) => (
-                          <option key={solarSystem.id} value={solarSystem.id}>
-                            {solarSystem.name}
-                          </option>
-                        ))}
-                      </select>
-                    </label>
-
-                    <label className="field">
-                      <span>Destination system</span>
-                      <select
-                        value={routeDraft.destinationSystemId}
-                        onChange={(event) => setRouteDraft((current) => ({ ...current, destinationSystemId: event.target.value }))}
-                      >
-                        <option value="">Select destination</option>
-                        {data.solarSystems.map((solarSystem) => (
-                          <option key={solarSystem.id} value={solarSystem.id}>
-                            {solarSystem.name}
-                          </option>
-                        ))}
-                      </select>
-                    </label>
-
-                    <label className="field">
-                      <span>Resource</span>
-                      <ResourceSelect resources={allResources} value={routeDraft.resourceId} onChange={(value) => setRouteDraft((current) => ({ ...current, resourceId: value }))} disabled={busy} />
-                    </label>
-
-                    <label className="field">
-                      <span>Throughput / min</span>
-                      <input
-                        type="number"
-                        min={0}
-                        step="any"
-                        value={routeDraft.throughputPerMinute}
-                        onChange={(event) => setRouteDraft((current) => ({ ...current, throughputPerMinute: Number(event.target.value) }))}
-                      />
-                    </label>
-                  </div>
-
-                  <button type="submit" className="primary-button" disabled={busy || data.solarSystems.length < 2}>
-                    Save route
-                  </button>
-                </form>
-
-                <section className="entry-card">
-                  <div className="entry-card-header">
-                    <div>
-                      <p className="eyebrow">Quick calc</p>
-                      <h3>Raw ILS requirement</h3>
-                    </div>
-                  </div>
-
-                  <div className="transport-form-grid transport-form-grid-compact">
-                    <label className="field">
-                      <span>Distance (ly)</span>
-                      <input
-                        type="number"
-                        min={0}
-                        step="any"
-                        value={quickCalcDistanceLy}
-                        onChange={(event) => setQuickCalcDistanceLy(Number(event.target.value))}
-                      />
-                    </label>
-
-                    <label className="field">
-                      <span>Throughput / min</span>
-                      <input
-                        type="number"
-                        min={0}
-                        step="any"
-                        value={quickCalcThroughputPerMinute}
-                        onChange={(event) => setQuickCalcThroughputPerMinute(Number(event.target.value))}
-                      />
-                    </label>
-                  </div>
-
-                  <div className="transport-metric-grid">
-                    <div className="entry-stat">
-                      <span>Round trip</span>
-                      <strong>{quickCalcRoundTripSeconds === null ? "Incomplete" : `${formatFixedValue(quickCalcRoundTripSeconds, 1)} s`}</strong>
-                    </div>
-                    <div className="entry-stat">
-                      <span>Per vessel</span>
-                      <strong>{quickCalcItemsPerMinutePerVessel === null ? "Incomplete" : `${formatFixedValue(quickCalcItemsPerMinutePerVessel, 1)} / min`}</strong>
-                    </div>
-                    <div className="entry-stat">
-                      <span>Required ILS</span>
-                      <strong>{quickCalcRequiredStations === null ? "Incomplete" : formatFixedValue(quickCalcRequiredStations, 1)}</strong>
-                    </div>
-                    <div className="entry-stat">
-                      <span>Target ILS needed</span>
-                      <strong>{quickCalcTargetStationsNeeded === null ? "Incomplete" : formatFixedValue(quickCalcTargetStationsNeeded, 1)}</strong>
-                    </div>
-                  </div>
-                </section>
-              </div>
-            </section>
-
-            <section className="panel">
-              <div className="section-heading">
-                <div>
-                  <p className="eyebrow">System pairs</p>
-                  <h2>System distances</h2>
-                </div>
-              </div>
-
-              <form
-                className="transport-form-grid"
-                onSubmit={(event) => {
-                  event.preventDefault();
-                  void handleCreateSystemDistance();
-                }}
-              >
-                <label className="field">
-                  <span>System A</span>
-                  <select
-                    value={distanceDraft.systemAId}
-                    onChange={(event) => setDistanceDraft((current) => ({ ...current, systemAId: event.target.value }))}
-                  >
-                    <option value="">Select system</option>
-                    {data.solarSystems.map((solarSystem) => (
-                      <option key={solarSystem.id} value={solarSystem.id}>
-                        {solarSystem.name}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-
-                <label className="field">
-                  <span>System B</span>
-                  <select
-                    value={distanceDraft.systemBId}
-                    onChange={(event) => setDistanceDraft((current) => ({ ...current, systemBId: event.target.value }))}
-                  >
-                    <option value="">Select system</option>
-                    {data.solarSystems.map((solarSystem) => (
-                      <option key={solarSystem.id} value={solarSystem.id}>
-                        {solarSystem.name}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-
-                <label className="field">
-                  <span>Distance (ly)</span>
-                  <input
-                    type="number"
-                    min={0}
-                    step="any"
-                    value={distanceDraft.distanceLy}
-                    onChange={(event) => setDistanceDraft((current) => ({ ...current, distanceLy: Number(event.target.value) }))}
-                  />
-                </label>
-
-                <div className="transport-form-actions">
-                  <button type="submit" className="primary-button" disabled={busy || data.solarSystems.length < 2}>
-                    Save distance
-                  </button>
-                </div>
-              </form>
-
-              {sortedSystemDistances.length > 0 ? (
-                <div className="transport-ledger">
-                  {sortedSystemDistances.map((distance) => {
-                    const systemALabel = systemLookup.get(distance.system_a_id)?.name ?? "Unknown System";
-                    const systemBLabel = systemLookup.get(distance.system_b_id)?.name ?? "Unknown System";
-
-                    return (
-                      <article key={distance.id} className="transport-row-card">
-                        <div className="transport-row-main">
-                          <div>
-                            <h3>{systemALabel} {"->"} {systemBLabel}</h3>
-                            <p>{formatFixedValue(Number(distance.distance_ly), 1)} ly</p>
-                          </div>
-                          <div className="ledger-item-actions">
-                            <button type="button" className="ghost-button" onClick={() => startDistanceEdit(distance)}>
-                              Edit
-                            </button>
-                            <button type="button" className="ghost-button" onClick={() => void confirmAndDelete(`/api/system-distances/${distance.id}`, `distance ${systemALabel} to ${systemBLabel}`)}>
-                              Delete
-                            </button>
-                          </div>
-                        </div>
-
-                        {editingDistanceId === distance.id && (
-                          <div className="transport-inline-editor">
-                            <label className="field">
-                              <span>System A</span>
-                              <select
-                                value={editingDistanceDraft.systemAId}
-                                onChange={(event) => setEditingDistanceDraft((current) => ({ ...current, systemAId: event.target.value }))}
-                              >
-                                <option value="">Select system</option>
-                                {data.solarSystems.map((solarSystem) => (
-                                  <option key={solarSystem.id} value={solarSystem.id}>
-                                    {solarSystem.name}
-                                  </option>
-                                ))}
-                              </select>
-                            </label>
-
-                            <label className="field">
-                              <span>System B</span>
-                              <select
-                                value={editingDistanceDraft.systemBId}
-                                onChange={(event) => setEditingDistanceDraft((current) => ({ ...current, systemBId: event.target.value }))}
-                              >
-                                <option value="">Select system</option>
-                                {data.solarSystems.map((solarSystem) => (
-                                  <option key={solarSystem.id} value={solarSystem.id}>
-                                    {solarSystem.name}
-                                  </option>
-                                ))}
-                              </select>
-                            </label>
-
-                            <label className="field">
-                              <span>Distance (ly)</span>
-                              <input
-                                type="number"
-                                min={0}
-                                step="any"
-                                value={editingDistanceDraft.distanceLy}
-                                onChange={(event) => setEditingDistanceDraft((current) => ({ ...current, distanceLy: Number(event.target.value) }))}
-                              />
-                            </label>
-
-                            <div className="transport-form-actions">
-                              <button type="button" className="primary-button" onClick={() => void handleSaveDistanceEdit()} disabled={busy}>
-                                Save
-                              </button>
-                              <button type="button" className="ghost-button" onClick={cancelDistanceEdit} disabled={busy}>
-                                Cancel
-                              </button>
-                            </div>
-                          </div>
-                        )}
-                      </article>
-                    );
-                  })}
-                </div>
-              ) : (
-                <p className="empty-state">Add a system pair distance to resolve saved route calculations.</p>
-              )}
-            </section>
-
-            <section className="panel">
-              <div className="section-heading">
-                <div>
-                  <p className="eyebrow">Saved routes</p>
-                  <h2>Transportation ledger</h2>
-                </div>
-              </div>
-
-              {routeEntries.length > 0 ? (
-                <div className="transport-ledger">
-                  {routeEntries.map((entry) => {
-                    const route = entry.route;
-                    const resource = resourceLookup.get(route.resource_id);
-                    const sourceLabel = systemLookup.get(route.source_system_id)?.name ?? "Unknown System";
-                    const destinationLabel = systemLookup.get(route.destination_system_id)?.name ?? "Unknown System";
-
-                    return (
-                      <article key={route.id} className="transport-row-card">
-                        <div className="transport-row-main">
-                          <div className="transport-route-heading">
-                            {resource && (
-                              <ResourceIcon
-                                name={resource.name}
-                                iconUrl={resource.icon_url}
-                                colorStart={resource.color_start}
-                                colorEnd={resource.color_end}
-                                size="sm"
-                              />
-                            )}
-                            <div>
-                              <h3>{resource?.name ?? "Unknown Resource"}</h3>
-                              <p>{sourceLabel} {"->"} {destinationLabel}</p>
-                            </div>
-                          </div>
-
-                          <div className="ledger-item-actions">
-                            <button type="button" className="ghost-button" onClick={() => startRouteEdit(route)}>
-                              Edit
-                            </button>
-                            <button type="button" className="ghost-button" onClick={() => void confirmAndDelete(`/api/transport-routes/${route.id}`, `${resource?.name ?? "route"} route`)}>
-                              Delete
-                            </button>
-                          </div>
-                        </div>
-
-                        <div className="transport-route-stats">
-                          <span><strong>{formatFixedValue(Number(route.throughput_per_minute), 1)}</strong> / min</span>
-                          <span>
-                            {entry.distanceLy === null ? (
-                              <span className="transport-warning">Distance missing</span>
-                            ) : (
-                              `${formatFixedValue(entry.distanceLy, 1)} ly`
-                            )}
-                          </span>
-                          <span>{entry.requiredVessels === null ? "Incomplete" : `${formatFixedValue(entry.requiredVessels, 1)} vessels`}</span>
-                          <span>{entry.requiredStations === null ? "Incomplete" : `${formatFixedValue(entry.requiredStations, 1)} ILS`}</span>
-                        </div>
-
-                        {entry.itemsPerMinutePerVessel !== null && entry.roundTripSeconds !== null && (
-                          <p className="helper-text">
-                            {formatFixedValue(entry.itemsPerMinutePerVessel, 1)} items/min per vessel · round trip {formatFixedValue(entry.roundTripSeconds, 1)} s
-                          </p>
-                        )}
-
-                        {editingRouteId === route.id && (
-                          <div className="transport-inline-editor">
-                            <label className="field">
-                              <span>Source system</span>
-                              <select
-                                value={editingRouteDraft.sourceSystemId}
-                                onChange={(event) => setEditingRouteDraft((current) => ({ ...current, sourceSystemId: event.target.value }))}
-                              >
-                                <option value="">Select source</option>
-                                {data.solarSystems.map((solarSystem) => (
-                                  <option key={solarSystem.id} value={solarSystem.id}>
-                                    {solarSystem.name}
-                                  </option>
-                                ))}
-                              </select>
-                            </label>
-
-                            <label className="field">
-                              <span>Destination system</span>
-                              <select
-                                value={editingRouteDraft.destinationSystemId}
-                                onChange={(event) => setEditingRouteDraft((current) => ({ ...current, destinationSystemId: event.target.value }))}
-                              >
-                                <option value="">Select destination</option>
-                                {data.solarSystems.map((solarSystem) => (
-                                  <option key={solarSystem.id} value={solarSystem.id}>
-                                    {solarSystem.name}
-                                  </option>
-                                ))}
-                              </select>
-                            </label>
-
-                            <label className="field">
-                              <span>Resource</span>
-                              <ResourceSelect resources={allResources} value={editingRouteDraft.resourceId} onChange={(value) => setEditingRouteDraft((current) => ({ ...current, resourceId: value }))} disabled={busy} />
-                            </label>
-
-                            <label className="field">
-                              <span>Throughput / min</span>
-                              <input
-                                type="number"
-                                min={0}
-                                step="any"
-                                value={editingRouteDraft.throughputPerMinute}
-                                onChange={(event) => setEditingRouteDraft((current) => ({ ...current, throughputPerMinute: Number(event.target.value) }))}
-                              />
-                            </label>
-
-                            <div className="transport-form-actions">
-                              <button type="button" className="primary-button" onClick={() => void handleSaveRouteEdit()} disabled={busy}>
-                                Save
-                              </button>
-                              <button type="button" className="ghost-button" onClick={cancelRouteEdit} disabled={busy}>
-                                Cancel
-                              </button>
-                            </div>
-                          </div>
-                        )}
-                      </article>
-                    );
-                  })}
-                </div>
-              ) : (
-                <p className="empty-state">No transport routes saved yet.</p>
-              )}
-            </section>
-          </>
-          )}
-
-          {activeView === "log" && (
+{activeView === "log" && (
           <section className="panel">
             <div className="section-heading">
               <div>
@@ -3719,7 +3532,7 @@ function App() {
                             <article key={vein.id} className="ledger-item">
                               <div>
                                 <h3>{getResourceName(data.resources, vein.resource_id)}</h3>
-                                <p>{miners.length} {miners.length === 1 ? "miner" : "miners"} · {formatValue(throughputPerMinute)} ore/min · {formatValue(throughputPerMinute / 30)} node equivalents</p>
+                                <p>{miners.length} {miners.length === 1 ? "miner" : "miners"} | {formatValue(throughputPerMinute)} ore/min | {formatValue(throughputPerMinute / 30)} node equivalents</p>
                                 {renderLocationEditor(`ore:${vein.id}`, `/api/ore-veins/${vein.id}/location`, "solid")}
                               </div>
                               <div className="ledger-item-actions">
@@ -3762,7 +3575,7 @@ function App() {
                             <article key={site.id} className="ledger-item">
                               <div>
                                 <h3>{getResourceName(data.resources, site.resource_id)}</h3>
-                                <p>{formatValue(oilPerSecondActual)} / sec · {formatValue(oilPerSecondActual * 60)} / min</p>
+                                <p>{formatValue(oilPerSecondActual)} / sec | {formatValue(oilPerSecondActual * 60)} / min</p>
                                 {renderLocationEditor(`oil:${site.id}`, `/api/oil-extractors/${site.id}/location`, "solid")}
                               </div>
                               <div className="ledger-item-actions">
@@ -3788,13 +3601,13 @@ function App() {
                         );
                         const detail = outputs
                           .map((output) => `${getResourceName(data.resources, output.resource_id)} ${formatValue(output.rate_per_second * trueBoost * site.collector_count * 60)}/min`)
-                          .join(" · ");
+                          .join(" | ");
 
                         return (
                           <article key={site.id} className="ledger-item">
                             <div>
                               <h3>Collector ring</h3>
-                              <p>{site.collector_count} collectors · {detail}</p>
+                              <p>{site.collector_count} collectors | {detail}</p>
                               {renderLocationEditor(`gas:${site.id}`, `/api/gas-giants/${site.id}/location`, "gas_giant")}
                             </div>
                             <div className="ledger-item-actions">
@@ -3883,15 +3696,18 @@ function App() {
                               [selectedMapSystem.id]: event.target.value,
                             }))
                           }
-                          disabled={busy}
+                          disabled={busy || selectedMapSystem.generated_name_locked === 1}
                         />
                       </label>
+                      {selectedMapSystem.generated_name_locked === 1 && (
+                        <p className="helper-text">Cluster-imported system names are locked to the generated star catalog.</p>
+                      )}
                       <div className="admin-actions">
                         <button
                           type="button"
                           className="primary-button"
                           onClick={() => void handleRenameSystem(selectedMapSystem.id)}
-                          disabled={busy || !(systemNameDrafts[selectedMapSystem.id] ?? selectedMapSystem.name).trim()}
+                          disabled={busy || selectedMapSystem.generated_name_locked === 1 || !(systemNameDrafts[selectedMapSystem.id] ?? selectedMapSystem.name).trim()}
                         >
                           Save system name
                         </button>
@@ -4014,7 +3830,7 @@ function App() {
           </>
           )}
 
-          {activeView === "settings" && (
+          {false && activeView === "settings" && (
           <section className="panel">
             <div className="section-heading">
               <div>
@@ -4028,7 +3844,7 @@ function App() {
                 type="number"
                 min={1}
                 max={500}
-                value={data.settings.miningSpeedPercent}
+                value={loadedData.settings.miningSpeedPercent}
                 onChange={(event) =>
                   void updateSettings({
                     miningSpeedPercent: Number(event.target.value),
@@ -4042,7 +3858,7 @@ function App() {
                 className="ghost-button"
                 onClick={() =>
                   void updateSettings({
-                    miningSpeedPercent: data.settings.miningSpeedPercent + 10,
+                    miningSpeedPercent: loadedData.settings.miningSpeedPercent + 10,
                   })
                 }
               >
@@ -4148,6 +3964,199 @@ function App() {
           </section>
           )}
 
+          {activeView === "settings" && (
+          <section className="panel">
+            <div className="section-heading">
+              <div>
+                <p className="eyebrow">Fallback tools</p>
+                <h2>Manual distances and quick calc</h2>
+              </div>
+            </div>
+            <div className="transport-form-grid transport-form-grid-compact">
+              <label className="field">
+                <span>Distance (ly)</span>
+                <input
+                  type="number"
+                  min={0}
+                  step="any"
+                  value={quickCalcDistanceLy}
+                  onChange={(event) => setQuickCalcDistanceLy(Number(event.target.value))}
+                />
+              </label>
+
+              <label className="field">
+                <span>Throughput / min</span>
+                <input
+                  type="number"
+                  min={0}
+                  step="any"
+                  value={quickCalcThroughputPerMinute}
+                  onChange={(event) => setQuickCalcThroughputPerMinute(Number(event.target.value))}
+                />
+              </label>
+            </div>
+            <div className="transport-metric-grid">
+              <div className="entry-stat">
+                <span>Round trip</span>
+                <strong>{quickCalcRoundTripSeconds === null ? "Incomplete" : `${formatFixedValue(quickCalcRoundTripSeconds, 1)} s`}</strong>
+              </div>
+              <div className="entry-stat">
+                <span>Per vessel</span>
+                <strong>{quickCalcItemsPerMinutePerVessel === null ? "Incomplete" : `${formatFixedValue(quickCalcItemsPerMinutePerVessel, 1)} / min`}</strong>
+              </div>
+              <div className="entry-stat">
+                <span>Required ILS</span>
+                <strong>{quickCalcRequiredStations === null ? "Incomplete" : formatFixedValue(quickCalcRequiredStations, 1)}</strong>
+              </div>
+              <div className="entry-stat">
+                <span>Target ILS</span>
+                <strong>{quickCalcTargetStationsNeeded === null ? "Incomplete" : formatFixedValue(quickCalcTargetStationsNeeded, 1)}</strong>
+              </div>
+            </div>
+
+            <div className="divider" />
+
+            <form
+              className="transport-form-grid"
+              onSubmit={(event) => {
+                event.preventDefault();
+                void handleCreateSystemDistance();
+              }}
+            >
+              <label className="field">
+                <span>System A</span>
+                <select
+                  value={distanceDraft.systemAId}
+                  onChange={(event) => setDistanceDraft((current) => ({ ...current, systemAId: event.target.value }))}
+                >
+                  <option value="">Select system</option>
+                  {data.solarSystems.map((solarSystem) => (
+                    <option key={solarSystem.id} value={solarSystem.id}>
+                      {solarSystem.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+
+              <label className="field">
+                <span>System B</span>
+                <select
+                  value={distanceDraft.systemBId}
+                  onChange={(event) => setDistanceDraft((current) => ({ ...current, systemBId: event.target.value }))}
+                >
+                  <option value="">Select system</option>
+                  {data.solarSystems.map((solarSystem) => (
+                    <option key={solarSystem.id} value={solarSystem.id}>
+                      {solarSystem.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+
+              <label className="field">
+                <span>Distance (ly)</span>
+                <input
+                  type="number"
+                  min={0}
+                  step="any"
+                  value={distanceDraft.distanceLy}
+                  onChange={(event) => setDistanceDraft((current) => ({ ...current, distanceLy: Number(event.target.value) }))}
+                />
+              </label>
+
+              <div className="transport-form-actions">
+                <button type="submit" className="primary-button" disabled={busy || data.solarSystems.length < 2}>
+                  Save distance
+                </button>
+              </div>
+            </form>
+
+            {sortedSystemDistances.length > 0 ? (
+              <div className="transport-ledger">
+                {sortedSystemDistances.map((distance) => {
+                  const systemALabel = systemLookup.get(distance.system_a_id)?.name ?? "Unknown System";
+                  const systemBLabel = systemLookup.get(distance.system_b_id)?.name ?? "Unknown System";
+
+                  return (
+                    <article key={distance.id} className="transport-row-card">
+                      <div className="transport-row-main">
+                        <div>
+                          <h3>{systemALabel} {"->"} {systemBLabel}</h3>
+                          <p>{formatFixedValue(Number(distance.distance_ly), 1)} ly</p>
+                        </div>
+                        <div className="ledger-item-actions">
+                          <button type="button" className="ghost-button" onClick={() => startDistanceEdit(distance)}>
+                            Edit
+                          </button>
+                          <button type="button" className="ghost-button" onClick={() => void confirmAndDelete(`/api/system-distances/${distance.id}`, `distance ${systemALabel} to ${systemBLabel}`)}>
+                            Delete
+                          </button>
+                        </div>
+                      </div>
+
+                      {editingDistanceId === distance.id && (
+                        <div className="transport-inline-editor">
+                          <label className="field">
+                            <span>System A</span>
+                            <select
+                              value={editingDistanceDraft.systemAId}
+                              onChange={(event) => setEditingDistanceDraft((current) => ({ ...current, systemAId: event.target.value }))}
+                            >
+                              <option value="">Select system</option>
+                              {data.solarSystems.map((solarSystem) => (
+                                <option key={solarSystem.id} value={solarSystem.id}>
+                                  {solarSystem.name}
+                                </option>
+                              ))}
+                            </select>
+                          </label>
+
+                          <label className="field">
+                            <span>System B</span>
+                            <select
+                              value={editingDistanceDraft.systemBId}
+                              onChange={(event) => setEditingDistanceDraft((current) => ({ ...current, systemBId: event.target.value }))}
+                            >
+                              <option value="">Select system</option>
+                              {data.solarSystems.map((solarSystem) => (
+                                <option key={solarSystem.id} value={solarSystem.id}>
+                                  {solarSystem.name}
+                                </option>
+                              ))}
+                            </select>
+                          </label>
+
+                          <label className="field">
+                            <span>Distance (ly)</span>
+                            <input
+                              type="number"
+                              min={0}
+                              step="any"
+                              value={editingDistanceDraft.distanceLy}
+                              onChange={(event) => setEditingDistanceDraft((current) => ({ ...current, distanceLy: Number(event.target.value) }))}
+                            />
+                          </label>
+
+                          <div className="transport-form-actions">
+                            <button type="button" className="primary-button" onClick={() => void handleSaveDistanceEdit()} disabled={busy}>
+                              Save
+                            </button>
+                            <button type="button" className="ghost-button" onClick={cancelDistanceEdit} disabled={busy}>
+                              Cancel
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                    </article>
+                  );
+                })}
+              </div>
+            ) : (
+              <p className="empty-state">No manual distance fallbacks saved.</p>
+            )}
+          </section>
+          )}
+
           {activeView === "projects" && (
           <section className="panel">
             <div className="section-heading">
@@ -4249,11 +4258,40 @@ function App() {
             </div>
             <FileDropInput
               accept=".csv,text/csv"
-              description="Drop a FactorioLab CSV here to create a project from raw-resource requirements only."
+              description="Drop a FactorioLab CSV here to create a project with raw goals and a crafted-item production catalog."
               disabled={busy}
               label="Project CSV"
               onSelect={(file) => void handleProjectCsvImport(file)}
             />
+          </section>
+          )}
+
+          {activeView === "settings" && (
+          <section className="panel">
+            <div className="section-heading">
+              <div>
+                <p className="eyebrow">Cluster</p>
+                <h2>Cluster address</h2>
+              </div>
+            </div>
+            <label className="field">
+              <span>Cluster address</span>
+              <input
+                value={clusterAddressDraft}
+                onChange={(event) => setClusterAddressDraft(event.target.value)}
+                placeholder="07198444-64-799-10"
+              />
+            </label>
+            <p className="helper-text">
+              {parsedClusterAddress
+                ? `Seed ${parsedClusterAddress.clusterSeed} · ${parsedClusterAddress.clusterStarCount} stars · ${loadedData.summary.generatedSystemCount} generated systems currently stored.`
+                : clusterAddressDraft.trim()
+                  ? "Cluster address format not recognized yet."
+                  : "Import a DSP cluster address to generate exact system coordinates and automatic inter-system distances."}
+            </p>
+            <button type="button" className="primary-button full-width" onClick={() => void handleImportClusterAddress()} disabled={busy || !parsedClusterAddress}>
+              Import cluster systems
+            </button>
           </section>
           )}
 
@@ -4329,3 +4367,4 @@ function App() {
 }
 
 export default App;
+

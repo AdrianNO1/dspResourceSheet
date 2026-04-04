@@ -17,6 +17,11 @@ export type ResourceDefinition = {
 export type SolarSystem = {
   id: string;
   name: string;
+  generated_x: number | null;
+  generated_y: number | null;
+  generated_z: number | null;
+  generated_name_locked: number;
+  generated_from_cluster: number;
 };
 
 export type SystemDistance = {
@@ -46,6 +51,50 @@ export type ProjectGoal = {
   project_id: string;
   resource_id: string;
   quantity: number;
+};
+
+export type ImportedDependencyType = "raw" | "crafted";
+export type ImportedItemCategory = "raw" | "crafted";
+
+export type ProjectImportedDependency = {
+  item_key: string;
+  display_name: string;
+  dependency_type: ImportedDependencyType;
+  amount_per_unit?: number;
+  throughput_per_minute?: number;
+  per_unit_ratio: number;
+  imported_demand_per_minute: number;
+};
+
+export type ProjectImportedItem = {
+  id: string;
+  project_id: string;
+  item_key: string;
+  display_name: string;
+  throughput_per_minute?: number;
+  imported_throughput_per_minute: number;
+  category: ImportedItemCategory;
+  machine_count: number;
+  machine_label: string;
+  belt_label: string;
+  belt_speed_per_minute: number | null;
+  output_belts: number;
+  recipe?: string;
+  outputs?: string;
+  dependencies: ProjectImportedDependency[];
+  sort_order?: number;
+};
+
+export type ProductionSite = {
+  id: string;
+  project_id: string;
+  item_key: string;
+  throughput_per_minute: number;
+  solar_system_id: string;
+  planet_id: string;
+  outbound_ils_count: number;
+  is_finished: number;
+  created_at: string;
 };
 
 export type OreVein = {
@@ -129,12 +178,14 @@ export type BootstrapData = {
   planets: Planet[];
   projects: Project[];
   projectGoals: ProjectGoal[];
+  projectImportedItems: ProjectImportedItem[];
   oreVeins: OreVein[];
   oreVeinMiners: OreVeinMiner[];
   liquidSites: LiquidSite[];
   oilExtractors: OilExtractor[];
   gasGiantSites: GasGiantSite[];
   gasGiantOutputs: GasGiantOutput[];
+  productionSites: ProductionSite[];
   transportRoutes: TransportRoute[];
   settings: {
     currentSolarSystemId: string | null;
@@ -144,12 +195,19 @@ export type BootstrapData = {
     vesselSpeedLyPerSecond: number;
     vesselDockingSeconds: number;
     ilsStorageItems: number;
+    clusterAddress: string;
+    clusterSeed: number | null;
+    clusterStarCount: number | null;
+    clusterResourceCode: string | null;
+    clusterSuffix: string | null;
   };
   summary: {
     totalResourcesTracked: number;
     activeProjectCount: number;
     solarSystemCount: number;
     planetCount: number;
+    generatedSystemCount?: number;
     resourceSummaries: ResourceSummary[];
+    productionByProjectId?: Record<string, unknown>;
   };
 };

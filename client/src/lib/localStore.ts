@@ -5,6 +5,7 @@ import {
   getPumpOutputPerMinute,
   getRegularMinerOutputPerMinute,
 } from "./dspMath";
+import { generateClusterSystems, parseClusterAddress } from "./dspCluster";
 import type {
   BootstrapData,
   GasGiantOutput,
@@ -18,6 +19,8 @@ import type {
   PlanetType,
   Project,
   ProjectGoal,
+  ProjectImportedItem,
+  ProductionSite,
   ResourceDefinition,
   ResourceSummary,
   ResourceType,
@@ -33,12 +36,14 @@ type Snapshot = {
   planets: Planet[];
   projects: Project[];
   projectGoals: ProjectGoal[];
+  projectImportedItems: ProjectImportedItem[];
   oreVeins: OreVein[];
   oreVeinMiners: OreVeinMiner[];
   liquidSites: LiquidSite[];
   oilExtractors: OilExtractor[];
   gasGiantSites: GasGiantSite[];
   gasGiantOutputs: GasGiantOutput[];
+  productionSites: ProductionSite[];
   transportRoutes: TransportRoute[];
   settings: Record<string, string>;
 };
@@ -88,6 +93,11 @@ const settingsDefaults = new Map<string, string>([
   ["vesselSpeedLyPerSecond", "0.25"],
   ["vesselDockingSeconds", "0"],
   ["ilsStorageItems", "10000"],
+  ["clusterAddress", ""],
+  ["clusterSeed", ""],
+  ["clusterStarCount", ""],
+  ["clusterResourceCode", ""],
+  ["clusterSuffix", ""],
 ]);
 
 function generateId() {
@@ -170,12 +180,14 @@ function createEmptySnapshot(): Snapshot {
     planets: [],
     projects: [],
     projectGoals: [],
+    projectImportedItems: [],
     oreVeins: [],
     oreVeinMiners: [],
     liquidSites: [],
     oilExtractors: [],
     gasGiantSites: [],
     gasGiantOutputs: [],
+    productionSites: [],
     transportRoutes: [],
     settings: {},
   };
@@ -294,6 +306,11 @@ function normalizeSnapshot(input: unknown): Snapshot {
   snapshot.solarSystems = ensureArray<SolarSystem>(source.solarSystems).map((item) => ({
     id: getSortableValue(item.id) || generateId(),
     name: getSortableValue(item.name) || "Unnamed System",
+    generated_x: typeof item.generated_x === "number" ? item.generated_x : null,
+    generated_y: typeof item.generated_y === "number" ? item.generated_y : null,
+    generated_z: typeof item.generated_z === "number" ? item.generated_z : null,
+    generated_name_locked: getNumericValue(item.generated_name_locked, 0),
+    generated_from_cluster: getNumericValue(item.generated_from_cluster, 0),
   }));
 
   snapshot.systemDistances = ensureArray<SystemDistance>(source.systemDistances).map((item) => {
@@ -330,6 +347,30 @@ function normalizeSnapshot(input: unknown): Snapshot {
     project_id: getSortableValue(item.project_id),
     resource_id: getSortableValue(item.resource_id),
     quantity: getNumericValue(item.quantity),
+  }));
+
+  snapshot.projectImportedItems = ensureArray<ProjectImportedItem>(source.projectImportedItems).map((item) => ({
+    id: getSortableValue(item.id) || generateId(),
+    project_id: getSortableValue(item.project_id),
+    item_key: getSortableValue(item.item_key),
+    display_name: getSortableValue(item.display_name) || "Unnamed Item",
+    category: item.category === "raw" ? "raw" : "crafted",
+    imported_throughput_per_minute: getNumericValue(item.imported_throughput_per_minute),
+    machine_count: getNumericValue(item.machine_count),
+    machine_label: getSortableValue(item.machine_label),
+    belt_label: getSortableValue(item.belt_label),
+    belt_speed_per_minute: typeof item.belt_speed_per_minute === "number" ? item.belt_speed_per_minute : null,
+    output_belts: getNumericValue(item.output_belts),
+    recipe: getSortableValue(item.recipe),
+    outputs: getSortableValue(item.outputs),
+    dependencies: ensureArray<ProjectImportedItem["dependencies"][number]>(item.dependencies).map((dependency) => ({
+      item_key: getSortableValue(dependency.item_key),
+      display_name: getSortableValue(dependency.display_name) || "Unnamed Dependency",
+      dependency_type: dependency.dependency_type === "crafted" ? "crafted" : "raw",
+      per_unit_ratio: getNumericValue(dependency.per_unit_ratio),
+      imported_demand_per_minute: getNumericValue(dependency.imported_demand_per_minute),
+    })),
+    sort_order: getNumericValue(item.sort_order),
   }));
 
   snapshot.oreVeins = ensureArray<OreVein>(source.oreVeins).map((item) => ({
@@ -380,6 +421,18 @@ function normalizeSnapshot(input: unknown): Snapshot {
     gas_giant_site_id: getSortableValue(item.gas_giant_site_id),
     resource_id: getSortableValue(item.resource_id),
     rate_per_second: getNumericValue(item.rate_per_second),
+  }));
+
+  snapshot.productionSites = ensureArray<ProductionSite>(source.productionSites).map((item) => ({
+    id: getSortableValue(item.id) || generateId(),
+    project_id: getSortableValue(item.project_id),
+    item_key: getSortableValue(item.item_key),
+    throughput_per_minute: getNumericValue(item.throughput_per_minute),
+    solar_system_id: getSortableValue(item.solar_system_id),
+    planet_id: getSortableValue(item.planet_id),
+    outbound_ils_count: getNumericValue(item.outbound_ils_count),
+    is_finished: getNumericValue(item.is_finished, 1),
+    created_at: getSortableValue(item.created_at) || nowIso(),
   }));
 
   snapshot.transportRoutes = ensureArray<TransportRoute>(source.transportRoutes).map((item) => ({
@@ -451,6 +504,7 @@ function deletePlanet(snapshot: Snapshot, planetId: string) {
   snapshot.liquidSites = snapshot.liquidSites.filter((site) => site.planet_id !== planetId);
   snapshot.oilExtractors = snapshot.oilExtractors.filter((site) => site.planet_id !== planetId);
   snapshot.gasGiantSites.filter((site) => site.planet_id === planetId).forEach((site) => deleteGasGiantSite(snapshot, site.id));
+  snapshot.productionSites = snapshot.productionSites.filter((site) => site.planet_id !== planetId);
   snapshot.planets = snapshot.planets.filter((planet) => planet.id !== planetId);
 
   if (snapshot.settings.currentPlanetId === planetId) {
@@ -462,6 +516,7 @@ function deleteSolarSystem(snapshot: Snapshot, solarSystemId: string) {
   snapshot.planets
     .filter((planet) => planet.solar_system_id === solarSystemId)
     .forEach((planet) => deletePlanet(snapshot, planet.id));
+  snapshot.productionSites = snapshot.productionSites.filter((site) => site.solar_system_id !== solarSystemId);
   snapshot.systemDistances = snapshot.systemDistances.filter(
     (distance) => distance.system_a_id !== solarSystemId && distance.system_b_id !== solarSystemId,
   );
@@ -488,6 +543,83 @@ function replaceProjectGoals(snapshot: Snapshot, projectId: string, goals: Array
         quantity: goal.quantity,
       });
     });
+}
+
+function replaceProjectImportedItems(
+  snapshot: Snapshot,
+  projectId: string,
+  importedItems: Array<Omit<ProjectImportedItem, "id" | "project_id">>,
+) {
+  snapshot.projectImportedItems = snapshot.projectImportedItems.filter((item) => item.project_id !== projectId);
+  importedItems.forEach((item) => {
+    snapshot.projectImportedItems.push({
+      id: generateId(),
+      project_id: projectId,
+      item_key: item.item_key,
+      display_name: item.display_name,
+      category: item.category,
+      imported_throughput_per_minute: Number(item.imported_throughput_per_minute),
+      machine_count: Number(item.machine_count),
+      machine_label: item.machine_label,
+      belt_label: item.belt_label,
+      belt_speed_per_minute: item.belt_speed_per_minute === null ? null : Number(item.belt_speed_per_minute),
+      output_belts: Number(item.output_belts),
+      recipe: item.recipe,
+      outputs: item.outputs,
+      dependencies: item.dependencies.map((dependency) => ({
+        item_key: dependency.item_key,
+        display_name: dependency.display_name,
+        dependency_type: dependency.dependency_type,
+        per_unit_ratio: Number(dependency.per_unit_ratio),
+        imported_demand_per_minute: Number(dependency.imported_demand_per_minute),
+      })),
+      sort_order: Number(item.sort_order),
+    });
+  });
+}
+
+function importClusterAddress(snapshot: Snapshot, clusterAddressValue: string) {
+  const parsedCluster = parseClusterAddress(clusterAddressValue);
+  const generatedSystems = generateClusterSystems(parsedCluster);
+  const generatedNameSet = new Set(generatedSystems.map((system) => system.name));
+
+  snapshot.settings.clusterAddress = parsedCluster.clusterAddress;
+  snapshot.settings.clusterSeed = String(parsedCluster.clusterSeed);
+  snapshot.settings.clusterStarCount = String(parsedCluster.clusterStarCount);
+  snapshot.settings.clusterResourceCode = parsedCluster.clusterResourceCode ?? "";
+  snapshot.settings.clusterSuffix = parsedCluster.clusterSuffix ?? "";
+
+  snapshot.solarSystems.forEach((system) => {
+    if (system.generated_from_cluster === 1 && !generatedNameSet.has(system.name)) {
+      system.generated_x = null;
+      system.generated_y = null;
+      system.generated_z = null;
+      system.generated_name_locked = 0;
+      system.generated_from_cluster = 0;
+    }
+  });
+
+  for (const generatedSystem of generatedSystems) {
+    const existing = snapshot.solarSystems.find((system) => system.name === generatedSystem.name);
+    if (existing) {
+      existing.generated_x = generatedSystem.x;
+      existing.generated_y = generatedSystem.y;
+      existing.generated_z = generatedSystem.z;
+      existing.generated_name_locked = 1;
+      existing.generated_from_cluster = 1;
+      continue;
+    }
+
+    snapshot.solarSystems.push({
+      id: generateId(),
+      name: generatedSystem.name,
+      generated_x: generatedSystem.x,
+      generated_y: generatedSystem.y,
+      generated_z: generatedSystem.z,
+      generated_name_locked: 1,
+      generated_from_cluster: 1,
+    });
+  }
 }
 
 function resourceGoalUnit(type: ResourceType) {
@@ -635,12 +767,18 @@ function buildBootstrap(snapshot: Snapshot): BootstrapData {
     planets: snapshot.planets.slice().sort((left, right) => left.name.localeCompare(right.name)),
     projects: snapshot.projects.slice().sort((left, right) => left.sort_order - right.sort_order || left.name.localeCompare(right.name)),
     projectGoals: snapshot.projectGoals.slice(),
+    projectImportedItems: snapshot.projectImportedItems.slice().sort(
+      (left, right) => left.project_id.localeCompare(right.project_id) || left.display_name.localeCompare(right.display_name),
+    ),
     oreVeins: snapshot.oreVeins.slice().sort((left, right) => new Date(right.created_at).getTime() - new Date(left.created_at).getTime()),
     oreVeinMiners: snapshot.oreVeinMiners.slice(),
     liquidSites: snapshot.liquidSites.slice().sort((left, right) => new Date(right.created_at).getTime() - new Date(left.created_at).getTime()),
     oilExtractors: snapshot.oilExtractors.slice().sort((left, right) => new Date(right.created_at).getTime() - new Date(left.created_at).getTime()),
     gasGiantSites: snapshot.gasGiantSites.slice().sort((left, right) => new Date(right.created_at).getTime() - new Date(left.created_at).getTime()),
     gasGiantOutputs: snapshot.gasGiantOutputs.slice(),
+    productionSites: snapshot.productionSites.slice().sort(
+      (left, right) => new Date(right.created_at).getTime() - new Date(left.created_at).getTime(),
+    ),
     transportRoutes: snapshot.transportRoutes.slice().sort((left, right) => new Date(right.created_at).getTime() - new Date(left.created_at).getTime()),
     settings: {
       currentSolarSystemId: snapshot.settings.currentSolarSystemId || null,
@@ -650,13 +788,20 @@ function buildBootstrap(snapshot: Snapshot): BootstrapData {
       vesselSpeedLyPerSecond: Number(snapshot.settings.vesselSpeedLyPerSecond ?? "0.25"),
       vesselDockingSeconds: Number(snapshot.settings.vesselDockingSeconds ?? "0"),
       ilsStorageItems: Number(snapshot.settings.ilsStorageItems ?? "10000"),
+      clusterAddress: snapshot.settings.clusterAddress ?? "",
+      clusterSeed: snapshot.settings.clusterSeed ? Number(snapshot.settings.clusterSeed) : null,
+      clusterStarCount: snapshot.settings.clusterStarCount ? Number(snapshot.settings.clusterStarCount) : null,
+      clusterResourceCode: snapshot.settings.clusterResourceCode || null,
+      clusterSuffix: snapshot.settings.clusterSuffix || null,
     },
     summary: {
       totalResourcesTracked: resourceSummaries.length,
       activeProjectCount: activeProjectIds.size,
       solarSystemCount: snapshot.solarSystems.length,
       planetCount: snapshot.planets.length,
+      generatedSystemCount: snapshot.solarSystems.filter((system) => system.generated_from_cluster === 1).length,
       resourceSummaries,
+      productionByProjectId: {},
     },
   };
 }
@@ -753,7 +898,15 @@ export async function mutateStore(url: string, method: string, body?: unknown) {
     }
 
     const id = generateId();
-    snapshot.solarSystems.push({ id, name });
+    snapshot.solarSystems.push({
+      id,
+      name,
+      generated_x: null,
+      generated_y: null,
+      generated_z: null,
+      generated_name_locked: 0,
+      generated_from_cluster: 0,
+    });
     snapshot.settings.currentSolarSystemId = id;
   } else if (url === "/api/planets" && method === "POST") {
     const solarSystemId = String(payload.solarSystemId ?? "");
@@ -778,6 +931,9 @@ export async function mutateStore(url: string, method: string, body?: unknown) {
     const solarSystem = snapshot.solarSystems.find((item) => item.id === solarSystemId);
     if (!solarSystem) {
       throw new Error("System not found.");
+    }
+    if (solarSystem.generated_name_locked === 1) {
+      throw new Error("Generated cluster systems cannot be renamed manually.");
     }
 
     const name = String(payload.name ?? solarSystem.name).trim();
@@ -810,6 +966,8 @@ export async function mutateStore(url: string, method: string, body?: unknown) {
     Object.entries(payload).forEach(([key, value]) => {
       snapshot.settings[key] = value === null ? "" : String(value);
     });
+  } else if (url === "/api/cluster/import" && method === "POST") {
+    importClusterAddress(snapshot, String(payload.clusterAddress ?? ""));
   } else if (url === "/api/projects" && method === "POST") {
     const name = String(payload.name ?? "").trim();
     const notes = String(payload.notes ?? "").trim();
@@ -834,6 +992,13 @@ export async function mutateStore(url: string, method: string, body?: unknown) {
         })),
       );
     }
+    if (Array.isArray(payload.importedItems)) {
+      replaceProjectImportedItems(
+        snapshot,
+        projectId,
+        payload.importedItems as Array<Omit<ProjectImportedItem, "id" | "project_id">>,
+      );
+    }
   } else if (matchId(url, /^\/api\/projects\/([^/]+)$/) && method === "PATCH") {
     const projectId = matchId(url, /^\/api\/projects\/([^/]+)$/)!;
     const project = snapshot.projects.find((item) => item.id === projectId);
@@ -853,6 +1018,13 @@ export async function mutateStore(url: string, method: string, body?: unknown) {
         })),
       );
     }
+    if (Array.isArray(payload.importedItems)) {
+      replaceProjectImportedItems(
+        snapshot,
+        projectId,
+        payload.importedItems as Array<Omit<ProjectImportedItem, "id" | "project_id">>,
+      );
+    }
   } else if (matchId(url, /^\/api\/projects\/([^/]+)\/goals$/) && method === "PUT") {
     const projectId = matchId(url, /^\/api\/projects\/([^/]+)\/goals$/)!;
     replaceProjectGoals(
@@ -863,6 +1035,59 @@ export async function mutateStore(url: string, method: string, body?: unknown) {
         quantity: Number(goal.quantity),
       })),
     );
+  } else if (url === "/api/production-sites" && method === "POST") {
+    const projectId = String(payload.projectId ?? "");
+    const itemKey = String(payload.itemKey ?? "").trim();
+    const solarSystemId = String(payload.solarSystemId ?? "");
+    const planetId = String(payload.planetId ?? "");
+    ensureSolarSystemExists(snapshot, solarSystemId);
+    const planet = ensurePlanetExists(snapshot, planetId);
+    if (planet.solar_system_id !== solarSystemId) {
+      throw new Error("Selected planet does not belong to the selected system.");
+    }
+    if (!snapshot.projects.some((project) => project.id === projectId)) {
+      throw new Error("Selected project does not exist.");
+    }
+    if (!snapshot.projectImportedItems.some((item) => item.project_id === projectId && item.item_key === itemKey)) {
+      throw new Error("Selected production item is not available in this project.");
+    }
+
+    snapshot.productionSites.push({
+      id: generateId(),
+      project_id: projectId,
+      item_key: itemKey,
+      throughput_per_minute: Number(payload.throughputPerMinute ?? 0),
+      solar_system_id: solarSystemId,
+      planet_id: planetId,
+      outbound_ils_count: Number(payload.outboundIlsCount ?? 0),
+      is_finished: payload.isFinished === false ? 0 : 1,
+      created_at: nowIso(),
+    });
+  } else if (matchId(url, /^\/api\/production-sites\/([^/]+)$/) && method === "PATCH") {
+    const productionSiteId = matchId(url, /^\/api\/production-sites\/([^/]+)$/)!;
+    const productionSite = snapshot.productionSites.find((item) => item.id === productionSiteId);
+    if (!productionSite) {
+      throw new Error("Production site not found.");
+    }
+
+    const solarSystemId = String(payload.solarSystemId ?? productionSite.solar_system_id);
+    const planetId = String(payload.planetId ?? productionSite.planet_id);
+    ensureSolarSystemExists(snapshot, solarSystemId);
+    const planet = ensurePlanetExists(snapshot, planetId);
+    if (planet.solar_system_id !== solarSystemId) {
+      throw new Error("Selected planet does not belong to the selected system.");
+    }
+
+    const nextItemKey = String(payload.itemKey ?? productionSite.item_key).trim();
+    if (!snapshot.projectImportedItems.some((item) => item.project_id === productionSite.project_id && item.item_key === nextItemKey)) {
+      throw new Error("Selected production item is not available in this project.");
+    }
+    productionSite.item_key = nextItemKey;
+    productionSite.throughput_per_minute = Number(payload.throughputPerMinute ?? productionSite.throughput_per_minute);
+    productionSite.solar_system_id = solarSystemId;
+    productionSite.planet_id = planetId;
+    productionSite.outbound_ils_count = Number(payload.outboundIlsCount ?? productionSite.outbound_ils_count);
+    productionSite.is_finished = payload.isFinished === undefined ? productionSite.is_finished : payload.isFinished ? 1 : 0;
   } else if (url === "/api/ore-veins" && method === "POST") {
     const planetId = String(payload.planetId ?? "");
     const resourceId = String(payload.resourceId ?? "");
@@ -1042,6 +1267,10 @@ export async function mutateStore(url: string, method: string, body?: unknown) {
     snapshot.oilExtractors = snapshot.oilExtractors.filter((site) => site.id !== matchId(url, /^\/api\/oil-extractors\/([^/]+)$/)!);
   } else if (matchId(url, /^\/api\/gas-giants\/([^/]+)$/) && method === "DELETE") {
     deleteGasGiantSite(snapshot, matchId(url, /^\/api\/gas-giants\/([^/]+)$/)!);
+  } else if (matchId(url, /^\/api\/production-sites\/([^/]+)$/) && method === "DELETE") {
+    snapshot.productionSites = snapshot.productionSites.filter(
+      (site) => site.id !== matchId(url, /^\/api\/production-sites\/([^/]+)$/)!,
+    );
   } else if (matchId(url, /^\/api\/system-distances\/([^/]+)$/) && method === "DELETE") {
     snapshot.systemDistances = snapshot.systemDistances.filter((distance) => distance.id !== matchId(url, /^\/api\/system-distances\/([^/]+)$/)!);
   } else if (matchId(url, /^\/api\/transport-routes\/([^/]+)$/) && method === "DELETE") {
