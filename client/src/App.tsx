@@ -4,6 +4,7 @@ import "./App.css";
 import { ResourceIcon } from "./components/ResourceIcon";
 import { ResourceSelect } from "./components/ResourceSelect";
 import { deleteBootstrap, exportSnapshot, getBootstrap, importSnapshot, patchBootstrap, postBootstrap } from "./lib/api";
+import { parseFactorioLabProjectCsv } from "./lib/projectImport";
 import {
   getAdvancedMinerOutputPerMinute,
   getAdvancedMinerPowerMw,
@@ -212,7 +213,7 @@ function getExtractionView(
     }
 
     const miners = oreMinerLookup[vein.id] ?? [];
-    const supplyPerMinute = getOreVeinOutputPerMinute(miners, data.settings.miningResearchBonusPercent);
+    const supplyPerMinute = getOreVeinOutputPerMinute(miners, data.settings.miningSpeedPercent);
     const rollup = ensureRollup(vein.resource_id);
 
     if (rollup) {
@@ -245,7 +246,7 @@ function getExtractionView(
       continue;
     }
 
-    const supplyPerMinute = getPumpOutputPerMinute(Number(site.pump_count), data.settings.miningResearchBonusPercent);
+    const supplyPerMinute = getPumpOutputPerMinute(Number(site.pump_count), data.settings.miningSpeedPercent);
     const rollup = ensureRollup(site.resource_id);
 
     if (rollup) {
@@ -318,7 +319,7 @@ function getExtractionView(
         ratePerSecond: Number(output.rate_per_second),
         fuelValueMj: Number(resourceLookup.get(output.resource_id)?.fuel_value_mj ?? 0),
       })),
-      data.settings.miningResearchBonusPercent,
+      data.settings.miningSpeedPercent,
     );
 
     for (const output of outputs) {
@@ -412,7 +413,7 @@ function getResourceOriginEntries(
 
     const supplyPerMinute = getOreVeinOutputPerMinute(
       oreMinerLookup[vein.id] ?? [],
-      data.settings.miningResearchBonusPercent,
+      data.settings.miningSpeedPercent,
     );
 
     if (supplyPerMinute <= 0) {
@@ -441,7 +442,7 @@ function getResourceOriginEntries(
 
     const supplyPerMinute = getPumpOutputPerMinute(
       Number(site.pump_count),
-      data.settings.miningResearchBonusPercent,
+      data.settings.miningSpeedPercent,
     );
 
     if (supplyPerMinute <= 0) {
@@ -497,7 +498,7 @@ function getResourceOriginEntries(
         ratePerSecond: Number(output.rate_per_second),
         fuelValueMj: Number(resourceLookup.get(output.resource_id)?.fuel_value_mj ?? 0),
       })),
-      data.settings.miningResearchBonusPercent,
+      data.settings.miningSpeedPercent,
     );
 
     for (const output of outputs) {
@@ -829,7 +830,7 @@ function getDefaultGasOutputs(resources: ResourceDefinition[]) {
   ];
 }
 
-function getOreVeinOutputPerMinute(miners: OreVeinMiner[], miningResearchBonusPercent: number) {
+function getOreVeinOutputPerMinute(miners: OreVeinMiner[], miningSpeedPercent: number) {
   return miners.reduce((sum, miner) => {
     if (miner.miner_type === "advanced") {
       return (
@@ -837,22 +838,22 @@ function getOreVeinOutputPerMinute(miners: OreVeinMiner[], miningResearchBonusPe
         getAdvancedMinerOutputPerMinute(
           Number(miner.covered_nodes),
           Number(miner.advanced_speed_percent ?? 100),
-          miningResearchBonusPercent,
+          miningSpeedPercent,
         )
       );
     }
 
-    return sum + getRegularMinerOutputPerMinute(Number(miner.covered_nodes), miningResearchBonusPercent);
+    return sum + getRegularMinerOutputPerMinute(Number(miner.covered_nodes), miningSpeedPercent);
   }, 0);
 }
 
-function getDraftOreOutputPerMinute(miners: MinerDraft[], miningResearchBonusPercent: number) {
+function getDraftOreOutputPerMinute(miners: MinerDraft[], miningSpeedPercent: number) {
   return miners.reduce((sum, miner) => {
     if (miner.minerType === "advanced") {
-      return sum + getAdvancedMinerOutputPerMinute(miner.coveredNodes, miner.advancedSpeedPercent, miningResearchBonusPercent);
+      return sum + getAdvancedMinerOutputPerMinute(miner.coveredNodes, miner.advancedSpeedPercent, miningSpeedPercent);
     }
 
-    return sum + getRegularMinerOutputPerMinute(miner.coveredNodes, miningResearchBonusPercent);
+    return sum + getRegularMinerOutputPerMinute(miner.coveredNodes, miningSpeedPercent);
   }, 0);
 }
 
@@ -1288,8 +1289,8 @@ function App() {
   const selectedOreSummary = loadedData.summary.resourceSummaries.find((summary) => summary.resourceId === oreResourceId) ?? null;
   const selectedLiquidSummary = loadedData.summary.resourceSummaries.find((summary) => summary.resourceId === liquidResourceId) ?? null;
   const selectedOilSummary = loadedData.summary.resourceSummaries.find((summary) => summary.resourceId === oilResourceId) ?? null;
-  const pendingOreNodeEquivalents = getDraftOreOutputPerMinute(oreMiners, loadedData.settings.miningResearchBonusPercent) / 30;
-  const pendingLiquidOutputPerMinute = getPumpOutputPerMinute(pumpCount, loadedData.settings.miningResearchBonusPercent);
+  const pendingOreNodeEquivalents = getDraftOreOutputPerMinute(oreMiners, loadedData.settings.miningSpeedPercent) / 30;
+  const pendingLiquidOutputPerMinute = getPumpOutputPerMinute(pumpCount, loadedData.settings.miningSpeedPercent);
   const pendingOilPerMinute = getOilOutputPerSecond(oilPerSecond) * 60;
   const pendingGasTrueBoost = getOrbitalCollectorTrueBoost(
     gasOutputs
@@ -1298,7 +1299,7 @@ function App() {
         ratePerSecond: Number(output.ratePerSecond),
         fuelValueMj: resourceLookup.get(output.resourceId)?.fuel_value_mj ?? 0,
       })),
-    loadedData.settings.miningResearchBonusPercent,
+    loadedData.settings.miningSpeedPercent,
   );
   const pendingGasOutputPerMinuteByResourceId = gasOutputs.reduce<Record<string, number>>((acc, output) => {
     if (!output.resourceId) {
@@ -2164,6 +2165,39 @@ function App() {
     });
   }
 
+  async function handleProjectCsvImport(file: File | undefined) {
+    if (!file) {
+      return;
+    }
+
+    await mutate(async () => {
+      const text = await file.text();
+      const importedProject = parseFactorioLabProjectCsv(file.name, text, loadedData.resources);
+      return {
+        bootstrap: await postBootstrap("/api/projects", {
+          name: importedProject.projectName,
+          notes: importedProject.projectNotes,
+          goals: importedProject.goals,
+        }),
+        importedProject,
+      };
+    }, ({ bootstrap, importedProject }) => {
+      applyBootstrap(bootstrap);
+
+      const project = bootstrap.projects
+        .filter((item) => item.name === importedProject.projectName && item.notes === importedProject.projectNotes)
+        .sort((left, right) => right.sort_order - left.sort_order)[0];
+
+      setSelectedProjectId(project?.id ?? bootstrap.projects[0]?.id ?? "");
+      setActiveView("projects");
+
+      const skippedLabel = importedProject.skippedRawResources.length > 0
+        ? ` Skipped unsupported raw entries: ${importedProject.skippedRawResources.join(", ")}.`
+        : "";
+      setNotice(`Imported project from CSV.${skippedLabel}`);
+    });
+  }
+
   return (
     <main className="shell">
       {(error || notice) && (
@@ -2616,7 +2650,7 @@ function App() {
                   </label>
                 </div>
 
-                <p className="helper-text">Net output uses the collector true boost formula, including the 30 MW internal fuel burn and your mining research bonus.</p>
+                <p className="helper-text">Net output uses the collector true boost formula, including the 30 MW internal fuel burn and your mining speed.</p>
 
                 <div className="gas-output-stack">
                   {gasOutputs.map((output, index) => (
@@ -3604,7 +3638,7 @@ function App() {
                         if (item.kind === "ore") {
                           const vein = item.data;
                           const miners = oreMinerLookup[vein.id] ?? [];
-                          const throughputPerMinute = getOreVeinOutputPerMinute(miners, data.settings.miningResearchBonusPercent);
+                          const throughputPerMinute = getOreVeinOutputPerMinute(miners, data.settings.miningSpeedPercent);
 
                           return (
                             <article key={vein.id} className="ledger-item">
@@ -3675,7 +3709,7 @@ function App() {
                             ratePerSecond: Number(output.rate_per_second),
                             fuelValueMj: Number(resourceLookup.get(output.resource_id)?.fuel_value_mj ?? 0),
                           })),
-                          data.settings.miningResearchBonusPercent,
+                          data.settings.miningSpeedPercent,
                         );
                         const detail = outputs
                           .map((output) => `${getResourceName(data.resources, output.resource_id)} ${formatValue(output.rate_per_second * trueBoost * site.collector_count * 60)}/min`)
@@ -3910,19 +3944,19 @@ function App() {
             <div className="section-heading">
               <div>
                 <p className="eyebrow">Configuration</p>
-                <h2>Mining bonus</h2>
+                <h2>Mining speed</h2>
               </div>
             </div>
             <label className="field">
-              <span>Mining research bonus %</span>
+              <span>Mining speed %</span>
               <input
                 type="number"
-                min={0}
+                min={1}
                 max={500}
-                value={data.settings.miningResearchBonusPercent}
+                value={data.settings.miningSpeedPercent}
                 onChange={(event) =>
                   void updateSettings({
-                    miningResearchBonusPercent: Number(event.target.value),
+                    miningSpeedPercent: Number(event.target.value),
                   })
                 }
               />
@@ -3933,13 +3967,13 @@ function App() {
                 className="ghost-button"
                 onClick={() =>
                   void updateSettings({
-                    miningResearchBonusPercent: data.settings.miningResearchBonusPercent + 10,
+                    miningSpeedPercent: data.settings.miningSpeedPercent + 10,
                   })
                 }
               >
                 +10%
               </button>
-              <span className="helper-text">Applied to ore miners, pumps, and orbital collectors.</span>
+              <span className="helper-text">100% is base speed. Applied to ore miners, pumps, and orbital collectors.</span>
             </div>
           </section>
           )}
@@ -4184,6 +4218,10 @@ function App() {
                 <h2>Import / export</h2>
               </div>
             </div>
+            <label className="file-input">
+              <span>Import project CSV</span>
+              <input type="file" accept=".csv,text/csv" onChange={(event) => void handleProjectCsvImport(event.target.files?.[0])} />
+            </label>
             <button type="button" className="primary-button full-width" onClick={() => void handleExport()} disabled={busy}>
               Export JSON snapshot
             </button>

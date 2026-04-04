@@ -139,7 +139,7 @@ export type BootstrapData = {
   settings: {
     currentSolarSystemId: string | null;
     currentPlanetId: string | null;
-    miningResearchBonusPercent: number;
+    miningSpeedPercent: number;
     vesselCapacityItems: number;
     vesselSpeedLyPerSecond: number;
     vesselDockingSeconds: number;

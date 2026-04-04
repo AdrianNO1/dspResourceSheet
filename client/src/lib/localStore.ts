@@ -61,14 +61,17 @@ const snapshotKey = "snapshot";
 
 const seededResources: ResourceSeed[] = [
   { id: "8cd50eb9-d303-46cb-94ed-0cf4dfd12d11", name: "Stalagmite Crystal", type: "ore_vein", sort_order: 10, color_start: "#6af7d9", color_end: "#127f73", icon_url: "icons/resources/stalagmite-crystal.png", fuel_value_mj: null },
+  { id: "3f7e8804-0caf-4f0e-8760-bc5c5f4b2ca6", name: "Fractal Silicon", type: "ore_vein", sort_order: 15, color_start: "#91ffe8", color_end: "#267769", icon_url: "icons/resources/fractal-silicon.png", fuel_value_mj: null },
   { id: "ee8f2c6e-5e85-4a42-a98a-5ea575b2ba45", name: "Silicon Ore", type: "ore_vein", sort_order: 20, color_start: "#f7e6a6", color_end: "#7f6c2b", icon_url: "icons/resources/silicon-ore.png", fuel_value_mj: null },
   { id: "9fc63cc0-e433-4e09-b2b7-3fd22f4c6b79", name: "Iron Ore", type: "ore_vein", sort_order: 30, color_start: "#d7dce7", color_end: "#4f5e78", icon_url: "icons/resources/iron-ore.png", fuel_value_mj: null },
   { id: "e34e4651-2eb8-4734-99cb-ccf61d77de83", name: "Grating Crystal", type: "ore_vein", sort_order: 40, color_start: "#95f0ff", color_end: "#246d96", icon_url: "icons/resources/grating-crystal.png", fuel_value_mj: null },
+  { id: "3e1160d7-9b0b-46db-8fbc-c20d3094cbf1", name: "Organic Crystal", type: "ore_vein", sort_order: 45, color_start: "#d8ffb4", color_end: "#4e8c39", icon_url: "icons/resources/organic-crystal.png", fuel_value_mj: null },
   { id: "1ac25922-6ec1-4664-8884-cbfeb4afe634", name: "Coal", type: "ore_vein", sort_order: 50, color_start: "#858993", color_end: "#252833", icon_url: "icons/resources/coal.png", fuel_value_mj: null },
   { id: "7d62ac20-79a7-4ec4-b1d8-904eb636453c", name: "Copper Ore", type: "ore_vein", sort_order: 60, color_start: "#feb375", color_end: "#8a3d22", icon_url: "icons/resources/copper-ore.png", fuel_value_mj: null },
   { id: "350efd4a-514d-4cec-b421-0ec7e36ce9a2", name: "Titanium Ore", type: "ore_vein", sort_order: 70, color_start: "#d3c4ff", color_end: "#6153c5", icon_url: "icons/resources/titanium-ore.png", fuel_value_mj: null },
   { id: "71870674-5da7-4062-bf26-cde403d17ed8", name: "Stone", type: "ore_vein", sort_order: 80, color_start: "#e2dfcf", color_end: "#7c725c", icon_url: "icons/resources/stone.png", fuel_value_mj: null },
   { id: "9c2cedcb-10ee-430c-a512-d523b80f8771", name: "Kimberlite Ore", type: "ore_vein", sort_order: 90, color_start: "#c7f9ff", color_end: "#387e95", icon_url: "icons/resources/kimberlite-ore.png", fuel_value_mj: null },
+  { id: "538735d0-04f5-4082-a503-feac8c304f18", name: "Unipolar Magnet", type: "ore_vein", sort_order: 95, color_start: "#ffb5d8", color_end: "#7b2e66", icon_url: "icons/resources/unipolar-magnet.png", fuel_value_mj: null },
   { id: "dcb9e99e-a9a9-470d-b465-5174cd8d536f", name: "Water", type: "liquid_pump", sort_order: 100, color_start: "#89cfff", color_end: "#1f5cc6", icon_url: "icons/resources/water.png", fuel_value_mj: null },
   { id: "2bd99a79-75fc-4a54-af63-5886dd05f179", name: "Sulfuric Acid", type: "liquid_pump", sort_order: 110, color_start: "#f3ff92", color_end: "#8b9133", icon_url: "icons/resources/sulfuric-acid.png", fuel_value_mj: null },
   { id: "33be1ca4-c877-4829-bb7c-fd44e4a0de53", name: "Crude Oil", type: "oil_extractor", sort_order: 120, color_start: "#e8a065", color_end: "#6b2a21", icon_url: "icons/resources/crude-oil.png", fuel_value_mj: null },
@@ -80,7 +83,7 @@ const seededResources: ResourceSeed[] = [
 const settingsDefaults = new Map<string, string>([
   ["currentSolarSystemId", ""],
   ["currentPlanetId", ""],
-  ["miningResearchBonusPercent", "0"],
+  ["miningSpeedPercent", "100"],
   ["vesselCapacityItems", "1000"],
   ["vesselSpeedLyPerSecond", "0.25"],
   ["vesselDockingSeconds", "0"],
@@ -501,7 +504,7 @@ function resourceGoalUnit(type: ResourceType) {
 }
 
 function buildBootstrap(snapshot: Snapshot): BootstrapData {
-  const miningResearchBonusPercent = Number(snapshot.settings.miningResearchBonusPercent ?? "0");
+  const miningSpeedPercent = Number(snapshot.settings.miningSpeedPercent ?? "100");
   const oreVeinById = new Map(snapshot.oreVeins.map((item) => [item.id, item]));
   const gasSiteById = new Map(snapshot.gasGiantSites.map((item) => [item.id, item]));
   const resourceById = new Map(snapshot.resources.map((resource) => [resource.id, resource]));
@@ -543,9 +546,9 @@ function buildBootstrap(snapshot: Snapshot): BootstrapData {
         ? getAdvancedMinerOutputPerMinute(
             Number(miner.covered_nodes),
             Number(miner.advanced_speed_percent ?? 100),
-            miningResearchBonusPercent,
+            miningSpeedPercent,
           )
-        : getRegularMinerOutputPerMinute(Number(miner.covered_nodes), miningResearchBonusPercent);
+        : getRegularMinerOutputPerMinute(Number(miner.covered_nodes), miningSpeedPercent);
 
     aggregate.placementIds.add(parentVein.id);
     aggregate.supplyPerMinute += supplyPerMinute;
@@ -559,7 +562,7 @@ function buildBootstrap(snapshot: Snapshot): BootstrapData {
       return;
     }
 
-    const supplyPerMinute = getPumpOutputPerMinute(Number(site.pump_count), miningResearchBonusPercent);
+    const supplyPerMinute = getPumpOutputPerMinute(Number(site.pump_count), miningSpeedPercent);
     aggregate.placementIds.add(site.id);
     aggregate.supplyPerMinute += supplyPerMinute;
     aggregate.supplyPerSecond = aggregate.supplyPerMinute / 60;
@@ -585,7 +588,7 @@ function buildBootstrap(snapshot: Snapshot): BootstrapData {
         ratePerSecond: Number(output.rate_per_second),
         fuelValueMj: Number(resourceById.get(output.resource_id)?.fuel_value_mj ?? 0),
       })),
-      miningResearchBonusPercent,
+      miningSpeedPercent,
     );
 
     outputs.forEach((output) => {
@@ -642,7 +645,7 @@ function buildBootstrap(snapshot: Snapshot): BootstrapData {
     settings: {
       currentSolarSystemId: snapshot.settings.currentSolarSystemId || null,
       currentPlanetId: snapshot.settings.currentPlanetId || null,
-      miningResearchBonusPercent,
+      miningSpeedPercent,
       vesselCapacityItems: Number(snapshot.settings.vesselCapacityItems ?? "1000"),
       vesselSpeedLyPerSecond: Number(snapshot.settings.vesselSpeedLyPerSecond ?? "0.25"),
       vesselDockingSeconds: Number(snapshot.settings.vesselDockingSeconds ?? "0"),
@@ -813,13 +816,24 @@ export async function mutateStore(url: string, method: string, body?: unknown) {
     if (!name) {
       throw new Error("Project name is required.");
     }
+    const projectId = generateId();
     snapshot.projects.push({
-      id: generateId(),
+      id: projectId,
       name,
       notes,
       is_active: 1,
       sort_order: Math.max(0, ...snapshot.projects.map((project) => project.sort_order)) + 1,
     });
+    if (Array.isArray(payload.goals)) {
+      replaceProjectGoals(
+        snapshot,
+        projectId,
+        (payload.goals as Array<{ resourceId: string; quantity: number }>).map((goal) => ({
+          resourceId: goal.resourceId,
+          quantity: Number(goal.quantity),
+        })),
+      );
+    }
   } else if (matchId(url, /^\/api\/projects\/([^/]+)$/) && method === "PATCH") {
     const projectId = matchId(url, /^\/api\/projects\/([^/]+)$/)!;
     const project = snapshot.projects.find((item) => item.id === projectId);

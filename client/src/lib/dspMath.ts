@@ -37,24 +37,24 @@ export type MultiSourceTransportPlan = {
   totalTargetStationsNeeded: number;
 };
 
-export function getMiningResearchMultiplier(miningResearchBonusPercent: number) {
-  return 1 + miningResearchBonusPercent / 100;
+export function getMiningSpeedMultiplier(miningSpeedPercent: number) {
+  return miningSpeedPercent / 100;
 }
 
-export function getRegularMinerOutputPerMinute(coveredNodes: number, miningResearchBonusPercent: number) {
-  return coveredNodes * REGULAR_MINER_RATE_PER_MINUTE * getMiningResearchMultiplier(miningResearchBonusPercent);
+export function getRegularMinerOutputPerMinute(coveredNodes: number, miningSpeedPercent: number) {
+  return coveredNodes * REGULAR_MINER_RATE_PER_MINUTE * getMiningSpeedMultiplier(miningSpeedPercent);
 }
 
 export function getAdvancedMinerOutputPerMinute(
   coveredNodes: number,
   advancedSpeedPercent: number,
-  miningResearchBonusPercent: number,
+  miningSpeedPercent: number,
 ) {
   return (
     coveredNodes *
     ADVANCED_MINER_RATE_PER_MINUTE *
     (advancedSpeedPercent / 100) *
-    getMiningResearchMultiplier(miningResearchBonusPercent)
+    getMiningSpeedMultiplier(miningSpeedPercent)
   );
 }
 
@@ -63,8 +63,8 @@ export function getAdvancedMinerPowerMw(advancedSpeedPercent: number) {
   return 0.15510304 + 2.76993894 * speedMultiplier * speedMultiplier;
 }
 
-export function getPumpOutputPerMinute(pumpCount: number, miningResearchBonusPercent: number) {
-  return pumpCount * PUMP_OUTPUT_PER_MINUTE * getMiningResearchMultiplier(miningResearchBonusPercent);
+export function getPumpOutputPerMinute(pumpCount: number, miningSpeedPercent: number) {
+  return pumpCount * PUMP_OUTPUT_PER_MINUTE * getMiningSpeedMultiplier(miningSpeedPercent);
 }
 
 export function getOilOutputPerSecond(baseOilPerSecond: number) {
@@ -73,7 +73,7 @@ export function getOilOutputPerSecond(baseOilPerSecond: number) {
 
 export function getOrbitalCollectorTrueBoost(
   outputs: Array<{ ratePerSecond: number; fuelValueMj: number | null }>,
-  miningResearchBonusPercent: number,
+  miningSpeedPercent: number,
 ) {
   const totalHeatMw = outputs.reduce(
     (sum, output) => sum + output.ratePerSecond * (output.fuelValueMj ?? 0),
@@ -84,7 +84,7 @@ export function getOrbitalCollectorTrueBoost(
     return 0;
   }
 
-  const rawBoost = getMiningResearchMultiplier(miningResearchBonusPercent) * 8 - ORBITAL_COLLECTOR_INTERNAL_POWER_MW / totalHeatMw;
+  const rawBoost = getMiningSpeedMultiplier(miningSpeedPercent) * 8 - ORBITAL_COLLECTOR_INTERNAL_POWER_MW / totalHeatMw;
   return Math.max(0, rawBoost);
 }
 
