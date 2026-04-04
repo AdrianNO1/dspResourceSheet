@@ -2205,6 +2205,36 @@ function App() {
     });
   }
 
+  async function handleExistingProjectCsvImport(file: File | undefined) {
+    if (!file || !selectedProject) {
+      return;
+    }
+
+    await mutate(async () => {
+      const text = await file.text();
+      const importedProject = parseFactorioLabProjectCsv(file.name, text, loadedData.resources);
+      return {
+        bootstrap: await patchBootstrap(`/api/projects/${selectedProject.id}`, {
+          name: selectedProject.name,
+          notes: selectedProject.notes,
+          isActive: selectedProject.is_active === 1,
+          goals: importedProject.goals,
+          importedItems: importedProject.importedItems,
+        }),
+        importedProject,
+      };
+    }, ({ bootstrap, importedProject }) => {
+      applyBootstrap(bootstrap);
+      setSelectedProjectId(selectedProject.id);
+      setActiveView("projects");
+
+      const skippedLabel = importedProject.skippedRawResources.length > 0
+        ? ` Skipped unsupported raw entries: ${importedProject.skippedRawResources.join(", ")}.`
+        : "";
+      setNotice(`Updated ${selectedProject.name} from CSV with ${importedProject.importedItems.length} crafted items.${skippedLabel}`);
+    });
+  }
+
   async function handleCreateProductionSite() {
     if (!selectedProjectId || !productionDraft.itemKey || !productionDraft.solarSystemId || !productionDraft.planetId) {
       return;
@@ -4231,6 +4261,22 @@ function App() {
                 <button type="button" className="primary-button full-width" onClick={() => void handleSaveProject()} disabled={busy}>
                   Save project
                 </button>
+
+                <div className="divider" />
+
+                <div className="section-heading compact-section-heading">
+                  <div>
+                    <p className="eyebrow">Import</p>
+                    <h3>Replace from CSV</h3>
+                  </div>
+                </div>
+                <FileDropInput
+                  accept=".csv,text/csv"
+                  description="Drop a FactorioLab CSV here to replace this project's raw goals and crafted-item production catalog."
+                  disabled={busy}
+                  label="Existing project CSV"
+                  onSelect={(file) => void handleExistingProjectCsvImport(file)}
+                />
               </>
             )}
 
