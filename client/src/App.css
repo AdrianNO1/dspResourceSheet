@@ -476,6 +476,101 @@
   border-top: 1px solid rgba(148, 172, 197, 0.12);
 }
 
+.production-summary-card {
+  background:
+    radial-gradient(circle at top left, rgba(122, 219, 216, 0.14), transparent 34%),
+    rgba(255, 255, 255, 0.03);
+}
+
+.production-card-heading,
+.production-detail-heading,
+.production-site-heading,
+.production-ingredient-heading,
+.production-card-copy,
+.production-site-copy {
+  display: flex;
+  gap: 12px;
+}
+
+.production-card-copy,
+.production-site-copy {
+  min-width: 0;
+  flex-direction: column;
+}
+
+.production-card-copy {
+  gap: 4px;
+}
+
+.production-card-heading,
+.production-site-heading {
+  min-width: 0;
+  flex-wrap: wrap;
+}
+
+.production-card-copy strong,
+.production-site-copy h3,
+.production-site-copy p,
+.production-detail-heading h2,
+.production-detail-heading p {
+  margin: 0;
+}
+
+.production-card-copy span,
+.production-site-copy p {
+  color: rgba(211, 223, 235, 0.76);
+  font-size: 0.9rem;
+}
+
+.production-detail-heading,
+.production-site-heading,
+.production-ingredient-heading {
+  align-items: center;
+}
+
+.production-detail-heading {
+  min-width: 0;
+}
+
+.production-summary-pill,
+.production-machine-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border-radius: 999px;
+  border: 1px solid rgba(148, 172, 197, 0.16);
+  background: rgba(255, 255, 255, 0.04);
+  color: rgba(237, 245, 255, 0.92);
+  white-space: nowrap;
+}
+
+.production-machine-pill {
+  margin-left: auto;
+  background: rgba(89, 128, 188, 0.14);
+}
+
+.production-machine-pill .resource-icon,
+.production-summary-pill .resource-icon {
+  flex: 0 0 auto;
+}
+
+.production-machine-pill-static {
+  margin-left: 0;
+  justify-self: start;
+}
+
+.production-site-card {
+  background:
+    radial-gradient(circle at top right, rgba(122, 219, 216, 0.12), transparent 32%),
+    rgba(255, 255, 255, 0.03);
+}
+
+.production-breakdown-row {
+  background:
+    linear-gradient(180deg, rgba(12, 22, 35, 0.68), rgba(7, 13, 23, 0.5));
+}
+
 .warning-card-warning {
   border-color: rgba(241, 160, 79, 0.24);
   background: rgba(241, 160, 79, 0.08);

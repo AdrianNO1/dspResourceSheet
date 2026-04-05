@@ -6,6 +6,7 @@ import { ResourceSelect } from "./components/ResourceSelect";
 import { deleteBootstrap, exportSnapshot, getBootstrap, importSnapshot, patchBootstrap, postBootstrap } from "./lib/api";
 import { parseClusterAddress, getSystemDistanceLy as getGeneratedSystemDistanceLy } from "./lib/dspCluster";
 import { buildProductionDraftPreview, buildProductionPlanner } from "./lib/productionPlanner";
+import { resolveGameIconPath } from "./lib/gameIcons";
 import { parseFactorioLabProjectCsv } from "./lib/projectImport";
 import {
   getAdvancedMinerOutputPerMinute,
@@ -1391,8 +1392,15 @@ function App() {
   }, {});
 
   const resourceLookup = new Map(loadedData.resources.map((resource) => [resource.id, resource]));
+  const resourceByNameLookup = new Map(loadedData.resources.map((resource) => [resource.name.toLowerCase(), resource]));
   const planetLookup = new Map(loadedData.planets.map((planet) => [planet.id, planet]));
   const systemLookup = new Map(loadedData.solarSystems.map((solarSystem) => [solarSystem.id, solarSystem]));
+  const productionIconStart = "#7adbd8";
+  const productionIconEnd = "#f1a04f";
+  const getIconUrlForName = (name: string) => {
+    const resource = resourceByNameLookup.get(name.toLowerCase());
+    return resource?.icon_url ?? resolveGameIconPath(name);
+  };
   const latestPlanetActivity = getLatestPlanetActivity(loadedData);
   const selectedOreSummary = loadedData.summary.resourceSummaries.find((summary) => summary.resourceId === oreResourceId) ?? null;
   const selectedLiquidSummary = loadedData.summary.resourceSummaries.find((summary) => summary.resourceId === liquidResourceId) ?? null;
@@ -3458,12 +3466,24 @@ function App() {
                     <button
                       key={summary.itemKey}
                       type="button"
-                      className={`overview-resource-card ${selectedProductionSummary?.itemKey === summary.itemKey ? "overview-resource-card-active" : ""}`}
+                      className={`overview-resource-card production-summary-card ${selectedProductionSummary?.itemKey === summary.itemKey ? "overview-resource-card-active" : ""}`}
                       onClick={() => setSelectedProductionItemKey(summary.itemKey)}
                     >
                       <div className="overview-resource-top">
-                        <strong>{summary.displayName}</strong>
-                        <span>{summary.siteCount} sites</span>
+                        <div className="production-card-heading">
+                          <ResourceIcon
+                            name={summary.displayName}
+                            iconUrl={getIconUrlForName(summary.displayName)}
+                            colorStart={productionIconStart}
+                            colorEnd={productionIconEnd}
+                            size="md"
+                          />
+                          <div className="production-card-copy">
+                            <strong>{summary.displayName}</strong>
+                            <span>{summary.plannedLineCount} planned lines</span>
+                          </div>
+                        </div>
+                        <span className="production-summary-pill">{summary.siteCount} sites</span>
                       </div>
                       <div className="overview-resource-metrics">
                         <span>{formatValue(summary.totalPlannedThroughput)} / min planned</span>
@@ -3487,9 +3507,20 @@ function App() {
 
             <section className="panel">
               <div className="section-heading">
-                <div>
-                  <p className="eyebrow">Selected item</p>
-                  <h2>{selectedProductionSummary?.displayName ?? "Production detail"}</h2>
+                <div className="production-detail-heading">
+                  {selectedProductionSummary ? (
+                    <ResourceIcon
+                      name={selectedProductionSummary.displayName}
+                      iconUrl={getIconUrlForName(selectedProductionSummary.displayName)}
+                      colorStart={productionIconStart}
+                      colorEnd={productionIconEnd}
+                      size="lg"
+                    />
+                  ) : null}
+                  <div>
+                    <p className="eyebrow">Selected item</p>
+                    <h2>{selectedProductionSummary?.displayName ?? "Production detail"}</h2>
+                  </div>
                 </div>
                 <div className="overview-detail-actions">
                   <button
@@ -3525,11 +3556,20 @@ function App() {
 
                   <div className="overview-breakdown-list">
                     {selectedProductionTemplate.dependencies.map((dependency) => (
-                          <article key={dependency.item_key} className="overview-breakdown-row">
+                          <article key={dependency.item_key} className="overview-breakdown-row production-breakdown-row">
                             <div className="overview-breakdown-row-top">
-                              <div>
-                                <strong>{dependency.display_name}</strong>
-                                <span>{formatValue(dependency.imported_demand_per_minute)} / min total</span>
+                              <div className="production-ingredient-heading">
+                                <ResourceIcon
+                                  name={dependency.display_name}
+                                  iconUrl={getIconUrlForName(dependency.display_name)}
+                                  colorStart={productionIconStart}
+                                  colorEnd={productionIconEnd}
+                                  size="sm"
+                                />
+                                <div>
+                                  <strong>{dependency.display_name}</strong>
+                                  <span>{formatValue(dependency.imported_demand_per_minute)} / min total</span>
+                                </div>
                               </div>
                               <div className="overview-breakdown-values">
                                 <strong>{
@@ -3550,11 +3590,30 @@ function App() {
                   {selectedProductionSiteViews.length > 0 ? (
                 <div className="transport-ledger">
                   {selectedProductionSiteViews.map((siteView) => (
-                    <article key={siteView.site.id} className="transport-row-card">
+                    <article key={siteView.site.id} className="transport-row-card production-site-card">
                       <div className="transport-row-main">
-                        <div>
-                          <h3>{siteView.importedItem.display_name}</h3>
-                          <p>{siteView.solarSystemName} | {siteView.planetName}</p>
+                        <div className="production-site-heading">
+                          <ResourceIcon
+                            name={siteView.importedItem.display_name}
+                            iconUrl={getIconUrlForName(siteView.importedItem.display_name)}
+                            colorStart={productionIconStart}
+                            colorEnd={productionIconEnd}
+                            size="md"
+                          />
+                          <div className="production-site-copy">
+                            <h3>{siteView.importedItem.display_name}</h3>
+                            <p>{siteView.solarSystemName} | {siteView.planetName}</p>
+                          </div>
+                          <span className="production-machine-pill">
+                            <ResourceIcon
+                              name={siteView.importedItem.machine_label || "Factory"}
+                              iconUrl={getIconUrlForName(siteView.importedItem.machine_label || "Factory")}
+                              colorStart="#99c9ff"
+                              colorEnd="#5578b5"
+                              size="sm"
+                            />
+                            {siteView.importedItem.machine_label || "Imported machine"}
+                          </span>
                         </div>
                         <div className="ledger-item-actions">
                           <button
@@ -3580,11 +3639,20 @@ function App() {
 
                       <div className="overview-breakdown-list">
                         {siteView.dependencies.map((ingredient) => (
-                          <article key={ingredient.dependency.item_key} className="overview-breakdown-row">
+                          <article key={ingredient.dependency.item_key} className="overview-breakdown-row production-breakdown-row">
                             <div className="overview-breakdown-row-top">
-                              <div>
-                                <strong>{ingredient.dependency.display_name}</strong>
-                                <p>{formatValue(ingredient.requiredPerMinute)} / min required · {formatValue(ingredient.coveragePerMinute)} covered</p>
+                              <div className="production-ingredient-heading">
+                                <ResourceIcon
+                                  name={ingredient.dependency.display_name}
+                                  iconUrl={getIconUrlForName(ingredient.dependency.display_name)}
+                                  colorStart={productionIconStart}
+                                  colorEnd={productionIconEnd}
+                                  size="sm"
+                                />
+                                <div>
+                                  <strong>{ingredient.dependency.display_name}</strong>
+                                  <p>{formatValue(ingredient.requiredPerMinute)} / min required · {formatValue(ingredient.coveragePerMinute)} covered</p>
+                                </div>
                               </div>
                               <div className="overview-breakdown-values">
                                 <strong>{formatFixedValue(ingredient.beltsPerLine, 2)} belts/line</strong>
@@ -3624,9 +3692,19 @@ function App() {
             <div className="modal-backdrop" onClick={closeProductionSiteModal}>
               <section className="modal-card production-modal" onClick={(event) => event.stopPropagation()}>
                 <div className="section-heading">
-                  <div>
-                    <p className="eyebrow">New production site</p>
-                    <h2>{selectedProductionTemplate.display_name}</h2>
+                  <div className="production-detail-heading">
+                    <ResourceIcon
+                      name={selectedProductionTemplate.display_name}
+                      iconUrl={getIconUrlForName(selectedProductionTemplate.display_name)}
+                      colorStart={productionIconStart}
+                      colorEnd={productionIconEnd}
+                      size="lg"
+                    />
+                    <div>
+                      <p className="eyebrow">New production site</p>
+                      <h2>{selectedProductionTemplate.display_name}</h2>
+                      <p className="helper-text">Preview line count, inbound belts, and source coverage before placing this build.</p>
+                    </div>
                   </div>
                   <button type="button" className="ghost-button" onClick={closeProductionSiteModal}>
                     Close
@@ -3705,7 +3783,7 @@ function App() {
                         checked={productionDraft.isFinished}
                         onChange={(event) => setProductionDraft((current) => ({ ...current, isFinished: event.target.checked }))}
                       />
-                      <span>Counts as finished supply</span>
+                      <span>Active</span>
                     </label>
 
                     {productionDraftPreview ? (
@@ -3732,9 +3810,18 @@ function App() {
                           {productionDraftPreview.dependencies.map((dependency) => (
                             <details key={dependency.dependency.item_key} className="production-ingredient-detail">
                               <summary className="production-ingredient-summary">
-                                <div>
-                                  <strong>{dependency.dependency.display_name}</strong>
-                                  <span>{formatValue(dependency.requiredPerMinute)} / min | {formatFixedValue(dependency.beltsPerLine, 2)} belts/line</span>
+                                <div className="production-ingredient-heading">
+                                  <ResourceIcon
+                                    name={dependency.dependency.display_name}
+                                    iconUrl={getIconUrlForName(dependency.dependency.display_name)}
+                                    colorStart={productionIconStart}
+                                    colorEnd={productionIconEnd}
+                                    size="sm"
+                                  />
+                                  <div>
+                                    <strong>{dependency.dependency.display_name}</strong>
+                                    <span>{formatValue(dependency.requiredPerMinute)} / min | {formatFixedValue(dependency.beltsPerLine, 2)} belts/line</span>
+                                  </div>
                                 </div>
                                 <div className="overview-breakdown-values">
                                   <strong>{formatFixedValue(dependency.coveragePercent, 1)}%</strong>
@@ -3750,11 +3837,20 @@ function App() {
                                 {dependency.sources.length > 0 && (
                                   <div className="overview-breakdown-list">
                                     {dependency.sources.map((source) => (
-                                      <article key={`${dependency.dependency.item_key}:${source.producerId}`} className="overview-breakdown-row">
+                                      <article key={`${dependency.dependency.item_key}:${source.producerId}`} className="overview-breakdown-row production-breakdown-row">
                                         <div className="overview-breakdown-row-top">
-                                          <div>
-                                            <strong>{source.planetName}</strong>
-                                            <span>{source.solarSystemName} | {source.producerName}</span>
+                                          <div className="production-ingredient-heading">
+                                            <ResourceIcon
+                                              name={dependency.dependency.display_name}
+                                              iconUrl={getIconUrlForName(dependency.dependency.display_name)}
+                                              colorStart={productionIconStart}
+                                              colorEnd={productionIconEnd}
+                                              size="sm"
+                                            />
+                                            <div>
+                                              <strong>{source.planetName}</strong>
+                                              <span>{source.solarSystemName} | {source.producerName}</span>
+                                            </div>
                                           </div>
                                           <div className="overview-breakdown-values">
                                             <strong>{formatValue(source.throughputPerMinute)} / min</strong>
@@ -3786,6 +3882,16 @@ function App() {
                       <div className="overview-breakdown-heading">
                         <h4>Recipe</h4>
                         <span>{selectedProductionTemplate.recipe || "Imported"}</span>
+                      </div>
+                      <div className="production-machine-pill production-machine-pill-static">
+                        <ResourceIcon
+                          name={selectedProductionTemplate.machine_label || "Factory"}
+                          iconUrl={getIconUrlForName(selectedProductionTemplate.machine_label || "Factory")}
+                          colorStart="#99c9ff"
+                          colorEnd="#5578b5"
+                          size="sm"
+                        />
+                        {selectedProductionTemplate.machine_label || "Imported machine"}
                       </div>
                       <p className="helper-text">{selectedProductionTemplate.outputs || "Single-output imported recipe."}</p>
                     </div>
