@@ -482,6 +482,107 @@
     rgba(255, 255, 255, 0.03);
 }
 
+.production-tree-root-list {
+  display: grid;
+  gap: 18px;
+  margin-top: 18px;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  align-items: start;
+}
+
+.production-tree-branch {
+  position: relative;
+  display: grid;
+  gap: 12px;
+}
+
+.production-tree-card {
+  width: 100%;
+  display: grid;
+  gap: 12px;
+  padding: 16px 18px;
+  border: 1px solid rgba(132, 156, 187, 0.18);
+  border-radius: 20px;
+  background:
+    radial-gradient(circle at top left, rgba(122, 219, 216, 0.14), transparent 34%),
+    linear-gradient(180deg, rgba(18, 29, 45, 0.94), rgba(9, 18, 31, 0.94));
+  color: inherit;
+  text-align: left;
+  font: inherit;
+  appearance: none;
+  cursor: pointer;
+  transition: transform 140ms ease, border-color 140ms ease, box-shadow 140ms ease, background 140ms ease;
+}
+
+.production-tree-card:hover,
+.production-tree-card-active {
+  transform: translateY(-2px);
+  border-color: rgba(122, 219, 216, 0.36);
+  background:
+    radial-gradient(circle at top left, rgba(122, 219, 216, 0.18), transparent 36%),
+    linear-gradient(180deg, rgba(23, 36, 55, 0.96), rgba(10, 19, 34, 0.96));
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.2);
+}
+
+.production-tree-title,
+.production-tree-copy,
+.production-tree-metrics {
+  display: flex;
+  gap: 12px;
+}
+
+.production-tree-title {
+  align-items: center;
+  min-width: 0;
+}
+
+.production-tree-copy {
+  min-width: 0;
+  flex: 1;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.production-tree-copy strong,
+.production-tree-copy span {
+  margin: 0;
+}
+
+.production-tree-copy span {
+  color: rgba(211, 223, 235, 0.76);
+  font-size: 0.92rem;
+}
+
+.production-tree-metrics {
+  flex-wrap: wrap;
+}
+
+.production-tree-metrics span {
+  padding: 8px 12px;
+  border-radius: 999px;
+  border: 1px solid rgba(148, 172, 197, 0.16);
+  background: rgba(255, 255, 255, 0.04);
+  color: rgba(237, 245, 255, 0.92);
+  font-size: 0.9rem;
+}
+
+.production-tree-children {
+  display: grid;
+  gap: 12px;
+  margin-left: 24px;
+  padding-left: 18px;
+  border-left: 1px solid rgba(122, 219, 216, 0.16);
+}
+
+.production-tree-children > .production-tree-branch::before {
+  content: "";
+  position: absolute;
+  top: 24px;
+  left: -18px;
+  width: 18px;
+  border-top: 1px solid rgba(122, 219, 216, 0.16);
+}
+
 .production-card-heading,
 .production-detail-heading,
 .production-site-heading,

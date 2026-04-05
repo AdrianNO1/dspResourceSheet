@@ -6,6 +6,7 @@ import { ResourceSelect } from "./components/ResourceSelect";
 import { deleteBootstrap, exportSnapshot, getBootstrap, importSnapshot, patchBootstrap, postBootstrap } from "./lib/api";
 import { parseClusterAddress, getSystemDistanceLy as getGeneratedSystemDistanceLy } from "./lib/dspCluster";
 import { buildProductionDraftPreview, buildProductionPlanner } from "./lib/productionPlanner";
+import type { ProductionItemSummary } from "./lib/productionPlanner";
 import { resolveGameIconPath } from "./lib/gameIcons";
 import { parseFactorioLabProjectCsv } from "./lib/projectImport";
 import {
@@ -34,6 +35,7 @@ import type {
   Planet,
   Project,
   ProjectGoal,
+  ProjectImportedItem,
   ResourceDefinition,
   ResourceSummary,
   ResourceType,
@@ -124,6 +126,12 @@ type ExtractionActivityRow = {
   planetName: string;
   systemId: string;
   systemName: string;
+};
+
+type ProductionTreeNode = {
+  itemKey: string;
+  summary: ProductionItemSummary;
+  children: ProductionTreeNode[];
 };
 
 function describeExtractionRollup(row: ExtractionRollupRow) {
@@ -690,6 +698,72 @@ function formatFixedValue(value: number, digits = 1) {
     minimumFractionDigits: digits,
     maximumFractionDigits: digits,
   }).format(value);
+}
+
+function formatRoundedUpInteger(value: number) {
+  return new Intl.NumberFormat("en-US", {
+    maximumFractionDigits: 0,
+  }).format(Math.max(0, Math.ceil(value - 1e-9)));
+}
+
+function buildProductionTree(items: ProjectImportedItem[], summaries: ProductionItemSummary[]) {
+  const summaryByKey = new Map(summaries.map((summary) => [summary.itemKey, summary]));
+  const itemByKey = new Map(items.map((item) => [item.item_key, item]));
+  const childKeysByParent = new Map<string, string[]>();
+  const incomingCounts = new Map<string, number>();
+
+  const compareKeys = (leftKey: string, rightKey: string) => {
+    const left = itemByKey.get(leftKey);
+    const right = itemByKey.get(rightKey);
+    return (
+      Number(left?.sort_order ?? Number.MAX_SAFE_INTEGER) - Number(right?.sort_order ?? Number.MAX_SAFE_INTEGER) ||
+      (left?.display_name ?? leftKey).localeCompare(right?.display_name ?? rightKey)
+    );
+  };
+
+  for (const item of items) {
+    incomingCounts.set(item.item_key, 0);
+  }
+
+  for (const item of items) {
+    const childKeys = Array.from(new Set(
+      item.dependencies
+        .filter((dependency) => dependency.dependency_type === "crafted" && itemByKey.has(dependency.item_key))
+        .map((dependency) => dependency.item_key),
+    )).sort(compareKeys);
+
+    childKeysByParent.set(item.item_key, childKeys);
+
+    for (const childKey of childKeys) {
+      incomingCounts.set(childKey, (incomingCounts.get(childKey) ?? 0) + 1);
+    }
+  }
+
+  const allKeys = items.map((item) => item.item_key).sort(compareKeys);
+  const rootKeys = allKeys.filter((itemKey) => (incomingCounts.get(itemKey) ?? 0) === 0);
+  const forestKeys = rootKeys.length > 0 ? rootKeys : allKeys;
+
+  function buildNode(itemKey: string, path: Set<string>): ProductionTreeNode | null {
+    const summary = summaryByKey.get(itemKey);
+    if (!summary || path.has(itemKey)) {
+      return null;
+    }
+
+    const nextPath = new Set(path);
+    nextPath.add(itemKey);
+
+    return {
+      itemKey,
+      summary,
+      children: (childKeysByParent.get(itemKey) ?? [])
+        .map((childKey) => buildNode(childKey, nextPath))
+        .filter((child): child is ProductionTreeNode => child !== null),
+    };
+  }
+
+  return forestKeys
+    .map((itemKey) => buildNode(itemKey, new Set()))
+    .filter((node): node is ProductionTreeNode => node !== null);
 }
 
 function toProjectGoalMap(projectGoals: ProjectGoal[], projectId: string) {
@@ -1684,6 +1758,14 @@ function App() {
     productionItemSummaries.find((summary) => summary.itemKey === selectedProductionItemKey) ??
     productionItemSummaries[0] ??
     null;
+  const craftedProjectImportedItems = loadedData.projectImportedItems
+    .filter((item) => item.project_id === selectedProjectId && item.category === "crafted")
+    .sort(
+      (left, right) =>
+        Number(left.sort_order ?? Number.MAX_SAFE_INTEGER) - Number(right.sort_order ?? Number.MAX_SAFE_INTEGER) ||
+        left.display_name.localeCompare(right.display_name),
+    );
+  const productionTree = buildProductionTree(craftedProjectImportedItems, productionItemSummaries);
   const selectedProductionTemplate =
     productionItemChoices.find((item) => item.item_key === selectedProductionSummary?.itemKey) ??
     productionItemChoices.find((item) => item.item_key === productionDraft.itemKey) ??
@@ -1702,6 +1784,44 @@ function App() {
     productionDraft.solarSystemId,
     productionDraft.planetId,
   );
+
+  function renderProductionTreeNode(node: ProductionTreeNode) {
+    const isSelected = selectedProductionSummary?.itemKey === node.itemKey;
+
+    return (
+      <div key={node.itemKey} className="production-tree-branch">
+        <button
+          type="button"
+          className={`production-tree-card ${isSelected ? "production-tree-card-active" : ""}`}
+          onClick={() => setSelectedProductionItemKey(node.itemKey)}
+        >
+          <div className="production-tree-title">
+            <ResourceIcon
+              name={node.summary.displayName}
+              iconUrl={getIconUrlForName(node.summary.displayName)}
+              colorStart={productionIconStart}
+              colorEnd={productionIconEnd}
+              size="md"
+            />
+            <div className="production-tree-copy">
+              <strong>{node.summary.displayName}</strong>
+              <span>{formatRoundedUpInteger(node.summary.totalPlannedThroughput)} / min</span>
+            </div>
+          </div>
+          <div className="production-tree-metrics">
+            <span>{node.summary.plannedLineCount} lines</span>
+            <span>{formatRoundedUpInteger(node.summary.plannedMachineCount)} machines</span>
+          </div>
+        </button>
+
+        {node.children.length > 0 ? (
+          <div className="production-tree-children">
+            {node.children.map((childNode) => renderProductionTreeNode(childNode))}
+          </div>
+        ) : null}
+      </div>
+    );
+  }
   const selectedProjectGoalRows = selectedProject
     ? loadedData.projectGoals
         .filter((goal) => goal.project_id === selectedProject.id && Number(goal.quantity) > 0)
@@ -3456,49 +3576,13 @@ function App() {
               <div className="section-heading">
                 <div>
                   <p className="eyebrow">Summary</p>
-                  <h2>Produced items</h2>
+                  <h2>Production tree</h2>
                 </div>
-                <span className="helper-text">Each card shows the imported target rate and line count before you place any sites.</span>
+                <span className="helper-text">Imported crafted items arranged by dependency, similar to your FactorioLab plan.</span>
               </div>
               {productionItemSummaries.length > 0 ? (
-                <div className="overview-card-grid">
-                  {productionItemSummaries.map((summary) => (
-                    <button
-                      key={summary.itemKey}
-                      type="button"
-                      className={`overview-resource-card production-summary-card ${selectedProductionSummary?.itemKey === summary.itemKey ? "overview-resource-card-active" : ""}`}
-                      onClick={() => setSelectedProductionItemKey(summary.itemKey)}
-                    >
-                      <div className="overview-resource-top">
-                        <div className="production-card-heading">
-                          <ResourceIcon
-                            name={summary.displayName}
-                            iconUrl={getIconUrlForName(summary.displayName)}
-                            colorStart={productionIconStart}
-                            colorEnd={productionIconEnd}
-                            size="md"
-                          />
-                          <div className="production-card-copy">
-                            <strong>{summary.displayName}</strong>
-                            <span>{summary.plannedLineCount} planned lines</span>
-                          </div>
-                        </div>
-                        <span className="production-summary-pill">{summary.siteCount} sites</span>
-                      </div>
-                      <div className="overview-resource-metrics">
-                        <span>{formatValue(summary.totalPlannedThroughput)} / min planned</span>
-                        <span>{formatValue(summary.finishedThroughput)} / min finished</span>
-                      </div>
-                      <div className="overview-resource-footnote">
-                        <span>{summary.plannedLineCount} lines | {formatFixedValue(summary.plannedMachineCount, 1)} machines</span>
-                        <span>{formatFixedValue(summary.coveragePercent, 1)}% input coverage</span>
-                      </div>
-                      <div className="overview-resource-footnote">
-                        <span>{summary.hasShortage ? "Needs inputs" : "Inputs covered"}</span>
-                        <span>{summary.siteCount > 0 ? `${summary.siteCount} placed` : "No placed sites yet"}</span>
-                      </div>
-                    </button>
-                  ))}
+                <div className="production-tree-root-list">
+                  {productionTree.map((node) => renderProductionTreeNode(node))}
                 </div>
               ) : (
                 <p className="empty-state">Import a FactorioLab CSV onto this project to populate produced items.</p>
