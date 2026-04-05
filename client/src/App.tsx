@@ -5,7 +5,11 @@ import { ResourceIcon } from "./components/ResourceIcon";
 import { ResourceSelect } from "./components/ResourceSelect";
 import { deleteBootstrap, exportSnapshot, getBootstrap, importSnapshot, patchBootstrap, postBootstrap } from "./lib/api";
 import { parseClusterAddress, getSystemDistanceLy as getGeneratedSystemDistanceLy } from "./lib/dspCluster";
-import { getFactorioLabReference, inferImportedItemProliferatorUsage } from "./lib/factoriolabCatalog";
+import {
+  getFactorioLabReference,
+  getImportedItemDependencyDemandPerMinute,
+  inferImportedItemProliferatorUsage,
+} from "./lib/factoriolabCatalog";
 import { buildProductionDraftPreview, buildProductionPlanner } from "./lib/productionPlanner";
 import type { ProductionItemSummary } from "./lib/productionPlanner";
 import { resolveGameIconPath } from "./lib/gameIcons";
@@ -769,10 +773,9 @@ function parseRecipeEntries(value: string) {
     .filter((entry) => entry.displayName.length > 0 && entry.quantity > 0);
 }
 
-function buildProductionTree(craftedItems: ProjectImportedItem[], projectItems: ProjectImportedItem[], summaries: ProductionItemSummary[]) {
+function buildProductionTree(craftedItems: ProjectImportedItem[], summaries: ProductionItemSummary[]) {
   const summaryByKey = new Map(summaries.map((summary) => [summary.itemKey, summary]));
   const itemByKey = new Map(craftedItems.map((item) => [item.item_key, item]));
-  const totalTargetByKey = new Map(projectItems.map((item) => [item.item_key, Number(item.imported_throughput_per_minute)]));
   const parentKeysByChild = new Map<string, string[]>();
 
   const compareKeys = (leftKey: string, rightKey: string) => {
@@ -819,6 +822,15 @@ function buildProductionTree(craftedItems: ProjectImportedItem[], projectItems: 
       continue;
     }
 
+    const canonicalUsageTotals = new Map<string, number>();
+    for (const candidateItem of craftedItems) {
+      const canonicalDemand = getImportedItemDependencyDemandPerMinute(candidateItem, itemKey);
+      if (canonicalDemand !== null && canonicalDemand > 0) {
+        canonicalUsageTotals.set(candidateItem.item_key, canonicalDemand);
+      }
+    }
+    const totalUsageDemand = Array.from(canonicalUsageTotals.values()).reduce((sum, value) => sum + value, 0);
+
     const inputs = item.dependencies
       .filter((dependency) => {
         if (!itemByKey.has(dependency.item_key)) {
@@ -836,16 +848,29 @@ function buildProductionTree(craftedItems: ProjectImportedItem[], projectItems: 
         return true;
       })
       .map<ProductionTreeInput>((dependency) => {
-        const totalTarget = totalTargetByKey.get(dependency.item_key) ?? 0;
+        const canonicalDemand =
+          itemByKey.has(dependency.item_key)
+            ? getImportedItemDependencyDemandPerMinute(item, dependency.item_key)
+            : null;
+        const effectiveDemandPerMinute = canonicalDemand ?? dependency.imported_demand_per_minute;
         const parentCount = itemByKey.has(dependency.item_key)
           ? (parentKeysByChild.get(dependency.item_key)?.length ?? 0)
           : 0;
+        const totalDemandForDependency =
+          itemByKey.has(dependency.item_key)
+            ? craftedItems.reduce((sum, candidateItem) => (
+                sum + (getImportedItemDependencyDemandPerMinute(candidateItem, dependency.item_key) ?? 0)
+              ), 0)
+            : 0;
         return {
           itemKey: dependency.item_key,
           displayName: dependency.display_name,
           dependencyType: itemByKey.has(dependency.item_key) ? "crafted" : dependency.dependency_type,
-          demandPerMinute: dependency.imported_demand_per_minute,
-          sharePercent: totalTarget > 0 ? Math.min(100, (dependency.imported_demand_per_minute / totalTarget) * 100) : 0,
+          demandPerMinute: effectiveDemandPerMinute,
+          sharePercent:
+            itemByKey.has(dependency.item_key) && totalDemandForDependency > 0
+              ? Math.min(100, (effectiveDemandPerMinute / totalDemandForDependency) * 100)
+              : 0,
           isSharedCrafted: itemByKey.has(dependency.item_key) && parentCount > 1,
         };
       })
@@ -863,12 +888,13 @@ function buildProductionTree(craftedItems: ProjectImportedItem[], projectItems: 
           return null;
         }
 
-        const totalTarget = totalTargetByKey.get(itemKey) ?? 0;
+        const effectiveDemandPerMinute =
+          getImportedItemDependencyDemandPerMinute(parentItem, itemKey) ?? dependency.imported_demand_per_minute;
         return {
           itemKey: parentKey,
           displayName: parentItem.display_name,
-          demandPerMinute: dependency.imported_demand_per_minute,
-          sharePercent: totalTarget > 0 ? Math.min(100, (dependency.imported_demand_per_minute / totalTarget) * 100) : 0,
+          demandPerMinute: effectiveDemandPerMinute,
+          sharePercent: totalUsageDemand > 0 ? Math.min(100, (effectiveDemandPerMinute / totalUsageDemand) * 100) : 0,
         };
       })
       .filter((entry): entry is ProductionTreeUsage => entry !== null)
@@ -1928,8 +1954,7 @@ function App() {
         Number(left.sort_order ?? Number.MAX_SAFE_INTEGER) - Number(right.sort_order ?? Number.MAX_SAFE_INTEGER) ||
         left.display_name.localeCompare(right.display_name),
     );
-  const projectImportedItems = loadedData.projectImportedItems.filter((item) => item.project_id === selectedProjectId);
-  const productionTree = buildProductionTree(craftedProjectImportedItems, projectImportedItems, productionItemSummaries);
+  const productionTree = buildProductionTree(craftedProjectImportedItems, productionItemSummaries);
   const selectedProductionTemplate =
     productionItemChoices.find((item) => item.item_key === selectedProductionSummary?.itemKey) ??
     productionItemChoices.find((item) => item.item_key === productionDraft.itemKey) ??

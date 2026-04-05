@@ -243,3 +243,29 @@ export function inferImportedItemProliferatorUsage(importedItem: ProjectImported
     relativeError: Number.isFinite(bestCandidate.relativeError) ? bestCandidate.relativeError : null,
   };
 }
+
+export function getImportedItemDependencyDemandPerMinute(
+  importedItem: ProjectImportedItem | null,
+  dependencyItemKey: string,
+): number | null {
+  const reference = getFactorioLabReference(importedItem);
+  if (!importedItem || !reference) {
+    return null;
+  }
+
+  const input = reference.inputs.find((entry) => entry.itemKey === dependencyItemKey);
+  if (!input || !(importedItem.imported_throughput_per_minute > 0) || !(reference.primaryOutputQuantity > 0)) {
+    return null;
+  }
+
+  const proliferatorUsage = inferImportedItemProliferatorUsage(importedItem);
+  const effectiveOutputMultiplier =
+    proliferatorUsage?.mode === "extra-products" && proliferatorUsage.outputMultiplier > 0
+      ? proliferatorUsage.outputMultiplier
+      : 1;
+
+  return (
+    (Number(importedItem.imported_throughput_per_minute) * Number(input.quantity)) /
+    (reference.primaryOutputQuantity * effectiveOutputMultiplier)
+  );
+}
