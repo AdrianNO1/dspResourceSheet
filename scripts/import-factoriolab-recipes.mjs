@@ -201,7 +201,7 @@ const recipeMetadataById = Object.fromEntries(
         id: recipe.id,
         displayName: recipe.name ?? toDisplayName(recipe.id),
         timeSeconds: Number.isFinite(Number(recipe.time)) ? Number(recipe.time) : null,
-        supportsProductivity: !productivityLimitations.has(normalizeKey(recipe.id)),
+        supportsProductivity: productivityLimitations.has(normalizeKey(recipe.id)),
         inputs: Object.entries(recipe.in ?? {}).map(([itemKey, quantity]) => ({
           itemKey: normalizeKey(itemKey),
           displayName: toDisplayName(itemKey),

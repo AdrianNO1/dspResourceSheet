@@ -372,7 +372,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "tesla-tower",
     "displayName": "Tesla Tower",
     "timeSeconds": 1,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "iron-ingot",
@@ -403,7 +403,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "wireless-power-tower",
     "displayName": "Wireless Power Tower",
     "timeSeconds": 3,
-    "supportsProductivity": true,
+    "supportsProductivity": false,
     "inputs": [
       {
         "itemKey": "plasma-exciter",
@@ -434,7 +434,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "satellite-substation",
     "displayName": "Satellite Substation",
     "timeSeconds": 5,
-    "supportsProductivity": true,
+    "supportsProductivity": false,
     "inputs": [
       {
         "itemKey": "frame-material",
@@ -470,7 +470,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "wind-turbine",
     "displayName": "Wind Turbine",
     "timeSeconds": 4,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "gear",
@@ -506,7 +506,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "thermal-power-plant",
     "displayName": "Thermal Power Plant",
     "timeSeconds": 5,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "gear",
@@ -547,7 +547,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "solar-panel",
     "displayName": "Solar Panel",
     "timeSeconds": 6,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "circuit-board",
@@ -583,7 +583,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "accumulator",
     "displayName": "Accumulator",
     "timeSeconds": 3,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "crystal-silicon",
@@ -619,7 +619,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "geothermal-power-station",
     "displayName": "Geothermal Power Station",
     "timeSeconds": 6,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "copper-ingot",
@@ -660,7 +660,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "mini-fusion-power-plant",
     "displayName": "Mini Fusion Power Plant",
     "timeSeconds": 10,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "carbon-nanotube",
@@ -701,7 +701,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "energy-exchanger",
     "displayName": "Energy Exchanger",
     "timeSeconds": 15,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "particle-container",
@@ -742,7 +742,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "ray-receiver",
     "displayName": "Ray Receiver",
     "timeSeconds": 8,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "high-purity-silicon",
@@ -788,7 +788,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "artificial-star",
     "displayName": "Artificial Star",
     "timeSeconds": 30,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "annihilation-constraint-sphere",
@@ -829,7 +829,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "accumulator-discharge",
     "displayName": "Accumulator (Discharge)",
     "timeSeconds": 10,
-    "supportsProductivity": true,
+    "supportsProductivity": false,
     "inputs": [
       {
         "itemKey": "accumulator-full",
@@ -852,7 +852,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "accumulator-full",
     "displayName": "Accumulator (full)",
     "timeSeconds": 10,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "accumulator",
@@ -875,7 +875,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "conveyor-belt-1",
     "displayName": "Conveyor Belt MK.I",
     "timeSeconds": 1,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "gear",
@@ -906,7 +906,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "conveyor-belt-2",
     "displayName": "Conveyor Belt MK.II",
     "timeSeconds": 1,
-    "supportsProductivity": true,
+    "supportsProductivity": false,
     "inputs": [
       {
         "itemKey": "conveyor-belt-1",
@@ -937,7 +937,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "conveyor-belt-3",
     "displayName": "Conveyor Belt MK.III",
     "timeSeconds": 1,
-    "supportsProductivity": true,
+    "supportsProductivity": false,
     "inputs": [
       {
         "itemKey": "conveyor-belt-2",
@@ -973,7 +973,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "splitter",
     "displayName": "Splitter",
     "timeSeconds": 2,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "circuit-board",
@@ -1009,7 +1009,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "automatic-piler",
     "displayName": "Automatic Piler",
     "timeSeconds": 4,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "gear",
@@ -1050,7 +1050,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "traffic-monitor",
     "displayName": "Traffic Monitor",
     "timeSeconds": 2,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "circuit-board",
@@ -1091,7 +1091,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "spray-coater",
     "displayName": "Spray Coater",
     "timeSeconds": 3,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "circuit-board",
@@ -1132,7 +1132,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "storage-1",
     "displayName": "Depot MK.I",
     "timeSeconds": 2,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "iron-ingot",
@@ -1163,7 +1163,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "storage-2",
     "displayName": "Depot MK.II",
     "timeSeconds": 4,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "steel",
@@ -1194,7 +1194,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "storage-tank",
     "displayName": "Storage Tank",
     "timeSeconds": 2,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "glass",
@@ -1230,7 +1230,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "logistics-distributor",
     "displayName": "Logistics Distributor",
     "timeSeconds": 8,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "iron-ingot",
@@ -1266,7 +1266,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "planetary-logistics-station",
     "displayName": "Planetary Logistics Station",
     "timeSeconds": 20,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "particle-container",
@@ -1307,7 +1307,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "interstellar-logistics-station",
     "displayName": "Interstellar Logistics Station",
     "timeSeconds": 30,
-    "supportsProductivity": true,
+    "supportsProductivity": false,
     "inputs": [
       {
         "itemKey": "particle-container",
@@ -1343,7 +1343,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "orbital-collector",
     "displayName": "Orbital Collector",
     "timeSeconds": 30,
-    "supportsProductivity": true,
+    "supportsProductivity": false,
     "inputs": [
       {
         "itemKey": "accumulator-full",
@@ -1384,7 +1384,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "sorter-1",
     "displayName": "Sorter MK.I",
     "timeSeconds": 1,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "circuit-board",
@@ -1415,7 +1415,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "sorter-2",
     "displayName": "Sorter MK.II",
     "timeSeconds": 1,
-    "supportsProductivity": true,
+    "supportsProductivity": false,
     "inputs": [
       {
         "itemKey": "electric-motor",
@@ -1446,7 +1446,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "sorter-3",
     "displayName": "Sorter MK.III",
     "timeSeconds": 1,
-    "supportsProductivity": true,
+    "supportsProductivity": false,
     "inputs": [
       {
         "itemKey": "electromagnetic-turbine",
@@ -1477,7 +1477,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "sorter-4",
     "displayName": "Pile Sorter",
     "timeSeconds": 1,
-    "supportsProductivity": true,
+    "supportsProductivity": false,
     "inputs": [
       {
         "itemKey": "processor",
@@ -1513,7 +1513,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "mining-machine",
     "displayName": "Mining Machine",
     "timeSeconds": 3,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "circuit-board",
@@ -1554,7 +1554,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "advanced-mining-machine",
     "displayName": "Advanced Mining Machine",
     "timeSeconds": 20,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "frame-material",
@@ -1600,7 +1600,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "water-pump",
     "displayName": "Water Pump",
     "timeSeconds": 4,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "circuit-board",
@@ -1641,7 +1641,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "oil-extractor",
     "displayName": "Oil Extractor",
     "timeSeconds": 8,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "circuit-board",
@@ -1682,7 +1682,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "oil-refinery",
     "displayName": "Oil Refinery",
     "timeSeconds": 6,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "circuit-board",
@@ -1723,7 +1723,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "fractionator",
     "displayName": "Fractionator",
     "timeSeconds": 3,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "glass",
@@ -1764,7 +1764,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "chemical-plant",
     "displayName": "Chemical Plant",
     "timeSeconds": 5,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "circuit-board",
@@ -1805,7 +1805,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "quantum-chemical-plant",
     "displayName": "Quantum Chemical Plant",
     "timeSeconds": 10,
-    "supportsProductivity": true,
+    "supportsProductivity": false,
     "inputs": [
       {
         "itemKey": "chemical-plant",
@@ -1846,7 +1846,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "miniature-particle-collider",
     "displayName": "Miniature Particle Collider",
     "timeSeconds": 15,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "frame-material",
@@ -1892,7 +1892,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "arc-smelter",
     "displayName": "Arc Smelter",
     "timeSeconds": 3,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "circuit-board",
@@ -1933,7 +1933,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "plane-smelter",
     "displayName": "Plane Smelter",
     "timeSeconds": 5,
-    "supportsProductivity": true,
+    "supportsProductivity": false,
     "inputs": [
       {
         "itemKey": "arc-smelter",
@@ -1974,7 +1974,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "df-negentropy-smelter",
     "displayName": "Negentropy Smelter",
     "timeSeconds": 6,
-    "supportsProductivity": true,
+    "supportsProductivity": false,
     "inputs": [
       {
         "itemKey": "df-energy-shard",
@@ -2015,7 +2015,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "assembling-machine-1",
     "displayName": "Assembling Machine Mk.I",
     "timeSeconds": 2,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "circuit-board",
@@ -2051,7 +2051,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "assembling-machine-2",
     "displayName": "Assembling Machine Mk.II",
     "timeSeconds": 3,
-    "supportsProductivity": true,
+    "supportsProductivity": false,
     "inputs": [
       {
         "itemKey": "assembling-machine-1",
@@ -2087,7 +2087,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "assembling-machine-3",
     "displayName": "Assembling Machine Mk.III",
     "timeSeconds": 4,
-    "supportsProductivity": true,
+    "supportsProductivity": false,
     "inputs": [
       {
         "itemKey": "assembling-machine-2",
@@ -2123,7 +2123,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "df-recomposing-assembler",
     "displayName": "Re-composing Assembler",
     "timeSeconds": 5,
-    "supportsProductivity": true,
+    "supportsProductivity": false,
     "inputs": [
       {
         "itemKey": "assembling-machine-3",
@@ -2164,7 +2164,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "matrix-lab",
     "displayName": "Matrix Lab",
     "timeSeconds": 3,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "circuit-board",
@@ -2205,7 +2205,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "df-self-evolution-lab",
     "displayName": "Self-evolution Lab",
     "timeSeconds": 4,
-    "supportsProductivity": true,
+    "supportsProductivity": false,
     "inputs": [
       {
         "itemKey": "df-dark-fog-matrix",
@@ -2246,7 +2246,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "em-rail-ejector",
     "displayName": "EM-Rail Ejector",
     "timeSeconds": 6,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "gear",
@@ -2287,7 +2287,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "vertical-launching-silo",
     "displayName": "Vertical Launching Silo",
     "timeSeconds": 30,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "frame-material",
@@ -2328,7 +2328,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "df-gauss-turret",
     "displayName": "Gauss Turret",
     "timeSeconds": 4,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "circuit-board",
@@ -2369,7 +2369,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "df-missile-turret",
     "displayName": "Missile Turret",
     "timeSeconds": 6,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "circuit-board",
@@ -2410,7 +2410,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "df-implosion-cannon",
     "displayName": "Implosion Cannon",
     "timeSeconds": 5,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "circuit-board",
@@ -2451,7 +2451,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "df-laser-turret",
     "displayName": "Laser Turret",
     "timeSeconds": 6,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "circuit-board",
@@ -2492,7 +2492,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "df-plasma-turret",
     "displayName": "Plasma Turret",
     "timeSeconds": 10,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "plasma-exciter",
@@ -2538,7 +2538,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "df-plasma-turret-sr",
     "displayName": "SR Plasma Turret",
     "timeSeconds": 8,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "plasma-exciter",
@@ -2579,7 +2579,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "df-battlefield-analysis-base",
     "displayName": "Battlefield Analysis Base",
     "timeSeconds": 6,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "circuit-board",
@@ -2620,7 +2620,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "df-jammer-tower",
     "displayName": "Jammer Tower",
     "timeSeconds": 5,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "copper-ingot",
@@ -2661,7 +2661,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "df-signal-tower",
     "displayName": "Signal Tower",
     "timeSeconds": 6,
-    "supportsProductivity": true,
+    "supportsProductivity": false,
     "inputs": [
       {
         "itemKey": "crystal-silicon",
@@ -2697,7 +2697,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "df-planetary-shield-generator",
     "displayName": "Planetary Shield Generator",
     "timeSeconds": 10,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "electromagnetic-turbine",
@@ -2738,7 +2738,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "iron-ingot",
     "displayName": "Iron Ingot",
     "timeSeconds": 1,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "iron-ore",
@@ -2763,7 +2763,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "copper-ingot",
     "displayName": "Copper Ingot",
     "timeSeconds": 1,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "copper-ore",
@@ -2788,7 +2788,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "high-purity-silicon",
     "displayName": "High-purity Silicon",
     "timeSeconds": 2,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "silicon-ore",
@@ -2813,7 +2813,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "titanium-ingot",
     "displayName": "Titanium Ingot",
     "timeSeconds": 2,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "titanium-ore",
@@ -2838,7 +2838,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "stone-brick",
     "displayName": "Stone Brick",
     "timeSeconds": 1,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "stone",
@@ -2863,7 +2863,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "energetic-graphite",
     "displayName": "Energetic Graphite",
     "timeSeconds": 2,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "coal",
@@ -2888,7 +2888,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "plasma-refining",
     "displayName": "Plasma Refining",
     "timeSeconds": 4,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "crude-oil",
@@ -2916,7 +2916,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "graphene",
     "displayName": "Graphene",
     "timeSeconds": 3,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "energetic-graphite",
@@ -2945,7 +2945,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "plastic",
     "displayName": "Plastic",
     "timeSeconds": 3,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "energetic-graphite",
@@ -2974,7 +2974,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "proliferator-1",
     "displayName": "Proliferator Mk.I",
     "timeSeconds": 0.5,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "coal",
@@ -3000,7 +3000,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "proliferator-2",
     "displayName": "Proliferator Mk.II",
     "timeSeconds": 1,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "diamond",
@@ -3031,7 +3031,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "proliferator-3",
     "displayName": "Proliferator Mk.III",
     "timeSeconds": 2,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "carbon-nanotube",
@@ -3062,7 +3062,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "df-magnum-ammo-box",
     "displayName": "Magnum Ammo Box",
     "timeSeconds": 1,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "copper-ingot",
@@ -3088,7 +3088,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "df-missile-set",
     "displayName": "Missile Set",
     "timeSeconds": 2,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "circuit-board",
@@ -3129,7 +3129,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "coal-vein",
     "displayName": "Coal Veins",
     "timeSeconds": 2,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [],
     "outputs": [
       {
@@ -3147,7 +3147,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "copper-vein",
     "displayName": "Copper Veins",
     "timeSeconds": 2,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [],
     "outputs": [
       {
@@ -3165,7 +3165,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "critical-photon",
     "displayName": "Critical Photon",
     "timeSeconds": 60,
-    "supportsProductivity": true,
+    "supportsProductivity": false,
     "inputs": [],
     "outputs": [
       {
@@ -3182,7 +3182,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "critical-photon-graviton",
     "displayName": "Critical Photon (Graviton Lens)",
     "timeSeconds": 60,
-    "supportsProductivity": true,
+    "supportsProductivity": false,
     "inputs": [],
     "outputs": [
       {
@@ -3199,7 +3199,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "crude-oil-seep",
     "displayName": "Crude Oil Seep",
     "timeSeconds": 1,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [],
     "outputs": [
       {
@@ -3216,7 +3216,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "fire-ice-vein",
     "displayName": "Fire Ice Vein",
     "timeSeconds": 2,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [],
     "outputs": [
       {
@@ -3234,7 +3234,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "fractal-silicon-vein",
     "displayName": "Fractal Silicon Veins",
     "timeSeconds": 2,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [],
     "outputs": [
       {
@@ -3252,7 +3252,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "iron-vein",
     "displayName": "Iron Veins",
     "timeSeconds": 2,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [],
     "outputs": [
       {
@@ -3270,7 +3270,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "kimberlite-vein",
     "displayName": "Kimberlite Veins",
     "timeSeconds": 2,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [],
     "outputs": [
       {
@@ -3288,7 +3288,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "ocean",
     "displayName": "Ocean",
     "timeSeconds": 1.2,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [],
     "outputs": [
       {
@@ -3305,7 +3305,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "optical-grating-crystal-vein",
     "displayName": "Grating Crystal Vein",
     "timeSeconds": 2,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [],
     "outputs": [
       {
@@ -3323,7 +3323,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "organic-crystal-vein",
     "displayName": "Organic Crystal Veins",
     "timeSeconds": 2,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [],
     "outputs": [
       {
@@ -3341,7 +3341,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "silicium-vein",
     "displayName": "Silicon Veins",
     "timeSeconds": 2,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [],
     "outputs": [
       {
@@ -3359,7 +3359,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "spiniform-stalagmite-crystal-vein",
     "displayName": "Stalagmite Crystal Vein",
     "timeSeconds": 2,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [],
     "outputs": [
       {
@@ -3377,7 +3377,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "stone-vein",
     "displayName": "Stone Veins",
     "timeSeconds": 2,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [],
     "outputs": [
       {
@@ -3395,7 +3395,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "sulphuric-acid-vein",
     "displayName": "Sulphuric Acid Ocean",
     "timeSeconds": 1.2,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [],
     "outputs": [
       {
@@ -3412,7 +3412,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "titanium-vein",
     "displayName": "Titanium Veins",
     "timeSeconds": 2,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [],
     "outputs": [
       {
@@ -3430,7 +3430,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "unipolar-magnet-vein",
     "displayName": "Unipolar Magnet Veins",
     "timeSeconds": 2,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [],
     "outputs": [
       {
@@ -3448,7 +3448,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "magnet",
     "displayName": "Magnet",
     "timeSeconds": 1.5,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "iron-ore",
@@ -3473,7 +3473,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "magnetic-coil",
     "displayName": "Magnetic Coil",
     "timeSeconds": 1,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "copper-ingot",
@@ -3504,7 +3504,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "crystal-silicon",
     "displayName": "Crystal Silicon",
     "timeSeconds": 2,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "high-purity-silicon",
@@ -3529,7 +3529,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "titanium-alloy",
     "displayName": "Titanium Alloy",
     "timeSeconds": 12,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "steel",
@@ -3564,7 +3564,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "glass",
     "displayName": "Glass",
     "timeSeconds": 2,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "stone",
@@ -3589,7 +3589,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "diamond",
     "displayName": "Diamond",
     "timeSeconds": 2,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "energetic-graphite",
@@ -3614,7 +3614,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "x-ray-cracking",
     "displayName": "X-ray Cracking",
     "timeSeconds": 4,
-    "supportsProductivity": true,
+    "supportsProductivity": false,
     "inputs": [
       {
         "itemKey": "hydrogen",
@@ -3647,7 +3647,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "graphene-advanced",
     "displayName": "Graphene (advanced)",
     "timeSeconds": 2,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "fire-ice",
@@ -3676,7 +3676,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "organic-crystal",
     "displayName": "Organic Crystal",
     "timeSeconds": 6,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "plastic",
@@ -3710,7 +3710,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "df-combustible-unit",
     "displayName": "Combustible Unit",
     "timeSeconds": 3,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "coal",
@@ -3736,7 +3736,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "df-explosive-unit",
     "displayName": "Explosive Unit",
     "timeSeconds": 6,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "df-combustible-unit",
@@ -3770,7 +3770,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "df-crystal-explosive-unit",
     "displayName": "Crystal Explosive Unit",
     "timeSeconds": 24,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "casimir-crystal",
@@ -3804,7 +3804,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "df-titanium-ammo-box",
     "displayName": "Titanium Ammo Box",
     "timeSeconds": 2,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "df-magnum-ammo-box",
@@ -3835,7 +3835,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "df-supersonic-missile-set",
     "displayName": "Supersonic Missile Set",
     "timeSeconds": 4,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "df-explosive-unit",
@@ -3876,7 +3876,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "steel",
     "displayName": "Steel",
     "timeSeconds": 3,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "iron-ingot",
@@ -3901,7 +3901,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "electric-motor",
     "displayName": "Electric Motor",
     "timeSeconds": 2,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "gear",
@@ -3937,7 +3937,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "crystal-silicon-advanced",
     "displayName": "Crystal Silicon (advanced)",
     "timeSeconds": 1.5,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "fractal-silicon",
@@ -3963,7 +3963,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "titanium-glass",
     "displayName": "Titanium Glass",
     "timeSeconds": 5,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "glass",
@@ -3999,7 +3999,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "prism",
     "displayName": "Prism",
     "timeSeconds": 2,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "glass",
@@ -4025,7 +4025,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "diamond-advanced",
     "displayName": "Diamond (advanced)",
     "timeSeconds": 1.5,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "kimberlite-ore",
@@ -4050,7 +4050,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "reforming-refine",
     "displayName": "Reformed Refinement",
     "timeSeconds": 4,
-    "supportsProductivity": true,
+    "supportsProductivity": false,
     "inputs": [
       {
         "itemKey": "coal",
@@ -4083,7 +4083,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "titanium-crystal",
     "displayName": "Titanium Crystal",
     "timeSeconds": 4,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "organic-crystal",
@@ -4114,7 +4114,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "organic-crystal-original",
     "displayName": "Organic Crystal (original)",
     "timeSeconds": 6,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "log",
@@ -4150,7 +4150,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "df-engine",
     "displayName": "Engine",
     "timeSeconds": 3,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "copper-ingot",
@@ -4181,7 +4181,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "thruster",
     "displayName": " - Thruster",
     "timeSeconds": 4,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "copper-ingot",
@@ -4212,7 +4212,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "reinforced-thruster",
     "displayName": "Reinforced Thruster",
     "timeSeconds": 6,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "electromagnetic-turbine",
@@ -4243,7 +4243,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "df-superalloy-ammo-box",
     "displayName": "Superalloy Ammo Box",
     "timeSeconds": 3,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "df-titanium-ammo-box",
@@ -4274,7 +4274,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "df-gravity-missile-set",
     "displayName": "Gravity Missile Set",
     "timeSeconds": 6,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "df-crystal-explosive-unit",
@@ -4310,7 +4310,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "gear",
     "displayName": "Gear",
     "timeSeconds": 1,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "iron-ingot",
@@ -4336,7 +4336,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "electromagnetic-turbine",
     "displayName": "Electromagnetic Turbine",
     "timeSeconds": 2,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "electric-motor",
@@ -4367,7 +4367,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "silicon-ore",
     "displayName": "Silicon Ore",
     "timeSeconds": 10,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "stone",
@@ -4392,7 +4392,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "circuit-board",
     "displayName": "Circuit Board",
     "timeSeconds": 1,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "copper-ingot",
@@ -4423,7 +4423,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "graviton-lens",
     "displayName": "Graviton Lens",
     "timeSeconds": 6,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "diamond",
@@ -4454,7 +4454,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "sulfuric-acid",
     "displayName": "Sulfuric Acid",
     "timeSeconds": 6,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "refined-oil",
@@ -4488,7 +4488,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "deuterium-fractionation",
     "displayName": "Deuterium Fractionation",
     "timeSeconds": 1,
-    "supportsProductivity": true,
+    "supportsProductivity": false,
     "inputs": [
       {
         "itemKey": "hydrogen",
@@ -4511,7 +4511,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "carbon-nanotube",
     "displayName": "Carbon Nanotube",
     "timeSeconds": 4,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "graphene",
@@ -4540,7 +4540,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "strange-matter",
     "displayName": "Strange Matter",
     "timeSeconds": 8,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "deuterium",
@@ -4573,7 +4573,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "logistics-bot",
     "displayName": "Logistics Bot",
     "timeSeconds": 2,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "df-engine",
@@ -4609,7 +4609,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "logistics-drone",
     "displayName": "Logistics Drone",
     "timeSeconds": 4,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "iron-ingot",
@@ -4645,7 +4645,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "logistics-vessel",
     "displayName": "Interstellar Logistics Vessel",
     "timeSeconds": 6,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "processor",
@@ -4681,7 +4681,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "df-plasma-capsule",
     "displayName": "Plasma Capsule",
     "timeSeconds": 2,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "deuterium",
@@ -4717,7 +4717,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "df-shell-set",
     "displayName": "Shell Set",
     "timeSeconds": 1.5,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "copper-ingot",
@@ -4748,7 +4748,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "plasma-exciter",
     "displayName": "Plasma Exciter",
     "timeSeconds": 2,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "magnetic-coil",
@@ -4779,7 +4779,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "super-magnetic-ring",
     "displayName": "Super-magnetic Ring",
     "timeSeconds": 3,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "electromagnetic-turbine",
@@ -4815,7 +4815,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "particle-broadband",
     "displayName": "Particle Broadband",
     "timeSeconds": 8,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "carbon-nanotube",
@@ -4851,7 +4851,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "processor",
     "displayName": "Processor",
     "timeSeconds": 3,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "circuit-board",
@@ -4882,7 +4882,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "casimir-crystal",
     "displayName": "Casimir Crystal",
     "timeSeconds": 4,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "graphene",
@@ -4918,7 +4918,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "particle-container",
     "displayName": "Particle Container",
     "timeSeconds": 4,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "copper-ingot",
@@ -4954,7 +4954,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "deuterium",
     "displayName": "Deuterium",
     "timeSeconds": 2.5,
-    "supportsProductivity": true,
+    "supportsProductivity": false,
     "inputs": [
       {
         "itemKey": "hydrogen",
@@ -4977,7 +4977,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "carbon-nanotube-advanced",
     "displayName": "Carbon Nanotube (advanced)",
     "timeSeconds": 4,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "spiniform-stalagmite-crystal",
@@ -5001,7 +5001,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "solar-sail",
     "displayName": "Solar Sail",
     "timeSeconds": 4,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "graphene",
@@ -5032,7 +5032,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "frame-material",
     "displayName": "Frame Material",
     "timeSeconds": 6,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "carbon-nanotube",
@@ -5068,7 +5068,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "dyson-sphere-component",
     "displayName": "Dyson Sphere Component",
     "timeSeconds": 8,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "frame-material",
@@ -5104,7 +5104,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "small-carrier-rocket",
     "displayName": "Small Carrier Rocket",
     "timeSeconds": 6,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "deuteron-fuel-rod",
@@ -5140,7 +5140,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "df-antimatter-capsule",
     "displayName": "Antimatter Capsule",
     "timeSeconds": 2,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "antimatter",
@@ -5181,7 +5181,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "df-high-explosive-shell-set",
     "displayName": "High-Explosive Shell Set",
     "timeSeconds": 3,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "df-explosive-unit",
@@ -5217,7 +5217,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "photon-combiner",
     "displayName": "Photon Combiner",
     "timeSeconds": 3,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "circuit-board",
@@ -5248,7 +5248,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "photon-combiner-advanced",
     "displayName": "Photon Combiner (advanced)",
     "timeSeconds": 3,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "circuit-board",
@@ -5279,7 +5279,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "microcrystalline-component",
     "displayName": "Microcrystalline Component",
     "timeSeconds": 2,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "copper-ingot",
@@ -5310,7 +5310,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "quantum-chip",
     "displayName": "Quantum Chip",
     "timeSeconds": 6,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "plane-filter",
@@ -5341,7 +5341,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "casimir-crystal-advanced",
     "displayName": "Casimir Crystal (advanced)",
     "timeSeconds": 4,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "graphene",
@@ -5377,7 +5377,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "particle-container-advanced",
     "displayName": "Particle Container (advanced)",
     "timeSeconds": 4,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "copper-ingot",
@@ -5408,7 +5408,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "plane-filter",
     "displayName": "Plane Filter",
     "timeSeconds": 12,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "casimir-crystal",
@@ -5439,7 +5439,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "annihilation-constraint-sphere",
     "displayName": "Annihilation Constraint Sphere",
     "timeSeconds": 20,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "particle-container",
@@ -5470,7 +5470,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "hydrogen-fuel-rod",
     "displayName": "Hydrogen Fuel Rod",
     "timeSeconds": 6,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "hydrogen",
@@ -5501,7 +5501,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "deuteron-fuel-rod",
     "displayName": "Deuteron Fuel Rod",
     "timeSeconds": 12,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "deuterium",
@@ -5537,7 +5537,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "antimatter-fuel-rod",
     "displayName": "Antimatter Fuel Rod",
     "timeSeconds": 24,
-    "supportsProductivity": true,
+    "supportsProductivity": false,
     "inputs": [
       {
         "itemKey": "annihilation-constraint-sphere",
@@ -5578,7 +5578,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "df-strange-annihilation-fuel-rod",
     "displayName": "Strange Annihilation Fuel Rod",
     "timeSeconds": 32,
-    "supportsProductivity": true,
+    "supportsProductivity": false,
     "inputs": [
       {
         "itemKey": "antimatter-fuel-rod",
@@ -5619,7 +5619,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "df-jamming-capsule",
     "displayName": "Jamming Capsule",
     "timeSeconds": 2,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "electromagnetic-turbine",
@@ -5655,7 +5655,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "df-crystal-shell-set",
     "displayName": "Crystal Shell Set",
     "timeSeconds": 6,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "df-crystal-explosive-unit",
@@ -5691,7 +5691,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "df-prototype",
     "displayName": "Prototype",
     "timeSeconds": 2,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "circuit-board",
@@ -5732,7 +5732,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "df-precision-drone",
     "displayName": "Precision Drone",
     "timeSeconds": 4,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "circuit-board",
@@ -5773,7 +5773,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "df-attack-drone",
     "displayName": "Attack Drone",
     "timeSeconds": 4,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "df-prototype",
@@ -5814,7 +5814,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "df-corvette",
     "displayName": "Corvette",
     "timeSeconds": 5,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "particle-container",
@@ -5855,7 +5855,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "df-destroyer",
     "displayName": "Destroyer",
     "timeSeconds": 8,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "frame-material",
@@ -5896,7 +5896,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "space-warper",
     "displayName": "Space Warper",
     "timeSeconds": 10,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "graviton-lens",
@@ -5922,7 +5922,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "space-warper-advanced",
     "displayName": "Space Warper (advanced)",
     "timeSeconds": 10,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "gravity-matrix",
@@ -5948,7 +5948,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "mass-energy-storage",
     "displayName": "Mass-energy Storage",
     "timeSeconds": 2,
-    "supportsProductivity": true,
+    "supportsProductivity": false,
     "inputs": [
       {
         "itemKey": "critical-photon",
@@ -5976,7 +5976,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "df-suppressing-capsule",
     "displayName": "Suppressing Capsule",
     "timeSeconds": 8,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "df-jamming-capsule",
@@ -6012,7 +6012,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "foundation",
     "displayName": "Foundation",
     "timeSeconds": 1,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "steel",
@@ -6043,7 +6043,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "electromagnetic-matrix",
     "displayName": "Electromagnetic Matrix",
     "timeSeconds": 3,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "circuit-board",
@@ -6072,7 +6072,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "energy-matrix",
     "displayName": "Energy Matrix",
     "timeSeconds": 6,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "energetic-graphite",
@@ -6101,7 +6101,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "structure-matrix",
     "displayName": "Structure Matrix",
     "timeSeconds": 8,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "diamond",
@@ -6130,7 +6130,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "information-matrix",
     "displayName": "Information Matrix",
     "timeSeconds": 10,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "particle-broadband",
@@ -6159,7 +6159,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "gravity-matrix",
     "displayName": "Gravity Matrix",
     "timeSeconds": 24,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "graviton-lens",
@@ -6188,7 +6188,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "universe-matrix",
     "displayName": "Universe Matrix",
     "timeSeconds": 15,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "antimatter",
@@ -6237,7 +6237,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "gas-giant",
     "displayName": "Gas Giant",
     "timeSeconds": 1,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [],
     "outputs": [
       {
@@ -6259,7 +6259,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "gas-giant-deuterium",
     "displayName": "Gas Giant (Deuterium)",
     "timeSeconds": 1,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [],
     "outputs": [
       {
@@ -6276,7 +6276,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "gas-giant-hydrogen",
     "displayName": "Gas Giant (Hydrogen)",
     "timeSeconds": 1,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [],
     "outputs": [
       {
@@ -6293,7 +6293,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "ice-giant",
     "displayName": "Ice Giant",
     "timeSeconds": 1,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [],
     "outputs": [
       {
@@ -6315,7 +6315,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "ice-giant-gas-hydrate",
     "displayName": "Ice Giant (Fire Ice)",
     "timeSeconds": 1,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [],
     "outputs": [
       {
@@ -6332,7 +6332,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "ice-giant-hydrogen",
     "displayName": "Ice Giant (Hydrogen)",
     "timeSeconds": 1,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [],
     "outputs": [
       {
@@ -6349,7 +6349,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "applied-superconductor",
     "displayName": "Applied Superconductor",
     "timeSeconds": 1,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "electromagnetic-matrix",
@@ -6373,7 +6373,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "artificial-star-technology",
     "displayName": "Artificial Star",
     "timeSeconds": 1,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "electromagnetic-matrix",
@@ -6417,7 +6417,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "automatic-metallurgy",
     "displayName": "Automatic Metallurgy",
     "timeSeconds": 1,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "circuit-board",
@@ -6446,7 +6446,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "basic-assembling-processes",
     "displayName": "Basic Assembling",
     "timeSeconds": 1,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "circuit-board",
@@ -6475,7 +6475,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "basic-chemical-engineering",
     "displayName": "Basic Chemical Engineering",
     "timeSeconds": 1,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "electromagnetic-matrix",
@@ -6499,7 +6499,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "basic-logistics-system",
     "displayName": "Basic Logistics System",
     "timeSeconds": 1,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "circuit-board",
@@ -6528,7 +6528,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "casimir-crystal-technology",
     "displayName": "Casimir Crystal",
     "timeSeconds": 1,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "electromagnetic-matrix",
@@ -6562,7 +6562,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "controlled-annihilation-reaction",
     "displayName": "Controlled Annihilation Reaction",
     "timeSeconds": 1,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "energy-matrix",
@@ -6591,7 +6591,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "crystal-smelting",
     "displayName": "Crystal Smelting",
     "timeSeconds": 1,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "electromagnetic-matrix",
@@ -6620,7 +6620,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "deuterium-fractionation-technology",
     "displayName": "Deuterium Fractionation",
     "timeSeconds": 1,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "electromagnetic-matrix",
@@ -6649,7 +6649,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "df-antimatter-capsule-tech",
     "displayName": "Antimatter Capsule",
     "timeSeconds": 1,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "electromagnetic-matrix",
@@ -6693,7 +6693,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "df-attack-drone-tech",
     "displayName": "Attack Drone",
     "timeSeconds": 1,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "electromagnetic-matrix",
@@ -6727,7 +6727,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "df-battlefield-analysis-base-tech",
     "displayName": "Battlefield Analysis Base",
     "timeSeconds": 1,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "electromagnetic-matrix",
@@ -6751,7 +6751,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "df-combustible-unit-tech",
     "displayName": "Combustible Unit",
     "timeSeconds": 1,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "electromagnetic-matrix",
@@ -6775,7 +6775,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "df-corvette-tech",
     "displayName": "Corvette",
     "timeSeconds": 1,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "electromagnetic-matrix",
@@ -6814,7 +6814,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "df-crystal-explosive-unit-tech",
     "displayName": "Crystal Explosive Unit",
     "timeSeconds": 1,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "electromagnetic-matrix",
@@ -6853,7 +6853,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "df-crystal-shell-set-tech",
     "displayName": "Crystal Shell Set",
     "timeSeconds": 1,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "electromagnetic-matrix",
@@ -6892,7 +6892,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "df-destroyer-tech",
     "displayName": "Destroyer",
     "timeSeconds": 1,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "electromagnetic-matrix",
@@ -6936,7 +6936,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "df-digital-analog-computation",
     "displayName": "Digital Analog Computation",
     "timeSeconds": 1,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "df-dark-fog-matrix",
@@ -6960,7 +6960,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "df-engine-tech",
     "displayName": "Engine",
     "timeSeconds": 1,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "electromagnetic-matrix",
@@ -6984,7 +6984,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "df-explosive-unit-tech",
     "displayName": "Explosive Unit",
     "timeSeconds": 1,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "electromagnetic-matrix",
@@ -7013,7 +7013,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "df-gravity-missile-set-tech",
     "displayName": "Gravity Missile Set",
     "timeSeconds": 1,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "electromagnetic-matrix",
@@ -7057,7 +7057,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "df-high-density-controlled-annihilation",
     "displayName": "High-Density Controlled Annihilation",
     "timeSeconds": 1,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "df-dark-fog-matrix",
@@ -7081,7 +7081,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "df-high-explosive-shell-set-tech",
     "displayName": "High-Explosive Shell Set",
     "timeSeconds": 1,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "electromagnetic-matrix",
@@ -7110,7 +7110,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "df-implosion-cannon-tech",
     "displayName": "Implosion Cannon",
     "timeSeconds": 1,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "electromagnetic-matrix",
@@ -7139,7 +7139,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "df-jammer-tower-tech",
     "displayName": "Jammer Tower",
     "timeSeconds": 1,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "electromagnetic-matrix",
@@ -7168,7 +7168,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "df-matter-recombination",
     "displayName": "Matter Recombination",
     "timeSeconds": 1,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "df-dark-fog-matrix",
@@ -7192,7 +7192,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "df-missile-turret-tech",
     "displayName": "Missile Turret",
     "timeSeconds": 1,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "electromagnetic-matrix",
@@ -7216,7 +7216,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "df-negentropy-recursion",
     "displayName": "Negentropy Recursion",
     "timeSeconds": 1,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "df-dark-fog-matrix",
@@ -7240,7 +7240,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "df-planetary-defense-system",
     "displayName": "Planetary Defense System",
     "timeSeconds": 1,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "electromagnetic-matrix",
@@ -7269,7 +7269,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "df-plasma-turret-tech",
     "displayName": "Plasma Turret",
     "timeSeconds": 1,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "electromagnetic-matrix",
@@ -7308,7 +7308,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "df-precision-drone-tech",
     "displayName": "Precision Drone",
     "timeSeconds": 1,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "electromagnetic-matrix",
@@ -7337,7 +7337,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "df-prototype-tech",
     "displayName": "Prototype",
     "timeSeconds": 1,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "electromagnetic-matrix",
@@ -7361,7 +7361,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "df-signal-tower-tech",
     "displayName": "Signal Tower",
     "timeSeconds": 1,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "electromagnetic-matrix",
@@ -7390,7 +7390,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "df-superalloy-ammo-box-tech",
     "displayName": "Superalloy Ammo Box",
     "timeSeconds": 1,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "electromagnetic-matrix",
@@ -7424,7 +7424,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "df-supersonic-missile-set-tech",
     "displayName": "Supersonic Missile Set",
     "timeSeconds": 1,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "electromagnetic-matrix",
@@ -7458,7 +7458,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "df-suppressing-capsule-tech",
     "displayName": "Suppressing Capsule",
     "timeSeconds": 1,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "electromagnetic-matrix",
@@ -7492,7 +7492,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "df-titanium-ammo-box-tech",
     "displayName": "Titanium Ammo Box",
     "timeSeconds": 1,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "electromagnetic-matrix",
@@ -7521,7 +7521,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "df-weapon-system",
     "displayName": "Weapon System",
     "timeSeconds": 1,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "electromagnetic-matrix",
@@ -7545,7 +7545,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "dirac-inversion-mechanism",
     "displayName": "Dirac Inversion Mechanism",
     "timeSeconds": 1,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "electromagnetic-matrix",
@@ -7589,7 +7589,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "distribution-logistics-system",
     "displayName": "Distribution Logistics System",
     "timeSeconds": 1,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "electromagnetic-matrix",
@@ -7618,7 +7618,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "dyson-sphere-stress-system-1",
     "displayName": "Dyson Sphere Stress System (Lv1)",
     "timeSeconds": 1,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "electromagnetic-matrix",
@@ -7662,7 +7662,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "electromagnetic-drive",
     "displayName": "Electromagnetic Drive",
     "timeSeconds": 1,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "electromagnetic-matrix",
@@ -7686,7 +7686,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "electromagnetic-matrix-technology",
     "displayName": "Electromagnetic Matrix",
     "timeSeconds": 1,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "circuit-board",
@@ -7715,7 +7715,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "electromagnetism",
     "displayName": "Electromagnetism",
     "timeSeconds": 1,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "magnetic-coil",
@@ -7739,7 +7739,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "energy-matrix-technology",
     "displayName": "Energy Matrix",
     "timeSeconds": 1,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "electromagnetic-matrix",
@@ -7763,7 +7763,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "energy-storage",
     "displayName": "Energy Storage",
     "timeSeconds": 1,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "electromagnetic-matrix",
@@ -7792,7 +7792,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "environment-modification",
     "displayName": "Reclamation",
     "timeSeconds": 1,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "electromagnetic-matrix",
@@ -7816,7 +7816,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "fluid-storage-encapsulation",
     "displayName": "Fluid Storage Encapsulation",
     "timeSeconds": 1,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "electromagnetic-matrix",
@@ -7840,7 +7840,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "gas-giants-exploitation",
     "displayName": "Gas Giants Exploitation",
     "timeSeconds": 1,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "electromagnetic-matrix",
@@ -7874,7 +7874,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "geothermal-extraction",
     "displayName": "Geothermal Extraction",
     "timeSeconds": 1,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "electromagnetic-matrix",
@@ -7903,7 +7903,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "gravitational-wave-refraction",
     "displayName": "Gravitational Wave Refraction",
     "timeSeconds": 1,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "electromagnetic-matrix",
@@ -7937,7 +7937,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "gravity-matrix-technology",
     "displayName": "Gravity Matrix",
     "timeSeconds": 1,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "electromagnetic-matrix",
@@ -7971,7 +7971,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "high-efficiency-logistics-system",
     "displayName": "High-Efficiency Logistics System",
     "timeSeconds": 1,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "electromagnetic-matrix",
@@ -8000,7 +8000,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "high-efficiency-plasma-control",
     "displayName": "High-Efficiency Plasma Control",
     "timeSeconds": 1,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "electromagnetic-matrix",
@@ -8024,7 +8024,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "high-speed-assembling-processes",
     "displayName": "High-Speed Assembling",
     "timeSeconds": 1,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "electromagnetic-matrix",
@@ -8053,7 +8053,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "high-strength-crystal",
     "displayName": "High-Strength Crystal",
     "timeSeconds": 1,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "electromagnetic-matrix",
@@ -8082,7 +8082,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "high-strength-glass",
     "displayName": "High-Strength Glass",
     "timeSeconds": 1,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "energy-matrix",
@@ -8111,7 +8111,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "high-strength-lightweight-structure",
     "displayName": "High-Strength Lightweight Structure",
     "timeSeconds": 1,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "electromagnetic-matrix",
@@ -8140,7 +8140,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "high-strength-material",
     "displayName": "High-Strength Material",
     "timeSeconds": 1,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "energy-matrix",
@@ -8169,7 +8169,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "high-strength-titanium-alloy",
     "displayName": "High-Strength Titanium Alloy",
     "timeSeconds": 1,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "electromagnetic-matrix",
@@ -8203,7 +8203,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "hydrogen-fuel-rod-technology",
     "displayName": "Hydrogen Fuel Rod",
     "timeSeconds": 1,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "energy-matrix",
@@ -8227,7 +8227,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "improved-logistics-system",
     "displayName": "Upgraded Logistics System",
     "timeSeconds": 1,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "electromagnetic-matrix",
@@ -8251,7 +8251,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "information-matrix-technology",
     "displayName": "Information Matrix",
     "timeSeconds": 1,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "electromagnetic-matrix",
@@ -8280,7 +8280,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "integrated-logistics-system",
     "displayName": "Integrated Logistics System",
     "timeSeconds": 1,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "electromagnetic-matrix",
@@ -8314,7 +8314,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "interstellar-logistics-system",
     "displayName": "Interstellar Logistics System",
     "timeSeconds": 1,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "electromagnetic-matrix",
@@ -8348,7 +8348,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "interstellar-power-transmission",
     "displayName": "Interstellar Power Transmission",
     "timeSeconds": 1,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "electromagnetic-matrix",
@@ -8382,7 +8382,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "magnetic-levitation-technology",
     "displayName": "Magnetic Levitation",
     "timeSeconds": 1,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "electromagnetic-matrix",
@@ -8411,7 +8411,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "magnetic-particle-trap",
     "displayName": "Magnetic Particle Trap",
     "timeSeconds": 1,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "electromagnetic-matrix",
@@ -8440,7 +8440,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "mesoscopic-quantum-entanglement",
     "displayName": "Mesoscopic Quantum Entanglement",
     "timeSeconds": 1,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "electromagnetic-matrix",
@@ -8479,7 +8479,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "mini-fusion-power-generation",
     "displayName": "Mini Fusion Power Generation",
     "timeSeconds": 1,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "electromagnetic-matrix",
@@ -8513,7 +8513,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "miniature-particle-collider-technology",
     "displayName": "Miniature Particle Collider",
     "timeSeconds": 1,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "electromagnetic-matrix",
@@ -8547,7 +8547,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "mission-completed",
     "displayName": "Mission Completed!",
     "timeSeconds": 1,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "universe-matrix",
@@ -8571,7 +8571,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "particle-control-technology",
     "displayName": "Particle Control",
     "timeSeconds": 1,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "electromagnetic-matrix",
@@ -8605,7 +8605,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "photon-frequency-conversion",
     "displayName": "Photon Frequency Conversion",
     "timeSeconds": 1,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "electromagnetic-matrix",
@@ -8634,7 +8634,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "photon-spotlight-mining-technology",
     "displayName": "Photon Spotlight Mining",
     "timeSeconds": 1,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "electromagnetic-matrix",
@@ -8678,7 +8678,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "plane-filter-smelting-technology",
     "displayName": "Plane-Filter Smelting",
     "timeSeconds": 1,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "electromagnetic-matrix",
@@ -8717,7 +8717,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "planetary-ionosphere-utilization",
     "displayName": "Planetary Ionosphere Utilization",
     "timeSeconds": 1,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "electromagnetic-matrix",
@@ -8756,7 +8756,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "planetary-logistics-system",
     "displayName": "Planetary Logistics System",
     "timeSeconds": 1,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "electromagnetic-matrix",
@@ -8785,7 +8785,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "plasma-extract-refining",
     "displayName": "Plasma Extract Refining",
     "timeSeconds": 1,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "electromagnetic-matrix",
@@ -8809,7 +8809,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "polymer-chemical-engineering",
     "displayName": "Polymer chemical engineering",
     "timeSeconds": 1,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "electromagnetic-matrix",
@@ -8838,7 +8838,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "processor-technology",
     "displayName": "Processor",
     "timeSeconds": 1,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "electromagnetic-matrix",
@@ -8862,7 +8862,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "proliferator-1-technology",
     "displayName": "Proliferator Mk.I",
     "timeSeconds": 1,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "electromagnetic-matrix",
@@ -8886,7 +8886,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "proliferator-2-technology",
     "displayName": "Proliferator Mk.II",
     "timeSeconds": 1,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "electromagnetic-matrix",
@@ -8915,7 +8915,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "proliferator-3-technology",
     "displayName": "Proliferator Mk.III",
     "timeSeconds": 1,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "electromagnetic-matrix",
@@ -8949,7 +8949,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "quantum-chip-technology",
     "displayName": "Quantum Chip",
     "timeSeconds": 1,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "electromagnetic-matrix",
@@ -8983,7 +8983,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "quantum-printing-technology",
     "displayName": "Quantum Printing",
     "timeSeconds": 1,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "electromagnetic-matrix",
@@ -9022,7 +9022,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "ray-receiver-technology",
     "displayName": "Ray Receiver",
     "timeSeconds": 1,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "electromagnetic-matrix",
@@ -9051,7 +9051,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "reforming-refine-technology",
     "displayName": "Reformed Refinement",
     "timeSeconds": 1,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "electromagnetic-matrix",
@@ -9080,7 +9080,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "reinforced-thruster-technology",
     "displayName": "Reinforced Thruster",
     "timeSeconds": 1,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "energy-matrix",
@@ -9104,7 +9104,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "satellite-power-distribution-system",
     "displayName": "Satellite Power Distribution System",
     "timeSeconds": 1,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "electromagnetic-matrix",
@@ -9138,7 +9138,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "semiconductor-material",
     "displayName": "Semiconductor Material",
     "timeSeconds": 1,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "electromagnetic-matrix",
@@ -9162,7 +9162,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "smelting-purification",
     "displayName": "Smelting Purification",
     "timeSeconds": 1,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "electromagnetic-matrix",
@@ -9186,7 +9186,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "solar-collection",
     "displayName": "Solar Collection",
     "timeSeconds": 1,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "electromagnetic-matrix",
@@ -9210,7 +9210,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "solar-sail-orbit-system",
     "displayName": "Solar Sail Orbit System",
     "timeSeconds": 1,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "electromagnetic-matrix",
@@ -9239,7 +9239,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "steel-smelting",
     "displayName": "Steel Smelting",
     "timeSeconds": 1,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "electromagnetic-matrix",
@@ -9263,7 +9263,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "strange-matter-technology",
     "displayName": "Strange Matter",
     "timeSeconds": 1,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "electromagnetic-matrix",
@@ -9297,7 +9297,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "structure-matrix-technology",
     "displayName": "Structure Matrix",
     "timeSeconds": 1,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "electromagnetic-matrix",
@@ -9326,7 +9326,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "super-magnetic-field-generator",
     "displayName": "Super Magnetic Field Generator",
     "timeSeconds": 1,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "electromagnetic-matrix",
@@ -9355,7 +9355,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "thermal-power",
     "displayName": "Thermal Power",
     "timeSeconds": 1,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "electromagnetic-matrix",
@@ -9379,7 +9379,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "thruster-technology",
     "displayName": "Thruster",
     "timeSeconds": 1,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "energy-matrix",
@@ -9403,7 +9403,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "titanium-smelting",
     "displayName": "Titanium Smelting",
     "timeSeconds": 1,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "electromagnetic-matrix",
@@ -9432,7 +9432,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "universe-matrix-technology",
     "displayName": "Universe Matrix",
     "timeSeconds": 1,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "electromagnetic-matrix",
@@ -9476,7 +9476,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "vertical-launching-silo-technology",
     "displayName": "Vertical Launching Silo",
     "timeSeconds": 1,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "electromagnetic-matrix",
@@ -9515,7 +9515,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "wave-function-interference",
     "displayName": "Wave Function Interference",
     "timeSeconds": 1,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "electromagnetic-matrix",
@@ -9549,7 +9549,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "x-ray-cracking-technology",
     "displayName": "X-Ray Cracking",
     "timeSeconds": 1,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "electromagnetic-matrix",
@@ -9578,7 +9578,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "communication-control-1",
     "displayName": "Communication Control (Lv1)",
     "timeSeconds": 1,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "electromagnetic-matrix",
@@ -9602,7 +9602,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "communication-control-2",
     "displayName": "Communication Control (Lv2)",
     "timeSeconds": 1,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "electromagnetic-matrix",
@@ -9631,7 +9631,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "communication-control-3",
     "displayName": "Communication Control (Lv3)",
     "timeSeconds": 1,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "electromagnetic-matrix",
@@ -9660,7 +9660,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "communication-control-4",
     "displayName": "Communication Control (Lv4)",
     "timeSeconds": 1,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "electromagnetic-matrix",
@@ -9694,7 +9694,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "communication-control-5",
     "displayName": "Communication Control (Lv5)",
     "timeSeconds": 1,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "electromagnetic-matrix",
@@ -9733,7 +9733,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "communication-control-6",
     "displayName": "Communication Control (Lv6)",
     "timeSeconds": 1,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "electromagnetic-matrix",
@@ -9777,7 +9777,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "communication-control-7",
     "displayName": "Communication Control (Lv7)",
     "timeSeconds": 1,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "universe-matrix",
@@ -9801,7 +9801,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "df-auto-reconstruction-marking-1",
     "displayName": "Auto Reconstruction Marking (Lv1)",
     "timeSeconds": 1,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "electromagnetic-matrix",
@@ -9825,7 +9825,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "df-auto-reconstruction-marking-2",
     "displayName": "Auto Reconstruction Marking (Lv2)",
     "timeSeconds": 1,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "electromagnetic-matrix",
@@ -9854,7 +9854,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "df-auto-reconstruction-marking-3",
     "displayName": "Auto Reconstruction Marking (Lv3)",
     "timeSeconds": 1,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "electromagnetic-matrix",
@@ -9888,7 +9888,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "df-auto-reconstruction-marking-4",
     "displayName": "Auto Reconstruction Marking (Lv4)",
     "timeSeconds": 1,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "electromagnetic-matrix",
@@ -9927,7 +9927,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "df-auto-reconstruction-marking-5",
     "displayName": "Auto Reconstruction Marking (Lv5)",
     "timeSeconds": 1,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "electromagnetic-matrix",
@@ -9971,7 +9971,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "df-auto-reconstruction-marking-6",
     "displayName": "Auto Reconstruction Marking (Lv6)",
     "timeSeconds": 1,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "universe-matrix",
@@ -9995,7 +9995,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "df-combat-drone-attack-speed-1",
     "displayName": "Combat Drone Attack Speed (Lv1)",
     "timeSeconds": 1,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "electromagnetic-matrix",
@@ -10024,7 +10024,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "df-combat-drone-attack-speed-2",
     "displayName": "Combat Drone Attack Speed (Lv2)",
     "timeSeconds": 1,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "electromagnetic-matrix",
@@ -10058,7 +10058,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "df-combat-drone-attack-speed-3",
     "displayName": "Combat Drone Attack Speed (Lv3)",
     "timeSeconds": 1,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "electromagnetic-matrix",
@@ -10097,7 +10097,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "df-combat-drone-attack-speed-4",
     "displayName": "Combat Drone Attack Speed (Lv4)",
     "timeSeconds": 1,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "electromagnetic-matrix",
@@ -10141,7 +10141,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "df-combat-drone-attack-speed-5",
     "displayName": "Combat Drone Attack Speed (Lv5)",
     "timeSeconds": 1,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "universe-matrix",
@@ -10165,7 +10165,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "df-combat-drone-damage-1",
     "displayName": "Combat Drone Damage (Lv1)",
     "timeSeconds": 1,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "electromagnetic-matrix",
@@ -10194,7 +10194,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "df-combat-drone-damage-2",
     "displayName": "Combat Drone Damage (Lv2)",
     "timeSeconds": 1,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "electromagnetic-matrix",
@@ -10228,7 +10228,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "df-combat-drone-damage-3",
     "displayName": "Combat Drone Damage (Lv3)",
     "timeSeconds": 1,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "electromagnetic-matrix",
@@ -10267,7 +10267,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "df-combat-drone-damage-4",
     "displayName": "Combat Drone Damage (Lv4)",
     "timeSeconds": 1,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "electromagnetic-matrix",
@@ -10311,7 +10311,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "df-combat-drone-damage-5",
     "displayName": "Combat Drone Damage (Lv5)",
     "timeSeconds": 1,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "universe-matrix",
@@ -10335,7 +10335,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "df-combat-drone-durability-1",
     "displayName": "Combat Drone Durability (Lv1)",
     "timeSeconds": 1,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "electromagnetic-matrix",
@@ -10364,7 +10364,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "df-combat-drone-durability-2",
     "displayName": "Combat Drone Durability (Lv2)",
     "timeSeconds": 1,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "electromagnetic-matrix",
@@ -10398,7 +10398,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "df-combat-drone-durability-3",
     "displayName": "Combat Drone Durability (Lv3)",
     "timeSeconds": 1,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "electromagnetic-matrix",
@@ -10437,7 +10437,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "df-combat-drone-durability-4",
     "displayName": "Combat Drone Durability (Lv4)",
     "timeSeconds": 1,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "electromagnetic-matrix",
@@ -10481,7 +10481,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "df-combat-drone-durability-5",
     "displayName": "Combat Drone Durability (Lv5)",
     "timeSeconds": 1,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "universe-matrix",
@@ -10505,7 +10505,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "df-em-weapon-strength-1",
     "displayName": "EM Weapon Strength (Lv1)",
     "timeSeconds": 1,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "electromagnetic-matrix",
@@ -10534,7 +10534,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "df-em-weapon-strength-2",
     "displayName": "EM Weapon Strength (Lv2)",
     "timeSeconds": 1,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "electromagnetic-matrix",
@@ -10563,7 +10563,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "df-em-weapon-strength-3",
     "displayName": "EM Weapon Strength (Lv3)",
     "timeSeconds": 1,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "electromagnetic-matrix",
@@ -10597,7 +10597,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "df-em-weapon-strength-4",
     "displayName": "EM Weapon Strength (Lv4)",
     "timeSeconds": 1,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "electromagnetic-matrix",
@@ -10636,7 +10636,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "df-em-weapon-strength-5",
     "displayName": "EM Weapon Strength (Lv5)",
     "timeSeconds": 1,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "electromagnetic-matrix",
@@ -10680,7 +10680,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "df-em-weapon-strength-6",
     "displayName": "EM Weapon Strength (Lv6)",
     "timeSeconds": 1,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "universe-matrix",
@@ -10704,7 +10704,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "df-energy-shield-1",
     "displayName": "Energy Shield (Lv1)",
     "timeSeconds": 1,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "electromagnetic-matrix",
@@ -10728,7 +10728,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "df-energy-shield-2",
     "displayName": "Energy Shield (Lv2)",
     "timeSeconds": 1,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "electromagnetic-matrix",
@@ -10757,7 +10757,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "df-energy-shield-3",
     "displayName": "Energy Shield (Lv3)",
     "timeSeconds": 1,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "electromagnetic-matrix",
@@ -10791,7 +10791,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "df-energy-shield-4",
     "displayName": "Energy Shield (Lv4)",
     "timeSeconds": 1,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "electromagnetic-matrix",
@@ -10830,7 +10830,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "df-energy-shield-5",
     "displayName": "Energy Shield (Lv5)",
     "timeSeconds": 1,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "electromagnetic-matrix",
@@ -10874,7 +10874,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "df-energy-shield-6",
     "displayName": "Energy Shield (Lv6)",
     "timeSeconds": 1,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "universe-matrix",
@@ -10898,7 +10898,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "df-energy-shield-7",
     "displayName": "Energy Shield (Lv26)",
     "timeSeconds": 1,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "universe-matrix",
@@ -10922,7 +10922,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "df-energy-weapon-damage-1",
     "displayName": "Energy Weapon Damage (Lv1)",
     "timeSeconds": 1,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "electromagnetic-matrix",
@@ -10946,7 +10946,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "df-energy-weapon-damage-2",
     "displayName": "Energy Weapon Damage (Lv2)",
     "timeSeconds": 1,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "electromagnetic-matrix",
@@ -10975,7 +10975,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "df-energy-weapon-damage-3",
     "displayName": "Energy Weapon Damage (Lv3)",
     "timeSeconds": 1,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "electromagnetic-matrix",
@@ -11009,7 +11009,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "df-energy-weapon-damage-4",
     "displayName": "Energy Weapon Damage (Lv4)",
     "timeSeconds": 1,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "electromagnetic-matrix",
@@ -11048,7 +11048,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "df-energy-weapon-damage-5",
     "displayName": "Energy Weapon Damage (Lv5)",
     "timeSeconds": 1,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "electromagnetic-matrix",
@@ -11092,7 +11092,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "df-energy-weapon-damage-6",
     "displayName": "Energy Weapon Damage (Lv6)",
     "timeSeconds": 1,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "universe-matrix",
@@ -11116,7 +11116,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "df-enhanced-structure-1",
     "displayName": "Enhanced Structure (Lv1)",
     "timeSeconds": 1,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "electromagnetic-matrix",
@@ -11140,7 +11140,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "df-enhanced-structure-2",
     "displayName": "Enhanced Structure (Lv2)",
     "timeSeconds": 1,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "electromagnetic-matrix",
@@ -11169,7 +11169,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "df-enhanced-structure-3",
     "displayName": "Enhanced Structure (Lv3)",
     "timeSeconds": 1,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "electromagnetic-matrix",
@@ -11203,7 +11203,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "df-enhanced-structure-4",
     "displayName": "Enhanced Structure (Lv4)",
     "timeSeconds": 1,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "electromagnetic-matrix",
@@ -11242,7 +11242,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "df-enhanced-structure-5",
     "displayName": "Enhanced Structure (Lv5)",
     "timeSeconds": 1,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "electromagnetic-matrix",
@@ -11286,7 +11286,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "df-enhanced-structure-6",
     "displayName": "Enhanced Structure (Lv6)",
     "timeSeconds": 1,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "universe-matrix",
@@ -11310,7 +11310,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "df-explosive-weapon-damage-1",
     "displayName": "Explosive Weapon Damage (Lv1)",
     "timeSeconds": 1,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "electromagnetic-matrix",
@@ -11334,7 +11334,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "df-explosive-weapon-damage-2",
     "displayName": "Explosive Weapon Damage (Lv2)",
     "timeSeconds": 1,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "electromagnetic-matrix",
@@ -11363,7 +11363,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "df-explosive-weapon-damage-3",
     "displayName": "Explosive Weapon Damage (Lv3)",
     "timeSeconds": 1,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "electromagnetic-matrix",
@@ -11397,7 +11397,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "df-explosive-weapon-damage-4",
     "displayName": "Explosive Weapon Damage (Lv4)",
     "timeSeconds": 1,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "electromagnetic-matrix",
@@ -11436,7 +11436,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "df-explosive-weapon-damage-5",
     "displayName": "Explosive Weapon Damage (Lv5)",
     "timeSeconds": 1,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "electromagnetic-matrix",
@@ -11480,7 +11480,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "df-explosive-weapon-damage-6",
     "displayName": "Explosive Weapon Damage (Lv6)",
     "timeSeconds": 1,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "universe-matrix",
@@ -11504,7 +11504,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "df-ground-squadron-expansion-1",
     "displayName": "Ground Squadron Expansion (Lv1)",
     "timeSeconds": 1,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "electromagnetic-matrix",
@@ -11533,7 +11533,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "df-ground-squadron-expansion-2",
     "displayName": "Ground Squadron Expansion (Lv2)",
     "timeSeconds": 1,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "electromagnetic-matrix",
@@ -11567,7 +11567,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "df-ground-squadron-expansion-3",
     "displayName": "Ground Squadron Expansion (Lv3)",
     "timeSeconds": 1,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "electromagnetic-matrix",
@@ -11606,7 +11606,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "df-ground-squadron-expansion-4",
     "displayName": "Ground Squadron Expansion (Lv4)",
     "timeSeconds": 1,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "electromagnetic-matrix",
@@ -11645,7 +11645,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "df-ground-squadron-expansion-5",
     "displayName": "Ground Squadron Expansion (Lv5)",
     "timeSeconds": 1,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "electromagnetic-matrix",
@@ -11689,7 +11689,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "df-ground-squadron-expansion-6",
     "displayName": "Ground Squadron Expansion (Lv6)",
     "timeSeconds": 1,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "universe-matrix",
@@ -11713,7 +11713,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "df-ground-squadron-expansion-7",
     "displayName": "Ground Squadron Expansion (Lv7)",
     "timeSeconds": 1,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "universe-matrix",
@@ -11737,7 +11737,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "df-kinetic-weapon-damage-1",
     "displayName": "Kinetic Weapon Damage (Lv1)",
     "timeSeconds": 1,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "electromagnetic-matrix",
@@ -11761,7 +11761,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "df-kinetic-weapon-damage-2",
     "displayName": "Kinetic Weapon Damage (Lv2)",
     "timeSeconds": 1,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "electromagnetic-matrix",
@@ -11790,7 +11790,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "df-kinetic-weapon-damage-3",
     "displayName": "Kinetic Weapon Damage (Lv3)",
     "timeSeconds": 1,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "electromagnetic-matrix",
@@ -11824,7 +11824,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "df-kinetic-weapon-damage-4",
     "displayName": "Kinetic Weapon Damage (Lv4)",
     "timeSeconds": 1,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "electromagnetic-matrix",
@@ -11863,7 +11863,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "df-kinetic-weapon-damage-5",
     "displayName": "Kinetic Weapon Damage (Lv5)",
     "timeSeconds": 1,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "electromagnetic-matrix",
@@ -11907,7 +11907,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "df-kinetic-weapon-damage-6",
     "displayName": "Kinetic Weapon Damage (Lv6)",
     "timeSeconds": 1,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "universe-matrix",
@@ -11931,7 +11931,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "df-planetary-shield-1",
     "displayName": "Planetary Shield (Lv1)",
     "timeSeconds": 1,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "electromagnetic-matrix",
@@ -11965,7 +11965,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "df-planetary-shield-2",
     "displayName": "Planetary Shield (Lv2)",
     "timeSeconds": 1,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "electromagnetic-matrix",
@@ -11999,7 +11999,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "df-planetary-shield-3",
     "displayName": "Planetary Shield (Lv3)",
     "timeSeconds": 1,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "electromagnetic-matrix",
@@ -12038,7 +12038,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "df-planetary-shield-4",
     "displayName": "Planetary Shield (Lv4)",
     "timeSeconds": 1,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "electromagnetic-matrix",
@@ -12082,7 +12082,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "df-planetary-shield-5",
     "displayName": "Planetary Shield (Lv5)",
     "timeSeconds": 1,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "universe-matrix",
@@ -12106,7 +12106,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "df-space-fleet-expansion-1",
     "displayName": "Space Fleet Expansion (Lv1)",
     "timeSeconds": 1,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "electromagnetic-matrix",
@@ -12145,7 +12145,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "df-space-fleet-expansion-2",
     "displayName": "Space Fleet Expansion (Lv2)",
     "timeSeconds": 1,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "electromagnetic-matrix",
@@ -12184,7 +12184,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "df-space-fleet-expansion-3",
     "displayName": "Space Fleet Expansion (Lv3)",
     "timeSeconds": 1,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "electromagnetic-matrix",
@@ -12223,7 +12223,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "df-space-fleet-expansion-4",
     "displayName": "Space Fleet Expansion (Lv4)",
     "timeSeconds": 1,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "electromagnetic-matrix",
@@ -12267,7 +12267,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "df-space-fleet-expansion-5",
     "displayName": "Space Fleet Expansion (Lv5)",
     "timeSeconds": 1,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "electromagnetic-matrix",
@@ -12311,7 +12311,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "df-space-fleet-expansion-6",
     "displayName": "Space Fleet Expansion (Lv6)",
     "timeSeconds": 1,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "universe-matrix",
@@ -12335,7 +12335,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "df-space-fleet-expansion-7",
     "displayName": "Space Fleet Expansion (Lv7)",
     "timeSeconds": 1,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "universe-matrix",
@@ -12359,7 +12359,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "distribution-range-1",
     "displayName": "Distribution Range (Lv1)",
     "timeSeconds": 1,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "electromagnetic-matrix",
@@ -12388,7 +12388,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "distribution-range-2",
     "displayName": "Distribution Range (Lv2)",
     "timeSeconds": 1,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "electromagnetic-matrix",
@@ -12422,7 +12422,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "distribution-range-3",
     "displayName": "Distribution Range (Lv3)",
     "timeSeconds": 1,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "electromagnetic-matrix",
@@ -12456,7 +12456,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "distribution-range-4",
     "displayName": "Distribution Range (Lv4)",
     "timeSeconds": 1,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "electromagnetic-matrix",
@@ -12495,7 +12495,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "distribution-range-5",
     "displayName": "Distribution Range (Lv5)",
     "timeSeconds": 1,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "electromagnetic-matrix",
@@ -12539,7 +12539,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "drive-engine-1",
     "displayName": "Drive Engine (Lv1)",
     "timeSeconds": 1,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "coal",
@@ -12568,7 +12568,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "drive-engine-2",
     "displayName": "Drive Engine (Lv2)",
     "timeSeconds": 1,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "electromagnetic-matrix",
@@ -12597,7 +12597,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "drive-engine-3",
     "displayName": "Drive Engine (Lv3)",
     "timeSeconds": 1,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "electromagnetic-matrix",
@@ -12631,7 +12631,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "drive-engine-4",
     "displayName": "Drive Engine (Lv4)",
     "timeSeconds": 1,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "electromagnetic-matrix",
@@ -12665,7 +12665,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "drive-engine-5",
     "displayName": "Drive Engine (Lv5)",
     "timeSeconds": 1,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "electromagnetic-matrix",
@@ -12704,7 +12704,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "drive-engine-6",
     "displayName": "Drive Engine (Lv6)",
     "timeSeconds": 1,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "universe-matrix",
@@ -12728,7 +12728,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "drone-engine-1",
     "displayName": "Drone Engine (Lv1)",
     "timeSeconds": 1,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "electromagnetic-matrix",
@@ -12752,7 +12752,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "drone-engine-2",
     "displayName": "Drone Engine (Lv2)",
     "timeSeconds": 1,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "electromagnetic-matrix",
@@ -12781,7 +12781,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "drone-engine-3",
     "displayName": "Drone Engine (Lv3)",
     "timeSeconds": 1,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "electromagnetic-matrix",
@@ -12815,7 +12815,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "drone-engine-4",
     "displayName": "Drone Engine (Lv4)",
     "timeSeconds": 1,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "electromagnetic-matrix",
@@ -12854,7 +12854,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "drone-engine-5",
     "displayName": "Drone Engine (Lv5)",
     "timeSeconds": 1,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "electromagnetic-matrix",
@@ -12898,7 +12898,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "drone-engine-6",
     "displayName": "Drone Engine (Lv6)",
     "timeSeconds": 1,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "universe-matrix",
@@ -12922,7 +12922,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "energy-circuit-1",
     "displayName": "Energy Circuit (Lv1)",
     "timeSeconds": 1,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "coal",
@@ -12956,7 +12956,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "energy-circuit-2",
     "displayName": "Energy Circuit (Lv2)",
     "timeSeconds": 1,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "electromagnetic-matrix",
@@ -12985,7 +12985,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "energy-circuit-3",
     "displayName": "Energy Circuit (Lv3)",
     "timeSeconds": 1,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "electromagnetic-matrix",
@@ -13019,7 +13019,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "energy-circuit-4",
     "displayName": "Energy Circuit (Lv4)",
     "timeSeconds": 1,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "electromagnetic-matrix",
@@ -13053,7 +13053,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "energy-circuit-5",
     "displayName": "Energy Circuit (Lv5)",
     "timeSeconds": 1,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "electromagnetic-matrix",
@@ -13097,7 +13097,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "energy-circuit-6",
     "displayName": "Energy Circuit (Lv6)",
     "timeSeconds": 1,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "universe-matrix",
@@ -13121,7 +13121,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "inventory-capacity-1",
     "displayName": "Inventory Capacity (Lv1)",
     "timeSeconds": 1,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "circuit-board",
@@ -13150,7 +13150,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "inventory-capacity-2",
     "displayName": "Inventory Capacity (Lv2)",
     "timeSeconds": 1,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "electromagnetic-matrix",
@@ -13179,7 +13179,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "inventory-capacity-3",
     "displayName": "Inventory Capacity (Lv3)",
     "timeSeconds": 1,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "electromagnetic-matrix",
@@ -13213,7 +13213,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "inventory-capacity-4",
     "displayName": "Inventory Capacity (Lv4)",
     "timeSeconds": 1,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "electromagnetic-matrix",
@@ -13247,7 +13247,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "inventory-capacity-5",
     "displayName": "Inventory Capacity (Lv5)",
     "timeSeconds": 1,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "electromagnetic-matrix",
@@ -13281,7 +13281,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "inventory-capacity-6",
     "displayName": "Inventory Capacity (Lv6)",
     "timeSeconds": 1,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "electromagnetic-matrix",
@@ -13325,7 +13325,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "inventory-capacity-7",
     "displayName": "Inventory Capacity (Lv7)",
     "timeSeconds": 1,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "universe-matrix",
@@ -13349,7 +13349,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "logistics-carrier-capacity-1",
     "displayName": "Logistics Carrier Capacity (Lv1)",
     "timeSeconds": 1,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "electromagnetic-matrix",
@@ -13383,7 +13383,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "logistics-carrier-capacity-12",
     "displayName": "Logistics Carrier Capacity (Lv12)",
     "timeSeconds": 1,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "universe-matrix",
@@ -13407,7 +13407,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "logistics-carrier-capacity-2",
     "displayName": "Logistics Carrier Capacity (Lv2)",
     "timeSeconds": 1,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "electromagnetic-matrix",
@@ -13441,7 +13441,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "logistics-carrier-capacity-3",
     "displayName": "Logistics Carrier Capacity (Lv3)",
     "timeSeconds": 1,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "electromagnetic-matrix",
@@ -13475,7 +13475,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "logistics-carrier-capacity-4",
     "displayName": "Logistics Carrier Capacity (Lv4)",
     "timeSeconds": 1,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "electromagnetic-matrix",
@@ -13509,7 +13509,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "logistics-carrier-capacity-5",
     "displayName": "Logistics Carrier Capacity (Lv5)",
     "timeSeconds": 1,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "electromagnetic-matrix",
@@ -13548,7 +13548,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "logistics-carrier-capacity-6",
     "displayName": "Logistics Carrier Capacity (Lv6)",
     "timeSeconds": 1,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "electromagnetic-matrix",
@@ -13587,7 +13587,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "logistics-carrier-capacity-7",
     "displayName": "Logistics Carrier Capacity (Lv7)",
     "timeSeconds": 1,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "electromagnetic-matrix",
@@ -13631,7 +13631,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "logistics-carrier-capacity-8",
     "displayName": "Logistics Carrier Capacity (Lv8)",
     "timeSeconds": 1,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "electromagnetic-matrix",
@@ -13675,7 +13675,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "logistics-carrier-capacity-9",
     "displayName": "Logistics Carrier Capacity (Lv9)",
     "timeSeconds": 1,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "universe-matrix",
@@ -13699,7 +13699,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "logistics-carrier-engine-1",
     "displayName": "Logistics Carrier Engine (Lv1)",
     "timeSeconds": 1,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "electromagnetic-matrix",
@@ -13733,7 +13733,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "logistics-carrier-engine-2",
     "displayName": "Logistics Carrier Engine (Lv2)",
     "timeSeconds": 1,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "electromagnetic-matrix",
@@ -13767,7 +13767,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "logistics-carrier-engine-3",
     "displayName": "Logistics Carrier Engine (Lv3)",
     "timeSeconds": 1,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "electromagnetic-matrix",
@@ -13801,7 +13801,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "logistics-carrier-engine-4",
     "displayName": "Logistics Carrier Engine (Lv4)",
     "timeSeconds": 1,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "electromagnetic-matrix",
@@ -13840,7 +13840,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "logistics-carrier-engine-5",
     "displayName": "Logistics Carrier Engine (Lv5)",
     "timeSeconds": 1,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "electromagnetic-matrix",
@@ -13884,7 +13884,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "logistics-carrier-engine-6",
     "displayName": "Logistics Carrier Engine (Lv6)",
     "timeSeconds": 1,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "electromagnetic-matrix",
@@ -13928,7 +13928,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "logistics-carrier-engine-7",
     "displayName": "Logistics Carrier Engine (Lv7)",
     "timeSeconds": 1,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "universe-matrix",
@@ -13952,7 +13952,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "logistics-station-integrated-logistics-1",
     "displayName": "Station Integrated Logistics (Lv1)",
     "timeSeconds": 1,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "universe-matrix",
@@ -13976,7 +13976,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "logistics-station-integrated-logistics-2",
     "displayName": "Station Integrated Logistics (Lv2)",
     "timeSeconds": 1,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "universe-matrix",
@@ -14000,7 +14000,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "logistics-station-integrated-logistics-3",
     "displayName": "Station Integrated Logistics (Lv3)",
     "timeSeconds": 1,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "universe-matrix",
@@ -14024,7 +14024,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "mass-construction-1",
     "displayName": "Mass Construction (Lv1)",
     "timeSeconds": 1,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "circuit-board",
@@ -14048,7 +14048,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "mass-construction-2",
     "displayName": "Mass Construction (Lv2)",
     "timeSeconds": 1,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "electromagnetic-matrix",
@@ -14072,7 +14072,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "mass-construction-3",
     "displayName": "Mass Construction (Lv3)",
     "timeSeconds": 1,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "electromagnetic-matrix",
@@ -14101,7 +14101,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "mass-construction-4",
     "displayName": "Mass Construction (Lv4)",
     "timeSeconds": 1,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "electromagnetic-matrix",
@@ -14135,7 +14135,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "mass-construction-5",
     "displayName": "Mass Construction (Lv5)",
     "timeSeconds": 1,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "electromagnetic-matrix",
@@ -14174,7 +14174,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "mecha-core-1",
     "displayName": "Mecha Core (Lv1)",
     "timeSeconds": 1,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "copper-ingot",
@@ -14203,7 +14203,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "mecha-core-2",
     "displayName": "Mecha Core (Lv2)",
     "timeSeconds": 1,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "electromagnetic-matrix",
@@ -14232,7 +14232,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "mecha-core-3",
     "displayName": "Mecha Core (Lv3)",
     "timeSeconds": 1,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "electromagnetic-matrix",
@@ -14266,7 +14266,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "mecha-core-4",
     "displayName": "Mecha Core (Lv4)",
     "timeSeconds": 1,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "electromagnetic-matrix",
@@ -14305,7 +14305,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "mecha-core-5",
     "displayName": "Mecha Core (Lv5)",
     "timeSeconds": 1,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "electromagnetic-matrix",
@@ -14349,7 +14349,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "mecha-core-6",
     "displayName": "Mecha Core (Lv6)",
     "timeSeconds": 1,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "universe-matrix",
@@ -14373,7 +14373,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "mechanical-frame-1",
     "displayName": "Mechanical Frame (Lv1)",
     "timeSeconds": 1,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "electric-motor",
@@ -14397,7 +14397,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "mechanical-frame-2",
     "displayName": "Mechanical Frame (Lv2)",
     "timeSeconds": 1,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "electromagnetic-matrix",
@@ -14426,7 +14426,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "mechanical-frame-3",
     "displayName": "Mechanical Frame (Lv3)",
     "timeSeconds": 1,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "electromagnetic-matrix",
@@ -14455,7 +14455,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "mechanical-frame-4",
     "displayName": "Mechanical Frame (Lv4)",
     "timeSeconds": 1,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "electromagnetic-matrix",
@@ -14489,7 +14489,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "mechanical-frame-5",
     "displayName": "Mechanical Frame (Lv5)",
     "timeSeconds": 1,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "electromagnetic-matrix",
@@ -14523,7 +14523,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "mechanical-frame-6",
     "displayName": "Mechanical Frame (Lv6)",
     "timeSeconds": 1,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "electromagnetic-matrix",
@@ -14562,7 +14562,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "mechanical-frame-7",
     "displayName": "Mechanical Frame (Lv7)",
     "timeSeconds": 1,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "electromagnetic-matrix",
@@ -14601,7 +14601,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "mechanical-frame-8",
     "displayName": "Mechanical Frame (Lv8)",
     "timeSeconds": 1,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "electromagnetic-matrix",
@@ -14645,7 +14645,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "pile-sorter-1",
     "displayName": "Pile Sorter Upgrade (Lv1)",
     "timeSeconds": 1,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "electromagnetic-matrix",
@@ -14679,7 +14679,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "pile-sorter-2",
     "displayName": "Pile Sorter Upgrade (Lv2)",
     "timeSeconds": 1,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "electromagnetic-matrix",
@@ -14713,7 +14713,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "pile-sorter-3",
     "displayName": "Pile Sorter Upgrade (Lv3)",
     "timeSeconds": 1,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "electromagnetic-matrix",
@@ -14747,7 +14747,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "pile-sorter-4",
     "displayName": "Pile Sorter Upgrade (Lv4)",
     "timeSeconds": 1,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "electromagnetic-matrix",
@@ -14781,7 +14781,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "pile-sorter-5",
     "displayName": "Pile Sorter Upgrade (Lv5)",
     "timeSeconds": 1,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "electromagnetic-matrix",
@@ -14815,7 +14815,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "pile-sorter-6",
     "displayName": "Pile Sorter Upgrade (Lv6)",
     "timeSeconds": 1,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "electromagnetic-matrix",
@@ -14854,7 +14854,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "ray-transmission-efficiency-1",
     "displayName": "Ray Transmission Efficiency (Lv1)",
     "timeSeconds": 1,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "electromagnetic-matrix",
@@ -14888,7 +14888,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "ray-transmission-efficiency-2",
     "displayName": "Ray Transmission Efficiency (Lv2)",
     "timeSeconds": 1,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "electromagnetic-matrix",
@@ -14922,7 +14922,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "ray-transmission-efficiency-3",
     "displayName": "Ray Transmission Efficiency (Lv3)",
     "timeSeconds": 1,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "electromagnetic-matrix",
@@ -14956,7 +14956,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "ray-transmission-efficiency-4",
     "displayName": "Ray Transmission Efficiency (Lv4)",
     "timeSeconds": 1,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "electromagnetic-matrix",
@@ -14995,7 +14995,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "ray-transmission-efficiency-5",
     "displayName": "Ray Transmission Efficiency (Lv5)",
     "timeSeconds": 1,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "electromagnetic-matrix",
@@ -15034,7 +15034,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "ray-transmission-efficiency-6",
     "displayName": "Ray Transmission Efficiency (Lv6)",
     "timeSeconds": 1,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "electromagnetic-matrix",
@@ -15078,7 +15078,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "ray-transmission-efficiency-7",
     "displayName": "Ray Transmission Efficiency (Lv7)",
     "timeSeconds": 1,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "electromagnetic-matrix",
@@ -15122,7 +15122,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "ray-transmission-efficiency-8",
     "displayName": "Ray Transmission Efficiency (Lv8)",
     "timeSeconds": 1,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "universe-matrix",
@@ -15146,7 +15146,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "research-speed-1",
     "displayName": "Research Speed (Lv1)",
     "timeSeconds": 1,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "information-matrix",
@@ -15170,7 +15170,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "research-speed-2",
     "displayName": "Research Speed (Lv2)",
     "timeSeconds": 1,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "information-matrix",
@@ -15194,7 +15194,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "research-speed-3",
     "displayName": "Research Speed (Lv3)",
     "timeSeconds": 1,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "information-matrix",
@@ -15218,7 +15218,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "research-speed-4",
     "displayName": "Research Speed (Lv4)",
     "timeSeconds": 1,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "universe-matrix",
@@ -15242,7 +15242,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "solar-sail-life-1",
     "displayName": "Solar Sail Life (Lv1)",
     "timeSeconds": 1,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "electromagnetic-matrix",
@@ -15276,7 +15276,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "solar-sail-life-2",
     "displayName": "Solar Sail Life (Lv2)",
     "timeSeconds": 1,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "electromagnetic-matrix",
@@ -15310,7 +15310,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "solar-sail-life-3",
     "displayName": "Solar Sail Life (Lv3)",
     "timeSeconds": 1,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "electromagnetic-matrix",
@@ -15344,7 +15344,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "solar-sail-life-4",
     "displayName": "Solar Sail Life (Lv4)",
     "timeSeconds": 1,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "electromagnetic-matrix",
@@ -15383,7 +15383,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "solar-sail-life-5",
     "displayName": "Solar Sail Life (Lv5)",
     "timeSeconds": 1,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "electromagnetic-matrix",
@@ -15422,7 +15422,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "solar-sail-life-6",
     "displayName": "Solar Sail Life (Lv6)",
     "timeSeconds": 1,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "electromagnetic-matrix",
@@ -15461,7 +15461,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "sorter-cargo-integration",
     "displayName": "Sorter Cargo Integration (Lv1)",
     "timeSeconds": 1,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "electromagnetic-matrix",
@@ -15495,7 +15495,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "sorter-cargo-stacking-1",
     "displayName": "Sorter Cargo Stacking (Lv1)",
     "timeSeconds": 1,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "electromagnetic-matrix",
@@ -15529,7 +15529,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "sorter-cargo-stacking-2",
     "displayName": "Sorter Cargo Stacking (Lv2)",
     "timeSeconds": 1,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "electromagnetic-matrix",
@@ -15563,7 +15563,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "sorter-cargo-stacking-3",
     "displayName": "Sorter Cargo Stacking (Lv3)",
     "timeSeconds": 1,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "electromagnetic-matrix",
@@ -15597,7 +15597,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "sorter-cargo-stacking-4",
     "displayName": "Sorter Cargo Stacking (Lv4)",
     "timeSeconds": 1,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "electromagnetic-matrix",
@@ -15631,7 +15631,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "sorter-cargo-stacking-5",
     "displayName": "Sorter Cargo Stacking (Lv5)",
     "timeSeconds": 1,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "electromagnetic-matrix",
@@ -15665,7 +15665,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "universe-exploration-1",
     "displayName": "Universe Exploration (Lv1)",
     "timeSeconds": 1,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "electromagnetic-matrix",
@@ -15689,7 +15689,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "universe-exploration-2",
     "displayName": "Universe Exploration (Lv2)",
     "timeSeconds": 1,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "electromagnetic-matrix",
@@ -15713,7 +15713,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "universe-exploration-3",
     "displayName": "Universe Exploration (Lv3)",
     "timeSeconds": 1,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "electromagnetic-matrix",
@@ -15747,7 +15747,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "universe-exploration-4",
     "displayName": "Universe Exploration (Lv4)",
     "timeSeconds": 1,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "electromagnetic-matrix",
@@ -15786,7 +15786,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "veins-utilization-1",
     "displayName": "Vein Utilization (Lv1)",
     "timeSeconds": 1,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "electromagnetic-matrix",
@@ -15815,7 +15815,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "veins-utilization-2",
     "displayName": "Vein Utilization (Lv2)",
     "timeSeconds": 1,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "electromagnetic-matrix",
@@ -15849,7 +15849,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "veins-utilization-3",
     "displayName": "Vein Utilization (Lv3)",
     "timeSeconds": 1,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "electromagnetic-matrix",
@@ -15888,7 +15888,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "veins-utilization-4",
     "displayName": "Vein Utilization (Lv4)",
     "timeSeconds": 1,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "electromagnetic-matrix",
@@ -15927,7 +15927,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "veins-utilization-5",
     "displayName": "Vein Utilization (Lv5)",
     "timeSeconds": 1,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "electromagnetic-matrix",
@@ -15971,7 +15971,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "veins-utilization-6",
     "displayName": "Vein Utilization (Lv6)",
     "timeSeconds": 1,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "universe-matrix",
@@ -15995,7 +15995,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "vertical-construction-1",
     "displayName": "Vertical Construction (Lv1)",
     "timeSeconds": 1,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "energy-matrix",
@@ -16019,7 +16019,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "vertical-construction-2",
     "displayName": "Vertical Construction (Lv2)",
     "timeSeconds": 1,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "energy-matrix",
@@ -16043,7 +16043,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "vertical-construction-3",
     "displayName": "Vertical Construction (Lv3)",
     "timeSeconds": 1,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "energy-matrix",
@@ -16072,7 +16072,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "vertical-construction-4",
     "displayName": "Vertical Construction (Lv4)",
     "timeSeconds": 1,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "electromagnetic-matrix",
@@ -16106,7 +16106,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "vertical-construction-5",
     "displayName": "Vertical Construction (Lv5)",
     "timeSeconds": 1,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "electromagnetic-matrix",
@@ -16140,7 +16140,7 @@ export const FACTORIOLAB_RECIPE_METADATA = {
     "id": "vertical-construction-6",
     "displayName": "Vertical Construction (Lv6)",
     "timeSeconds": 1,
-    "supportsProductivity": false,
+    "supportsProductivity": true,
     "inputs": [
       {
         "itemKey": "electromagnetic-matrix",
