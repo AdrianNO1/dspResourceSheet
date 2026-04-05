@@ -823,6 +823,10 @@
   font-size: 0.9rem;
 }
 
+.production-recipe-entry-copy .production-recipe-bonus {
+  color: #6de39b;
+}
+
 .production-recipe-bonus {
   color: #6de39b;
   font-weight: 700;
@@ -865,18 +869,20 @@
   padding-top: 12px;
 }
 
+.production-line-plan-detail {
+  border-bottom: 1px solid rgba(148, 172, 197, 0.08);
+}
+
+.production-line-plan-detail:last-child {
+  border-bottom: none;
+}
+
 .production-line-plan-row {
   display: grid;
   grid-template-columns: minmax(0, 1fr) max-content max-content;
   align-items: center;
   gap: 12px;
   padding: 10px 0;
-  border-bottom: 1px solid rgba(148, 172, 197, 0.08);
-}
-
-.production-line-plan-row:last-child {
-  border-bottom: none;
-  padding-bottom: 0;
 }
 
 .production-line-plan-row-output {
@@ -890,13 +896,47 @@
   min-width: 0;
 }
 
-.production-line-plan-copy strong {
+.production-line-plan-copy-text {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.production-line-plan-copy strong,
+.production-line-plan-copy-text strong {
   margin: 0;
 }
 
+.production-line-plan-copy-text span,
 .production-line-plan-row span {
   color: rgba(211, 223, 235, 0.82);
   font-size: 0.92rem;
+}
+
+.production-line-plan-row-detail {
+  list-style: none;
+  cursor: pointer;
+}
+
+.production-line-plan-row-detail::-webkit-details-marker {
+  display: none;
+}
+
+.production-line-plan-values {
+  display: grid;
+  gap: 4px;
+  justify-items: end;
+  text-align: right;
+}
+
+.production-line-plan-values strong,
+.production-line-plan-values span {
+  margin: 0;
+}
+
+.production-line-plan-values span {
+  color: rgba(211, 223, 235, 0.72);
+  font-size: 0.88rem;
 }
 
 .production-tree-row-leaf .production-tree-main {

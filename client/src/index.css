@@ -3,10 +3,7 @@
   line-height: 1.45;
   font-weight: 400;
   color: #eef6ff;
-  background:
-    radial-gradient(circle at top, rgba(67, 127, 171, 0.3), transparent 38%),
-    radial-gradient(circle at bottom left, rgba(245, 146, 77, 0.14), transparent 30%),
-    linear-gradient(180deg, #09111d, #050a12 45%, #070e19);
+  background: #08111c;
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
@@ -22,21 +19,37 @@ html {
 }
 
 body {
+  position: relative;
+  isolation: isolate;
   margin: 0;
   min-width: 320px;
   min-height: 100vh;
+  background: #08111c;
 }
 
 body::before {
   content: "";
   position: fixed;
   inset: 0;
+  z-index: -1;
   pointer-events: none;
   background-image:
     linear-gradient(rgba(255, 255, 255, 0.02) 1px, transparent 1px),
     linear-gradient(90deg, rgba(255, 255, 255, 0.02) 1px, transparent 1px);
   background-size: 44px 44px;
   mask-image: radial-gradient(circle at center, black, transparent 78%);
+}
+
+body::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -2;
+  pointer-events: none;
+  background:
+    radial-gradient(circle at top, rgba(67, 127, 171, 0.28), transparent 40%),
+    radial-gradient(circle at top left, rgba(84, 199, 196, 0.09), transparent 34%),
+    linear-gradient(180deg, #09111d, #050a12 45%, #070e19);
 }
 
 button,

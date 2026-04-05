@@ -4274,7 +4274,10 @@ function App() {
                             <div className="production-line-plan-stat">
                               <span>Estimated power</span>
                               <strong>{selectedProductionEstimatedPowerWatts > 0 ? formatPowerWatts(selectedProductionEstimatedPowerWatts) : "n/a"}</strong>
-                              <span>{selectedProductionProliferatorLevel > 0 ? `${selectedProductionModeLabel} | energy x${formatFixedValue(selectedProductionEnergyMultiplier, 2)}` : "No proliferator energy bonus"}</span>
+                              <span>
+                                {selectedProductionProliferatorLevel > 0 ? `${selectedProductionModeLabel} | energy x${formatFixedValue(selectedProductionEnergyMultiplier, 2)}` : "No proliferator energy bonus"}
+                                {selectedProductionEstimatedPowerWatts > 0 ? ` | ${formatFixedValue(selectedProductionEstimatedPowerWatts / 144_000_000, 2)} artificial stars` : ""}
+                              </span>
                             </div>
                           </div>
                           <div className="production-line-plan-list">
@@ -4287,94 +4290,82 @@ function App() {
                                   colorEnd={productionIconEnd}
                                   size="sm"
                                 />
-                                <strong>{selectedProductionTemplate.display_name}</strong>
+                                <div className="production-line-plan-copy-text">
+                                  <strong>{selectedProductionTemplate.display_name}</strong>
+                                  <span>{formatFixedValue(productionDraftPreview.outputBeltsPerLine, 2)} belts/line</span>
+                                </div>
                               </div>
                               <span>{formatValue(productionDraftPreview.throughputPerMinute)} / min</span>
-                              <span>{formatFixedValue(productionDraftPreview.outputBeltsPerLine, 2)} belts/line</span>
+                              <span>Output</span>
                             </div>
                             {productionDraftPreview.dependencies.map((dependency) => (
-                              <div key={`line:${dependency.dependency.item_key}`} className="production-line-plan-row">
-                                <div className="production-line-plan-copy">
-                                  <ResourceIcon
-                                    name={dependency.dependency.display_name}
-                                    iconUrl={getIconUrlForName(dependency.dependency.display_name)}
-                                    colorStart={productionIconStart}
-                                    colorEnd={productionIconEnd}
-                                    size="sm"
-                                  />
-                                  <strong>{dependency.dependency.display_name}</strong>
-                                </div>
-                                <span>{formatValue(dependency.requiredPerMinute)} / min</span>
-                                <span>{formatFixedValue(dependency.beltsPerLine, 2)} belts/line</span>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-
-                        <div className="overview-breakdown-list">
-                          {productionDraftPreview.dependencies.map((dependency) => (
-                            <details key={dependency.dependency.item_key} className="production-ingredient-detail">
-                              <summary className="production-ingredient-summary">
-                                <div className="production-ingredient-heading">
-                                  <ResourceIcon
-                                    name={dependency.dependency.display_name}
-                                    iconUrl={getIconUrlForName(dependency.dependency.display_name)}
-                                    colorStart={productionIconStart}
-                                    colorEnd={productionIconEnd}
-                                    size="sm"
-                                  />
-                                  <div>
-                                    <strong>{dependency.dependency.display_name}</strong>
-                                    <span>{formatValue(dependency.requiredPerMinute)} / min | {formatFixedValue(dependency.beltsPerLine, 2)} belts/line</span>
+                              <details key={`line:${dependency.dependency.item_key}`} className="production-line-plan-detail">
+                                <summary className="production-line-plan-row production-line-plan-row-detail">
+                                  <div className="production-line-plan-copy">
+                                    <ResourceIcon
+                                      name={dependency.dependency.display_name}
+                                      iconUrl={getIconUrlForName(dependency.dependency.display_name)}
+                                      colorStart={productionIconStart}
+                                      colorEnd={productionIconEnd}
+                                      size="sm"
+                                    />
+                                    <div className="production-line-plan-copy-text">
+                                      <strong>{dependency.dependency.display_name}</strong>
+                                      <span>{formatValue(dependency.requiredPerMinute)} / min · {formatFixedValue(dependency.beltsPerLine, 2)} belts/line</span>
+                                    </div>
                                   </div>
-                                </div>
-                                <div className="overview-breakdown-values">
-                                  <strong>{formatFixedValue(dependency.coveragePercent, 1)}%</strong>
-                                  <span>{dependency.targetIlsFraction === null ? "ILS n/a" : `${formatFixedValue(dependency.targetIlsFraction, 2)} target ILS`}</span>
-                                </div>
-                              </summary>
-                              <div className="production-ingredient-body">
-                                <p className="helper-text">
-                                  {dependency.sourcesLabel}
-                                  {dependency.shortagePerMinute > 0 ? ` | Missing ${formatValue(dependency.shortagePerMinute)} / min.` : ""}
-                                  {dependency.hasOutboundIlsWarning ? " Source outbound ILS is overbooked." : ""}
-                                </p>
-                                {dependency.sources.length > 0 && (
-                                  <div className="overview-breakdown-list">
-                                    {dependency.sources.map((source) => (
-                                      <article key={`${dependency.dependency.item_key}:${source.producerId}`} className="overview-breakdown-row production-breakdown-row">
-                                        <div className="overview-breakdown-row-top">
-                                          <div className="production-ingredient-heading">
-                                            <ResourceIcon
-                                              name={dependency.dependency.display_name}
-                                              iconUrl={getIconUrlForName(dependency.dependency.display_name)}
-                                              colorStart={productionIconStart}
-                                              colorEnd={productionIconEnd}
-                                              size="sm"
-                                            />
-                                            <div>
-                                              <strong>{source.planetName}</strong>
-                                              <span>{source.solarSystemName} | {source.producerName}</span>
+                                  <div className="production-line-plan-values">
+                                    <strong>{formatFixedValue(dependency.coveragePercent, 1)}%</strong>
+                                    <span>
+                                      {dependency.sources.length === 0 || dependency.targetIlsFraction === null
+                                        ? "? receiver ILS"
+                                        : `${formatFixedValue(dependency.targetIlsFraction, 2)} receiver ILS`}
+                                    </span>
+                                  </div>
+                                </summary>
+                                <div className="production-ingredient-body">
+                                  <p className="helper-text">
+                                    {dependency.sourcesLabel}
+                                    {dependency.shortagePerMinute > 0 ? ` | Missing ${formatValue(dependency.shortagePerMinute)} / min.` : ""}
+                                    {dependency.hasOutboundIlsWarning ? " Source outbound ILS is overbooked." : ""}
+                                  </p>
+                                  {dependency.sources.length > 0 && (
+                                    <div className="overview-breakdown-list">
+                                      {dependency.sources.map((source) => (
+                                        <article key={`${dependency.dependency.item_key}:${source.producerId}`} className="overview-breakdown-row production-breakdown-row">
+                                          <div className="overview-breakdown-row-top">
+                                            <div className="production-ingredient-heading">
+                                              <ResourceIcon
+                                                name={dependency.dependency.display_name}
+                                                iconUrl={getIconUrlForName(dependency.dependency.display_name)}
+                                                colorStart={productionIconStart}
+                                                colorEnd={productionIconEnd}
+                                                size="sm"
+                                              />
+                                              <div>
+                                                <strong>{source.planetName}</strong>
+                                                <span>{source.solarSystemName} | {source.producerName}</span>
+                                              </div>
+                                            </div>
+                                            <div className="overview-breakdown-values">
+                                              <strong>{formatValue(source.throughputPerMinute)} / min</strong>
+                                              <span>
+                                                {source.isLocalPlanet
+                                                  ? "Local planet"
+                                                  : source.isLocalSystem
+                                                    ? "Local system"
+                                                    : `Source ILS ${source.sourceStationsNeeded === null ? "?" : formatFixedValue(source.sourceStationsNeeded, 2)}`}
+                                              </span>
                                             </div>
                                           </div>
-                                          <div className="overview-breakdown-values">
-                                            <strong>{formatValue(source.throughputPerMinute)} / min</strong>
-                                            <span>
-                                              {source.isLocalPlanet
-                                                ? "Local planet"
-                                                : source.isLocalSystem
-                                                  ? "Local system"
-                                                  : `Source ILS ${source.sourceStationsNeeded === null ? "n/a" : formatFixedValue(source.sourceStationsNeeded, 2)}`}
-                                            </span>
-                                          </div>
-                                        </div>
-                                      </article>
-                                    ))}
-                                  </div>
-                                )}
-                              </div>
-                            </details>
-                          ))}
+                                        </article>
+                                      ))}
+                                    </div>
+                                  )}
+                                </div>
+                              </details>
+                            ))}
+                          </div>
                         </div>
                       </>
                     ) : (
