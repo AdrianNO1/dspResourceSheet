@@ -732,6 +732,35 @@ function toDisplayName(value: string) {
     .join(" ");
 }
 
+function formatPowerWatts(valueWatts: number) {
+  const units = [
+    { label: "TW", value: 1_000_000_000_000 },
+    { label: "GW", value: 1_000_000_000 },
+    { label: "MW", value: 1_000_000 },
+    { label: "kW", value: 1_000 },
+    { label: "W", value: 1 },
+  ];
+
+  const unit = units.find((entry) => valueWatts >= entry.value) ?? units[units.length - 1];
+  return `${formatFixedValue(Math.ceil((valueWatts / unit.value) * 100) / 100, 2)} ${unit.label}`;
+}
+
+function getMachineBasePowerWatts(machineLabel: string) {
+  const normalized = machineLabel.trim().toLowerCase();
+  const powerByMachine = new Map<string, number>([
+    ["assembling-machine-3", 1_080_000],
+    ["fractionator", 720_000],
+    ["matrix-lab", 480_000],
+    ["miniature-particle-collider", 12_000_000],
+    ["oil-refinery", 960_000],
+    ["plane-smelter", 1_440_000],
+    ["quantum-chemical-plant", 2_160_000],
+    ["ray-receiver", 120_000_000],
+  ]);
+
+  return powerByMachine.get(normalized) ?? null;
+}
+
 function formatRoundedUpInteger(value: number) {
   return new Intl.NumberFormat("en-US", {
     maximumFractionDigits: 0,
@@ -1161,6 +1190,8 @@ function App() {
   const [selectedProjectId, setSelectedProjectId] = useState(() => window.localStorage.getItem("dsp-resource-sheet:selected-project-id") ?? "");
   const [selectedProductionItemKey, setSelectedProductionItemKey] = useState("");
   const [expandedProductionItemKeys, setExpandedProductionItemKeys] = useState<Record<string, boolean>>({});
+  const [pendingProductionScrollKey, setPendingProductionScrollKey] = useState("");
+  const [highlightedProductionItemKey, setHighlightedProductionItemKey] = useState("");
   const [selectedMapSelection, setSelectedMapSelection] = useState<MapSelection>({ scope: "system", id: "" });
   const [clusterAddressDraft, setClusterAddressDraft] = useState("");
   const [planetExtractionIlsDrafts, setPlanetExtractionIlsDrafts] = useState<Record<string, string>>({});
@@ -1338,6 +1369,30 @@ function App() {
   useEffect(() => {
     setExpandedProductionItemKeys({});
   }, [selectedProjectId]);
+
+  useEffect(() => {
+    if (!pendingProductionScrollKey) {
+      return;
+    }
+
+    const element = document.getElementById(`production-tree-node-${pendingProductionScrollKey}`);
+    if (!element) {
+      return;
+    }
+
+    element.scrollIntoView({
+      behavior: "smooth",
+      block: "center",
+    });
+    setHighlightedProductionItemKey(pendingProductionScrollKey);
+    setPendingProductionScrollKey("");
+
+    const timerId = window.setTimeout(() => {
+      setHighlightedProductionItemKey((current) => (current === pendingProductionScrollKey ? "" : current));
+    }, 1600);
+
+    return () => window.clearTimeout(timerId);
+  }, [pendingProductionScrollKey, expandedProductionItemKeys]);
 
   useEffect(() => {
     if (!data || !selectedProjectId) {
@@ -1924,6 +1979,28 @@ function App() {
       ? (selectedProductionTemplate.machine_count * selectedProductionPrimaryOutputQuantity * 60) /
         selectedProductionTemplate.imported_throughput_per_minute
       : null;
+  const selectedProductionProliferatorLevel =
+    selectedProductionTemplate?.dependencies.some((dependency) => dependency.item_key === "proliferator-3")
+      ? 3
+      : selectedProductionTemplate?.dependencies.some((dependency) => dependency.item_key === "proliferator-2")
+        ? 2
+        : selectedProductionTemplate?.dependencies.some((dependency) => dependency.item_key === "proliferator-1")
+          ? 1
+          : 0;
+  const selectedProductionEnergyMultiplier =
+    selectedProductionProliferatorLevel === 3
+      ? 2.5
+      : selectedProductionProliferatorLevel === 2
+        ? 1.7
+        : selectedProductionProliferatorLevel === 1
+          ? 1.3
+          : 1;
+  const selectedProductionEstimatedPowerWatts =
+    productionDraftPreview && selectedProductionTemplate
+      ? (getMachineBasePowerWatts(selectedProductionTemplate.machine_label) ?? 0) *
+        productionDraftPreview.machineCount *
+        selectedProductionEnergyMultiplier
+      : 0;
   const allExpandableProductionKeys = Array.from(productionTree.nodesByKey.values())
     .filter((node) => node.inputs.length > 0 || node.usages.length > 0)
     .map((node) => node.itemKey);
@@ -1943,12 +2020,7 @@ function App() {
       ...current,
       ...nextExpanded,
     }));
-    window.setTimeout(() => {
-      document.getElementById(`production-tree-node-${itemKey}`)?.scrollIntoView({
-        behavior: "smooth",
-        block: "center",
-      });
-    }, 0);
+    setPendingProductionScrollKey(itemKey);
   }
 
   function toggleExpandAllProductionRows() {
@@ -2000,7 +2072,7 @@ function App() {
       >
         <div
           id={referenceInput ? undefined : `production-tree-node-${node.itemKey}`}
-          className={`production-tree-row ${isSelected ? "production-tree-row-active" : ""}`}
+          className={`production-tree-row ${isSelected ? "production-tree-row-active" : ""} ${highlightedProductionItemKey === node.itemKey ? "production-tree-row-flash" : ""}`}
         >
           <div className="production-tree-indent" aria-hidden="true" />
           <button
@@ -4211,6 +4283,11 @@ function App() {
                             <span>Output belts</span>
                             <strong>{formatFixedValue(productionDraftPreview.outputBelts, 2)}</strong>
                             <span>{formatFixedValue(productionDraftPreview.outputBeltsPerLine, 2)} belts/line</span>
+                          </div>
+                          <div className="entry-stat">
+                            <span>Estimated power</span>
+                            <strong>{selectedProductionEstimatedPowerWatts > 0 ? formatPowerWatts(selectedProductionEstimatedPowerWatts) : "n/a"}</strong>
+                            <span>{selectedProductionProliferatorLevel > 0 ? `P${selectedProductionProliferatorLevel} energy x${formatFixedValue(selectedProductionEnergyMultiplier, 2)}` : "No proliferator energy bonus"}</span>
                           </div>
                           <div className="entry-stat">
                             <span>Location</span>

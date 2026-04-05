@@ -510,7 +510,7 @@
 .production-tree-main {
   width: 100%;
   display: grid;
-  grid-template-columns: minmax(0, 1.4fr) repeat(3, minmax(110px, auto));
+  grid-template-columns: minmax(0, 1fr) repeat(3, max-content);
   align-items: center;
   gap: 14px;
   padding: 12px 16px;
@@ -535,6 +535,10 @@
     radial-gradient(circle at top left, rgba(122, 219, 216, 0.18), transparent 36%),
     linear-gradient(180deg, rgba(23, 36, 55, 0.96), rgba(10, 19, 34, 0.96));
   box-shadow: 0 12px 28px rgba(0, 0, 0, 0.2);
+}
+
+.production-tree-row-flash .production-tree-main {
+  animation: production-tree-flash 1.4s ease;
 }
 
 .production-tree-usage-toggle {
@@ -626,7 +630,7 @@
 
 .production-tree-metric {
   align-items: center;
-  justify-content: flex-end;
+  justify-content: flex-start;
   min-width: 0;
   gap: 8px;
   padding: 8px 0;
@@ -796,7 +800,25 @@
 }
 
 .production-tree-main-leaf {
-  grid-template-columns: minmax(0, 1.4fr) repeat(2, minmax(110px, auto));
+  grid-template-columns: minmax(0, 1fr) repeat(2, max-content);
+}
+
+@keyframes production-tree-flash {
+  0% {
+    border-color: rgba(122, 219, 216, 0.36);
+    background:
+      radial-gradient(circle at top left, rgba(122, 219, 216, 0.28), transparent 36%),
+      linear-gradient(180deg, rgba(31, 52, 74, 0.98), rgba(12, 25, 42, 0.98));
+    box-shadow: 0 0 0 1px rgba(122, 219, 216, 0.24), 0 16px 34px rgba(0, 0, 0, 0.24);
+  }
+
+  100% {
+    border-color: rgba(132, 156, 187, 0.18);
+    background:
+      radial-gradient(circle at top left, rgba(122, 219, 216, 0.14), transparent 34%),
+      linear-gradient(180deg, rgba(18, 29, 45, 0.94), rgba(9, 18, 31, 0.94));
+    box-shadow: none;
+  }
 }
 
 .production-card-heading,
