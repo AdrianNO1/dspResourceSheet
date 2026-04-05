@@ -724,6 +724,11 @@ function formatFixedValue(value: number, digits = 1) {
   }).format(value);
 }
 
+function formatRoundedUpFixedValue(value: number, digits = 1) {
+  const factor = 10 ** digits;
+  return formatFixedValue(Math.ceil(value * factor - 1e-9) / factor, digits);
+}
+
 function toDisplayName(value: string) {
   return value
     .trim()
@@ -4390,7 +4395,7 @@ function App() {
                         <p className="helper-text">
                           {selectedProductionModeLabel}
                           {selectedProductionProliferatorUsage?.machineCountExpectation
-                            ? ` | ${formatFixedValue(selectedProductionProliferatorUsage.machineCountExpectation, 2)} machines expected`
+                            ? ` | ${formatRoundedUpFixedValue(selectedProductionProliferatorUsage.machineCountExpectation, 2)} machines expected`
                             : ""}
                         </p>
 
