@@ -131,8 +131,24 @@ type ExtractionActivityRow = {
 type ProductionTreeNode = {
   itemKey: string;
   summary: ProductionItemSummary;
-  childKeys: string[];
-  usageKeys: string[];
+  inputs: ProductionTreeInput[];
+  usages: ProductionTreeUsage[];
+};
+
+type ProductionTreeInput = {
+  itemKey: string;
+  displayName: string;
+  dependencyType: "raw" | "crafted";
+  demandPerMinute: number;
+  sharePercent: number;
+  isSharedCrafted: boolean;
+};
+
+type ProductionTreeUsage = {
+  itemKey: string;
+  displayName: string;
+  demandPerMinute: number;
+  sharePercent: number;
 };
 
 function describeExtractionRollup(row: ExtractionRollupRow) {
@@ -707,9 +723,10 @@ function formatRoundedUpInteger(value: number) {
   }).format(Math.max(0, Math.ceil(value - 1e-9)));
 }
 
-function buildProductionTree(items: ProjectImportedItem[], summaries: ProductionItemSummary[]) {
+function buildProductionTree(craftedItems: ProjectImportedItem[], projectItems: ProjectImportedItem[], summaries: ProductionItemSummary[]) {
   const summaryByKey = new Map(summaries.map((summary) => [summary.itemKey, summary]));
-  const itemByKey = new Map(items.map((item) => [item.item_key, item]));
+  const itemByKey = new Map(craftedItems.map((item) => [item.item_key, item]));
+  const totalTargetByKey = new Map(projectItems.map((item) => [item.item_key, Number(item.imported_throughput_per_minute)]));
   const parentKeysByChild = new Map<string, string[]>();
 
   const compareKeys = (leftKey: string, rightKey: string) => {
@@ -721,11 +738,15 @@ function buildProductionTree(items: ProjectImportedItem[], summaries: Production
     );
   };
 
-  for (const item of items) {
+  function isProliferator(value: string) {
+    return value.toLowerCase().includes("proliferator");
+  }
+
+  for (const item of craftedItems) {
     parentKeysByChild.set(item.item_key, []);
   }
 
-  for (const item of items) {
+  for (const item of craftedItems) {
     const dependencyKeys = Array.from(new Set(
       item.dependencies
         .filter((dependency) => dependency.dependency_type === "crafted" && itemByKey.has(dependency.item_key))
@@ -740,26 +761,74 @@ function buildProductionTree(items: ProjectImportedItem[], summaries: Production
   }
 
   const nodesByKey = new Map<string, ProductionTreeNode>();
-  const allKeys = items.map((item) => item.item_key).sort(compareKeys);
+  const allKeys = craftedItems.map((item) => item.item_key).sort(compareKeys);
   for (const itemKey of allKeys) {
     const summary = summaryByKey.get(itemKey);
     if (!summary) {
       continue;
     }
 
-    const dependencyKeys = Array.from(new Set(
-      (itemByKey.get(itemKey)?.dependencies ?? [])
-        .filter((dependency) => dependency.dependency_type === "crafted" && itemByKey.has(dependency.item_key))
-        .map((dependency) => dependency.item_key),
-    )).sort(compareKeys);
-    const childKeys = dependencyKeys.filter((dependencyKey) => (parentKeysByChild.get(dependencyKey)?.length ?? 0) === 1);
-    const usageKeys = (parentKeysByChild.get(itemKey) ?? []).slice().sort(compareKeys);
+    const item = itemByKey.get(itemKey);
+    if (!item) {
+      continue;
+    }
+
+    const inputs = item.dependencies
+      .filter((dependency) => {
+        if (dependency.dependency_type !== "crafted") {
+          return true;
+        }
+
+        if (isProliferator(dependency.display_name) && !isProliferator(item.display_name)) {
+          return false;
+        }
+
+        return itemByKey.has(dependency.item_key);
+      })
+      .map<ProductionTreeInput>((dependency) => {
+        const totalTarget = totalTargetByKey.get(dependency.item_key) ?? 0;
+        const parentCount = dependency.dependency_type === "crafted"
+          ? (parentKeysByChild.get(dependency.item_key)?.length ?? 0)
+          : 0;
+        return {
+          itemKey: dependency.item_key,
+          displayName: dependency.display_name,
+          dependencyType: dependency.dependency_type,
+          demandPerMinute: dependency.imported_demand_per_minute,
+          sharePercent: totalTarget > 0 ? Math.min(100, (dependency.imported_demand_per_minute / totalTarget) * 100) : 0,
+          isSharedCrafted: dependency.dependency_type === "crafted" && parentCount > 1,
+        };
+      })
+      .sort((left, right) => right.demandPerMinute - left.demandPerMinute || left.displayName.localeCompare(right.displayName));
+
+    const usages = (parentKeysByChild.get(itemKey) ?? [])
+      .map<ProductionTreeUsage | null>((parentKey) => {
+        const parentItem = itemByKey.get(parentKey);
+        if (!parentItem) {
+          return null;
+        }
+
+        const dependency = parentItem.dependencies.find((entry) => entry.item_key === itemKey);
+        if (!dependency) {
+          return null;
+        }
+
+        const totalTarget = totalTargetByKey.get(itemKey) ?? 0;
+        return {
+          itemKey: parentKey,
+          displayName: parentItem.display_name,
+          demandPerMinute: dependency.imported_demand_per_minute,
+          sharePercent: totalTarget > 0 ? Math.min(100, (dependency.imported_demand_per_minute / totalTarget) * 100) : 0,
+        };
+      })
+      .filter((entry): entry is ProductionTreeUsage => entry !== null)
+      .sort((left, right) => right.demandPerMinute - left.demandPerMinute || left.displayName.localeCompare(right.displayName));
 
     nodesByKey.set(itemKey, {
       itemKey,
       summary,
-      childKeys,
-      usageKeys,
+      inputs,
+      usages,
     });
   }
 
@@ -1050,7 +1119,7 @@ function App() {
   const [overviewTransportDistanceDrafts, setOverviewTransportDistanceDrafts] = useState<Record<string, number>>({});
   const [selectedProjectId, setSelectedProjectId] = useState(() => window.localStorage.getItem("dsp-resource-sheet:selected-project-id") ?? "");
   const [selectedProductionItemKey, setSelectedProductionItemKey] = useState("");
-  const [expandedProductionUsageKeys, setExpandedProductionUsageKeys] = useState<Record<string, boolean>>({});
+  const [expandedProductionItemKeys, setExpandedProductionItemKeys] = useState<Record<string, boolean>>({});
   const [selectedMapSelection, setSelectedMapSelection] = useState<MapSelection>({ scope: "system", id: "" });
   const [clusterAddressDraft, setClusterAddressDraft] = useState("");
   const [planetExtractionIlsDrafts, setPlanetExtractionIlsDrafts] = useState<Record<string, string>>({});
@@ -1226,7 +1295,7 @@ function App() {
   }, [data, selectedProjectId, selectedProductionItemKey]);
 
   useEffect(() => {
-    setExpandedProductionUsageKeys({});
+    setExpandedProductionItemKeys({});
   }, [selectedProjectId]);
 
   useEffect(() => {
@@ -1778,7 +1847,8 @@ function App() {
         Number(left.sort_order ?? Number.MAX_SAFE_INTEGER) - Number(right.sort_order ?? Number.MAX_SAFE_INTEGER) ||
         left.display_name.localeCompare(right.display_name),
     );
-  const productionTree = buildProductionTree(craftedProjectImportedItems, productionItemSummaries);
+  const projectImportedItems = loadedData.projectImportedItems.filter((item) => item.project_id === selectedProjectId);
+  const productionTree = buildProductionTree(craftedProjectImportedItems, projectImportedItems, productionItemSummaries);
   const selectedProductionTemplate =
     productionItemChoices.find((item) => item.item_key === selectedProductionSummary?.itemKey) ??
     productionItemChoices.find((item) => item.item_key === productionDraft.itemKey) ??
@@ -1798,14 +1868,31 @@ function App() {
     productionDraft.planetId,
   );
 
-  function renderProductionTreeNode(itemKey: string, depth = 0) {
-    const node = productionTree.nodesByKey.get(itemKey);
-    if (!node) {
+  function renderProductionTreeNode(
+    itemKey: string,
+    depth = 0,
+    options?: { referenceInput?: ProductionTreeInput },
+  ) {
+    const nodeValue = productionTree.nodesByKey.get(itemKey);
+    if (!nodeValue) {
       return null;
     }
+    const node = nodeValue;
     const isSelected = selectedProductionSummary?.itemKey === node.itemKey;
-    const hasUsageToggle = node.usageKeys.length > 1;
-    const isUsageExpanded = expandedProductionUsageKeys[node.itemKey] ?? false;
+    const isExpanded = expandedProductionItemKeys[node.itemKey] ?? false;
+    const canExpand = node.inputs.length > 0 || node.usages.length > 0;
+    const referenceInput = options?.referenceInput ?? null;
+
+    function toggleExpanded() {
+      setSelectedProductionItemKey(node.itemKey);
+      if (!canExpand) {
+        return;
+      }
+      setExpandedProductionItemKeys((current) => ({
+        ...current,
+        [node.itemKey]: !isExpanded,
+      }));
+    }
 
     return (
       <div key={node.itemKey} className="production-tree-branch" style={{ "--production-depth": depth } as CSSProperties}>
@@ -1815,23 +1902,17 @@ function App() {
           <div className="production-tree-indent" aria-hidden="true" />
           <button
             type="button"
-            className={`production-tree-usage-toggle ${hasUsageToggle ? "production-tree-usage-toggle-visible" : ""} ${isUsageExpanded ? "production-tree-usage-toggle-expanded" : ""}`}
+            className={`production-tree-usage-toggle ${canExpand ? "production-tree-usage-toggle-visible" : ""} ${isExpanded ? "production-tree-usage-toggle-expanded" : ""}`}
             onClick={(event) => {
               event.stopPropagation();
-              if (!hasUsageToggle) {
-                return;
-              }
-              setExpandedProductionUsageKeys((current) => ({
-                ...current,
-                [node.itemKey]: !isUsageExpanded,
-              }));
+              toggleExpanded();
             }}
-            aria-label={hasUsageToggle ? `Show where ${node.summary.displayName} is used` : undefined}
-            disabled={!hasUsageToggle}
+            aria-label={canExpand ? `Toggle details for ${node.summary.displayName}` : undefined}
+            disabled={!canExpand}
           >
             ›
           </button>
-          <button type="button" className="production-tree-main" onClick={() => setSelectedProductionItemKey(node.itemKey)}>
+          <button type="button" className="production-tree-main" onClick={toggleExpanded}>
           <div className="production-tree-title">
             <ResourceIcon
               name={node.summary.displayName}
@@ -1842,6 +1923,13 @@ function App() {
             />
             <div className="production-tree-copy">
               <strong>{node.summary.displayName}</strong>
+              {referenceInput ? (
+                <div className="production-tree-reference-meta">
+                  <span>{formatValue(referenceInput.demandPerMinute)} / min</span>
+                  <span>{formatFixedValue(referenceInput.sharePercent, 1)}% of project supply</span>
+                  {referenceInput.isSharedCrafted ? <span className="production-tree-reference-badge">shared input</span> : null}
+                </div>
+              ) : null}
             </div>
           </div>
           <div className="production-tree-metrics">
@@ -1859,41 +1947,95 @@ function App() {
             </div>
           </div>
           </button>
+          <button
+            type="button"
+            className="production-tree-add-button"
+            onClick={(event) => {
+              event.stopPropagation();
+              openProductionSiteModal(node.itemKey);
+            }}
+            aria-label={`Add production site for ${node.summary.displayName}`}
+          >
+            +
+          </button>
         </div>
 
-        {hasUsageToggle && isUsageExpanded ? (
-          <div className="production-tree-usage-list">
-            <span className="production-tree-usage-label">Used by</span>
-            {node.usageKeys.map((usageKey) => {
-              const usageNode = productionTree.nodesByKey.get(usageKey);
-              if (!usageNode) {
-                return null;
-              }
-
-              return (
-                <button
-                  key={`${node.itemKey}:${usageKey}`}
-                  type="button"
-                  className="production-tree-usage-chip"
-                  onClick={() => setSelectedProductionItemKey(usageKey)}
-                >
-                  <ResourceIcon
-                    name={usageNode.summary.displayName}
-                    iconUrl={getIconUrlForName(usageNode.summary.displayName)}
-                    colorStart={productionIconStart}
-                    colorEnd={productionIconEnd}
-                    size="sm"
-                  />
-                  <span>{usageNode.summary.displayName}</span>
-                </button>
-              );
-            })}
+        {isExpanded ? (
+          <div className="production-tree-expanded">
+            <div className="production-tree-expanded-section">
+              <span className="production-tree-expanded-label">Used in</span>
+              {node.usages.length > 0 ? (
+                <div className="production-tree-expanded-list">
+                  {node.usages.map((usage) => (
+                    <button
+                      key={`${node.itemKey}:${usage.itemKey}`}
+                      type="button"
+                      className="production-tree-expanded-row"
+                      onClick={() => setSelectedProductionItemKey(usage.itemKey)}
+                    >
+                      <div className="production-tree-expanded-copy">
+                        <ResourceIcon
+                          name={usage.displayName}
+                          iconUrl={getIconUrlForName(usage.displayName)}
+                          colorStart={productionIconStart}
+                          colorEnd={productionIconEnd}
+                          size="sm"
+                        />
+                        <strong>{usage.displayName}</strong>
+                      </div>
+                      <span>{formatValue(usage.demandPerMinute)} / min</span>
+                      <span>{formatFixedValue(usage.sharePercent, 1)}% of project supply</span>
+                    </button>
+                  ))}
+                </div>
+              ) : (
+                <p className="helper-text">No downstream recipe usage in this imported project.</p>
+              )}
+            </div>
           </div>
         ) : null}
 
-        {node.childKeys.length > 0 ? (
+        {isExpanded && node.inputs.length > 0 ? (
           <div className="production-tree-children">
-            {node.childKeys.map((childKey) => renderProductionTreeNode(childKey, depth + 1))}
+            {node.inputs.map((input) => (
+              input.dependencyType === "crafted" && productionTree.nodesByKey.has(input.itemKey)
+                ? renderProductionTreeNode(input.itemKey, depth + 1, { referenceInput: input })
+                : (
+                  <div key={`${node.itemKey}:${input.itemKey}`} className="production-tree-branch" style={{ "--production-depth": depth + 1 } as CSSProperties}>
+                    <div className="production-tree-row production-tree-row-leaf">
+                      <div className="production-tree-indent" aria-hidden="true" />
+                      <span className="production-tree-usage-toggle production-tree-usage-toggle-leaf" aria-hidden="true">
+                        •
+                      </span>
+                      <div className="production-tree-main production-tree-main-leaf">
+                        <div className="production-tree-title">
+                          <ResourceIcon
+                            name={input.displayName}
+                            iconUrl={getIconUrlForName(input.displayName)}
+                            colorStart={productionIconStart}
+                            colorEnd={productionIconEnd}
+                            size="md"
+                          />
+                          <div className="production-tree-copy">
+                            <strong>{input.displayName}</strong>
+                            <span className="production-tree-reference-badge">raw input</span>
+                          </div>
+                        </div>
+                        <div className="production-tree-metrics">
+                          <div className="production-tree-metric">
+                            <strong>{formatValue(input.demandPerMinute)}</strong>
+                            <span className="production-tree-metric-label">/ min</span>
+                          </div>
+                          <div className="production-tree-metric">
+                            <strong>{formatFixedValue(input.sharePercent, 1)}%</strong>
+                            <span className="production-tree-metric-label">of project supply</span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )
+            ))}
           </div>
         ) : null}
       </div>
