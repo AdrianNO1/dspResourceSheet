@@ -1,0 +1,245 @@
+import { FACTORIOLAB_RECIPE_CATALOG } from "./factoriolabRecipeCatalog.generated";
+import { FACTORIOLAB_MACHINE_METADATA, FACTORIOLAB_RECIPE_METADATA } from "./factoriolabReference.generated";
+import type { ProjectImportedItem } from "./types";
+
+export type FactorioLabIoEntry = {
+  itemKey: string;
+  displayName: string;
+  quantity: number;
+};
+
+export type FactorioLabReference = {
+  recipeId: string;
+  recipeName: string;
+  inputs: FactorioLabIoEntry[];
+  outputs: FactorioLabIoEntry[];
+  baseCycleSeconds: number | null;
+  machineLabel: string;
+  machineDisplayName: string;
+  machineSpeed: number | null;
+  machinePowerWatts: number | null;
+  supportsProductivity: boolean;
+  primaryOutputQuantity: number;
+};
+
+export type InferredProliferatorMode = "none" | "extra-products" | "speedup" | "unknown";
+
+export type InferredProliferatorUsage = {
+  level: 0 | 1 | 2 | 3;
+  mode: InferredProliferatorMode;
+  energyMultiplier: number;
+  speedMultiplier: number;
+  outputMultiplier: number;
+  outputBonusPerCycle: number;
+  baseCycleSeconds: number | null;
+  adjustedCycleSeconds: number | null;
+  machineCountExpectation: number | null;
+  relativeError: number | null;
+};
+
+type BaselineCatalogEntry = (typeof FACTORIOLAB_RECIPE_CATALOG)[number];
+type MachineMetadataEntry = (typeof FACTORIOLAB_MACHINE_METADATA)[keyof typeof FACTORIOLAB_MACHINE_METADATA];
+type RecipeMetadataEntry = (typeof FACTORIOLAB_RECIPE_METADATA)[keyof typeof FACTORIOLAB_RECIPE_METADATA];
+
+const baselineByItemKey = new Map<string, BaselineCatalogEntry>(FACTORIOLAB_RECIPE_CATALOG.map((entry) => [entry.itemKey, entry]));
+const machineMetadataById = new Map<string, MachineMetadataEntry>(
+  Object.values(FACTORIOLAB_MACHINE_METADATA).map((entry) => [entry.id, entry]),
+);
+const recipeMetadataById = new Map<string, RecipeMetadataEntry>(
+  Object.values(FACTORIOLAB_RECIPE_METADATA).map((entry) => [entry.id, entry]),
+);
+
+function normalizeKey(value: string) {
+  return String(value ?? "").trim().toLowerCase().replace(/[_\s]+/g, "-");
+}
+
+function getDisplayName(value: string, fallback: string) {
+  return value?.trim() || fallback;
+}
+
+const proliferatorBonusByLevel: Record<number, { energyMultiplier: number; speedMultiplier: number; outputMultiplier: number }> = {
+  0: { energyMultiplier: 1, speedMultiplier: 1, outputMultiplier: 1 },
+  1: { energyMultiplier: 1.3, speedMultiplier: 1.25, outputMultiplier: 1.125 },
+  2: { energyMultiplier: 1.7, speedMultiplier: 1.5, outputMultiplier: 1.2 },
+  3: { energyMultiplier: 2.5, speedMultiplier: 2, outputMultiplier: 1.25 },
+};
+
+function getImportedItemProliferatorLevel(importedItem: ProjectImportedItem | null): 0 | 1 | 2 | 3 {
+  if (!importedItem) {
+    return 0;
+  }
+
+  if (importedItem.dependencies.some((dependency) => dependency.item_key === "proliferator-3")) {
+    return 3;
+  }
+  if (importedItem.dependencies.some((dependency) => dependency.item_key === "proliferator-2")) {
+    return 2;
+  }
+  if (importedItem.dependencies.some((dependency) => dependency.item_key === "proliferator-1")) {
+    return 1;
+  }
+  return 0;
+}
+
+function getCandidateMachineCount(
+  importedItem: ProjectImportedItem,
+  reference: FactorioLabReference,
+  speedMultiplier: number,
+  outputMultiplier: number,
+) {
+  const throughputPerMinute = Number(importedItem.imported_throughput_per_minute);
+  if (!(throughputPerMinute > 0)) {
+    return null;
+  }
+
+  if (reference.baseCycleSeconds !== null && reference.machineSpeed && reference.primaryOutputQuantity > 0) {
+    return (
+      (throughputPerMinute * reference.baseCycleSeconds) /
+      (60 * reference.machineSpeed * speedMultiplier * reference.primaryOutputQuantity * outputMultiplier)
+    );
+  }
+
+  const baseline = baselineByItemKey.get(importedItem.item_key);
+  if (!baseline || baseline.throughputPerMinute <= 0) {
+    return null;
+  }
+
+  return (
+    (Number(baseline.machineCount) * throughputPerMinute) /
+    (Number(baseline.throughputPerMinute) * speedMultiplier * outputMultiplier)
+  );
+}
+
+export function getFactorioLabReference(importedItem: ProjectImportedItem | null): FactorioLabReference | null {
+  if (!importedItem) {
+    return null;
+  }
+
+  const recipeId = normalizeKey(importedItem.recipe || importedItem.item_key);
+  const recipe = recipeMetadataById.get(recipeId) ?? null;
+  const machine = machineMetadataById.get(importedItem.machine_label) ?? null;
+  if (!recipe) {
+    return null;
+  }
+
+  const outputs = recipe.outputs.map((entry) => ({
+    itemKey: entry.itemKey,
+    displayName: getDisplayName(entry.displayName, importedItem.display_name),
+    quantity: Number(entry.quantity),
+  }));
+  const primaryOutput = outputs.find((entry) => entry.itemKey === importedItem.item_key) ?? outputs[0] ?? null;
+
+  return {
+    recipeId,
+    recipeName: getDisplayName(recipe.displayName, importedItem.recipe || importedItem.display_name),
+    inputs: recipe.inputs.map((entry) => ({
+      itemKey: entry.itemKey,
+      displayName: getDisplayName(entry.displayName, entry.itemKey),
+      quantity: Number(entry.quantity),
+    })),
+    outputs,
+    baseCycleSeconds: Number.isFinite(Number(recipe.timeSeconds)) ? Number(recipe.timeSeconds) : null,
+    machineLabel: importedItem.machine_label,
+    machineDisplayName: getDisplayName(machine?.displayName ?? "", importedItem.machine_label || "Imported machine"),
+    machineSpeed: Number.isFinite(Number(machine?.speed)) ? Number(machine?.speed) : null,
+    machinePowerWatts: Number.isFinite(Number(machine?.powerWatts)) ? Number(machine?.powerWatts) : null,
+    supportsProductivity: Boolean(recipe.supportsProductivity),
+    primaryOutputQuantity: primaryOutput?.quantity ?? 1,
+  };
+}
+
+export function inferImportedItemProliferatorUsage(importedItem: ProjectImportedItem | null) : InferredProliferatorUsage | null {
+  const reference = getFactorioLabReference(importedItem);
+  if (!importedItem || !reference) {
+    return null;
+  }
+
+  const actualMachineCount = Number(importedItem.machine_count);
+  const level = getImportedItemProliferatorLevel(importedItem);
+  const bonus = proliferatorBonusByLevel[level];
+
+  if (!(actualMachineCount > 0)) {
+    return {
+      level,
+      mode: level === 0 ? "none" : "unknown",
+      energyMultiplier: bonus.energyMultiplier,
+      speedMultiplier: level === 0 ? 1 : bonus.speedMultiplier,
+      outputMultiplier: level === 0 ? 1 : bonus.outputMultiplier,
+      outputBonusPerCycle: 0,
+      baseCycleSeconds: reference.baseCycleSeconds,
+      adjustedCycleSeconds:
+        reference.baseCycleSeconds !== null && reference.machineSpeed
+          ? reference.baseCycleSeconds / reference.machineSpeed
+          : null,
+      machineCountExpectation: null,
+      relativeError: null,
+    };
+  }
+
+  const candidates = [
+    {
+      mode: "none" as const,
+      speedMultiplier: 1,
+      outputMultiplier: 1,
+      allowed: level === 0,
+    },
+    {
+      mode: "extra-products" as const,
+      speedMultiplier: 1,
+      outputMultiplier: bonus.outputMultiplier,
+      allowed: level > 0 && reference.supportsProductivity,
+    },
+    {
+      mode: "speedup" as const,
+      speedMultiplier: bonus.speedMultiplier,
+      outputMultiplier: 1,
+      allowed: level > 0,
+    },
+  ].filter((candidate) => candidate.allowed);
+
+  if (candidates.length === 0) {
+    return null;
+  }
+
+  const rankedCandidates = candidates
+    .map((candidate) => {
+      const expectedMachineCount = getCandidateMachineCount(importedItem, reference, candidate.speedMultiplier, candidate.outputMultiplier);
+      const relativeError =
+        expectedMachineCount && actualMachineCount > 0
+          ? Math.abs(expectedMachineCount - actualMachineCount) / Math.max(actualMachineCount, expectedMachineCount, 1e-6)
+          : Number.POSITIVE_INFINITY;
+      return {
+        ...candidate,
+        expectedMachineCount,
+        relativeError,
+      };
+    })
+    .sort((left, right) => left.relativeError - right.relativeError);
+
+  const bestCandidate = rankedCandidates[0];
+  const mode =
+    Number.isFinite(bestCandidate.relativeError) && bestCandidate.relativeError <= 0.12
+      ? bestCandidate.mode
+      : level === 0
+        ? "none"
+        : "unknown";
+
+  const effectiveSpeedMultiplier = mode === "speedup" ? bestCandidate.speedMultiplier : 1;
+  const effectiveOutputMultiplier = mode === "extra-products" ? bestCandidate.outputMultiplier : 1;
+
+  return {
+    level,
+    mode,
+    energyMultiplier: level > 0 ? bonus.energyMultiplier : 1,
+    speedMultiplier: effectiveSpeedMultiplier,
+    outputMultiplier: effectiveOutputMultiplier,
+    outputBonusPerCycle: reference.primaryOutputQuantity * Math.max(0, effectiveOutputMultiplier - 1),
+    baseCycleSeconds: reference.baseCycleSeconds,
+    adjustedCycleSeconds:
+      reference.baseCycleSeconds !== null && reference.machineSpeed
+        ? reference.baseCycleSeconds / (reference.machineSpeed * effectiveSpeedMultiplier)
+        : null,
+    machineCountExpectation: bestCandidate.expectedMachineCount,
+    relativeError: Number.isFinite(bestCandidate.relativeError) ? bestCandidate.relativeError : null,
+  };
+}

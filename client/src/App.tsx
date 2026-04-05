@@ -5,6 +5,7 @@ import { ResourceIcon } from "./components/ResourceIcon";
 import { ResourceSelect } from "./components/ResourceSelect";
 import { deleteBootstrap, exportSnapshot, getBootstrap, importSnapshot, patchBootstrap, postBootstrap } from "./lib/api";
 import { parseClusterAddress, getSystemDistanceLy as getGeneratedSystemDistanceLy } from "./lib/dspCluster";
+import { getFactorioLabReference, inferImportedItemProliferatorUsage } from "./lib/factoriolabCatalog";
 import { buildProductionDraftPreview, buildProductionPlanner } from "./lib/productionPlanner";
 import type { ProductionItemSummary } from "./lib/productionPlanner";
 import { resolveGameIconPath } from "./lib/gameIcons";
@@ -743,22 +744,6 @@ function formatPowerWatts(valueWatts: number) {
 
   const unit = units.find((entry) => valueWatts >= entry.value) ?? units[units.length - 1];
   return `${formatFixedValue(Math.ceil((valueWatts / unit.value) * 100) / 100, 2)} ${unit.label}`;
-}
-
-function getMachineBasePowerWatts(machineLabel: string) {
-  const normalized = machineLabel.trim().toLowerCase();
-  const powerByMachine = new Map<string, number>([
-    ["assembling-machine-3", 1_080_000],
-    ["fractionator", 720_000],
-    ["matrix-lab", 480_000],
-    ["miniature-particle-collider", 12_000_000],
-    ["oil-refinery", 960_000],
-    ["plane-smelter", 1_440_000],
-    ["quantum-chemical-plant", 2_160_000],
-    ["ray-receiver", 120_000_000],
-  ]);
-
-  return powerByMachine.get(normalized) ?? null;
 }
 
 function formatRoundedUpInteger(value: number) {
@@ -1949,6 +1934,8 @@ function App() {
     productionItemChoices.find((item) => item.item_key === selectedProductionSummary?.itemKey) ??
     productionItemChoices.find((item) => item.item_key === productionDraft.itemKey) ??
     null;
+  const selectedProductionReference = getFactorioLabReference(selectedProductionTemplate);
+  const selectedProductionProliferatorUsage = inferImportedItemProliferatorUsage(selectedProductionTemplate);
   const selectedProductionSiteViews = selectedProductionSummary
     ? productionPlanner.siteViews.filter((siteView) => siteView.site.item_key === selectedProductionSummary.itemKey)
     : productionPlanner.siteViews;
@@ -1963,41 +1950,47 @@ function App() {
     productionDraft.solarSystemId,
     productionDraft.planetId,
   );
-  const selectedProductionRecipeOutputs = selectedProductionTemplate ? parseRecipeEntries(selectedProductionTemplate.outputs || "") : [];
-  const selectedProductionPrimaryOutputQuantity = selectedProductionRecipeOutputs[0]?.quantity ?? 1;
+  const selectedProductionFallbackRecipeOutputs = selectedProductionTemplate ? parseRecipeEntries(selectedProductionTemplate.outputs || "") : [];
+  const selectedProductionRecipeOutputs = selectedProductionReference?.outputs ?? selectedProductionFallbackRecipeOutputs;
+  const selectedProductionPrimaryOutputQuantity = selectedProductionReference?.primaryOutputQuantity ?? selectedProductionRecipeOutputs[0]?.quantity ?? 1;
   const selectedProductionRecipeInputs = selectedProductionTemplate
-    ? selectedProductionTemplate.dependencies.map<RecipeEntry>((dependency) => ({
+    ? selectedProductionReference?.inputs ?? selectedProductionTemplate.dependencies.map<RecipeEntry>((dependency) => ({
         itemKey: dependency.item_key,
         displayName: dependency.display_name,
         quantity: dependency.per_unit_ratio * selectedProductionPrimaryOutputQuantity,
       }))
     : [];
-  const selectedProductionEffectiveCycleSeconds =
-    selectedProductionTemplate &&
-    selectedProductionTemplate.machine_count > 0 &&
-    selectedProductionTemplate.imported_throughput_per_minute > 0
-      ? (selectedProductionTemplate.machine_count * selectedProductionPrimaryOutputQuantity * 60) /
-        selectedProductionTemplate.imported_throughput_per_minute
-      : null;
-  const selectedProductionProliferatorLevel =
-    selectedProductionTemplate?.dependencies.some((dependency) => dependency.item_key === "proliferator-3")
-      ? 3
-      : selectedProductionTemplate?.dependencies.some((dependency) => dependency.item_key === "proliferator-2")
-        ? 2
-        : selectedProductionTemplate?.dependencies.some((dependency) => dependency.item_key === "proliferator-1")
-          ? 1
-          : 0;
-  const selectedProductionEnergyMultiplier =
-    selectedProductionProliferatorLevel === 3
-      ? 2.5
-      : selectedProductionProliferatorLevel === 2
-        ? 1.7
-        : selectedProductionProliferatorLevel === 1
-          ? 1.3
-          : 1;
+  const selectedProductionBaseCycleSeconds =
+    selectedProductionReference?.baseCycleSeconds ??
+    (
+      selectedProductionTemplate &&
+      selectedProductionTemplate.machine_count > 0 &&
+      selectedProductionTemplate.imported_throughput_per_minute > 0
+        ? (selectedProductionTemplate.machine_count * selectedProductionPrimaryOutputQuantity * 60) /
+          selectedProductionTemplate.imported_throughput_per_minute
+        : null
+    );
+  const selectedProductionAdjustedCycleSeconds =
+    selectedProductionProliferatorUsage?.adjustedCycleSeconds ??
+    (
+      selectedProductionReference?.machineSpeed && selectedProductionBaseCycleSeconds !== null
+        ? selectedProductionBaseCycleSeconds / selectedProductionReference.machineSpeed
+        : selectedProductionBaseCycleSeconds
+    );
+  const selectedProductionProliferatorLevel = selectedProductionProliferatorUsage?.level ?? 0;
+  const selectedProductionEnergyMultiplier = selectedProductionProliferatorUsage?.energyMultiplier ?? 1;
+  const selectedProductionModeLabel =
+    selectedProductionProliferatorUsage?.mode === "extra-products"
+      ? `P${selectedProductionProliferatorUsage.level} extra products`
+      : selectedProductionProliferatorUsage?.mode === "speedup"
+        ? `P${selectedProductionProliferatorUsage.level} speedup`
+        : selectedProductionProliferatorUsage?.mode === "unknown"
+          ? `P${selectedProductionProliferatorUsage.level} mode uncertain`
+          : "No proliferator";
+  const selectedProductionMachinePowerWatts = selectedProductionReference?.machinePowerWatts ?? null;
   const selectedProductionEstimatedPowerWatts =
     productionDraftPreview && selectedProductionTemplate
-      ? (getMachineBasePowerWatts(selectedProductionTemplate.machine_label) ?? 0) *
+      ? (selectedProductionMachinePowerWatts ?? 0) *
         productionDraftPreview.machineCount *
         selectedProductionEnergyMultiplier
       : 0;
@@ -4287,7 +4280,7 @@ function App() {
                           <div className="entry-stat">
                             <span>Estimated power</span>
                             <strong>{selectedProductionEstimatedPowerWatts > 0 ? formatPowerWatts(selectedProductionEstimatedPowerWatts) : "n/a"}</strong>
-                            <span>{selectedProductionProliferatorLevel > 0 ? `P${selectedProductionProliferatorLevel} energy x${formatFixedValue(selectedProductionEnergyMultiplier, 2)}` : "No proliferator energy bonus"}</span>
+                            <span>{selectedProductionProliferatorLevel > 0 ? `${selectedProductionModeLabel} | energy x${formatFixedValue(selectedProductionEnergyMultiplier, 2)}` : "No proliferator energy bonus"}</span>
                           </div>
                           <div className="entry-stat">
                             <span>Location</span>
@@ -4371,29 +4364,35 @@ function App() {
                     <div className="overview-breakdown-panel">
                       <div className="overview-breakdown-heading">
                         <h4>Recipe</h4>
-                        <span>{selectedProductionTemplate.recipe || "Imported"}</span>
+                        <span>{selectedProductionReference?.recipeName || selectedProductionTemplate.recipe || "Imported"}</span>
                       </div>
                       <div className="production-machine-pill production-machine-pill-static">
                         <ResourceIcon
-                          name={selectedProductionTemplate.machine_label || "Factory"}
+                          name={selectedProductionReference?.machineDisplayName || selectedProductionTemplate.machine_label || "Factory"}
                           iconUrl={getIconUrlForName(selectedProductionTemplate.machine_label || "Factory")}
                           colorStart="#99c9ff"
                           colorEnd="#5578b5"
                           size="sm"
                         />
-                        {selectedProductionTemplate.machine_label || "Imported machine"}
+                        {selectedProductionReference?.machineDisplayName || selectedProductionTemplate.machine_label || "Imported machine"}
                       </div>
                       <div className="production-recipe-card">
                         <div className="production-recipe-summary">
                           <div className="production-recipe-stat">
-                            <span>Cycle</span>
-                            <strong>{selectedProductionEffectiveCycleSeconds === null ? "n/a" : `${formatFixedValue(selectedProductionEffectiveCycleSeconds, 2)} s`}</strong>
+                            <span>Base cycle</span>
+                            <strong>{selectedProductionBaseCycleSeconds === null ? "n/a" : `${formatFixedValue(selectedProductionBaseCycleSeconds, 2)} s`}</strong>
                           </div>
                           <div className="production-recipe-stat">
-                            <span>Output</span>
-                            <strong>{formatValue(selectedProductionPrimaryOutputQuantity)}</strong>
+                            <span>Cycle adjusted</span>
+                            <strong>{selectedProductionAdjustedCycleSeconds === null ? "n/a" : `${formatFixedValue(selectedProductionAdjustedCycleSeconds, 2)} s`}</strong>
                           </div>
                         </div>
+                        <p className="helper-text">
+                          {selectedProductionModeLabel}
+                          {selectedProductionProliferatorUsage?.machineCountExpectation
+                            ? ` | ${formatFixedValue(selectedProductionProliferatorUsage.machineCountExpectation, 2)} machines expected`
+                            : ""}
+                        </p>
 
                         {selectedProductionRecipeInputs.length > 0 ? (
                           <div className="production-recipe-io">
@@ -4428,14 +4427,19 @@ function App() {
                                     colorEnd={productionIconEnd}
                                     size="sm"
                                   />
-                                  <span>{formatValue(entry.quantity)}</span>
+                                  <span>
+                                    {formatValue(entry.quantity)}
+                                    {selectedProductionProliferatorUsage?.mode === "extra-products" && selectedProductionProliferatorUsage.outputMultiplier > 1 ? (
+                                      <span className="production-recipe-bonus"> +{formatValue(entry.quantity * (selectedProductionProliferatorUsage.outputMultiplier - 1), 2)}</span>
+                                    ) : null}
+                                  </span>
                                 </div>
                               ))}
                             </div>
                           </div>
                         ) : null}
                       </div>
-                      <p className="helper-text">{selectedProductionTemplate.outputs || "Single-output imported recipe."}</p>
+                      <p className="helper-text">Recipe data from FactorioLab DSP reference; planner rates still come from your imported CSV.</p>
                     </div>
 
                     <button type="submit" className="primary-button full-width" disabled={busy || !productionDraft.itemKey || !productionDraft.planetId}>

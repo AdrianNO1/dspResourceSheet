@@ -794,6 +794,11 @@
   background: rgba(255, 255, 255, 0.03);
 }
 
+.production-recipe-bonus {
+  color: #6de39b;
+  font-weight: 700;
+}
+
 .production-tree-row-leaf .production-tree-main {
   cursor: default;
   transform: none;
