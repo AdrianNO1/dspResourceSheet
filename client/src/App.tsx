@@ -2104,12 +2104,12 @@ function App() {
           </div>
           <div className="production-tree-metrics">
             <div className="production-tree-metric">
-              <strong>{node.summary.plannedLineCount}</strong>
-              <span className="production-tree-metric-label">lines</span>
-            </div>
-            <div className="production-tree-metric">
               <strong>{formatRoundedUpInteger(node.summary.plannedMachineCount)}</strong>
               <span className="production-tree-metric-label">machines</span>
+            </div>
+            <div className="production-tree-metric">
+              <strong>{node.summary.plannedLineCount}</strong>
+              <span className="production-tree-metric-label">lines</span>
             </div>
           </div>
           </button>
@@ -2126,9 +2126,9 @@ function App() {
           </button>
         </div>
 
-        {isExpanded && (node.usages.length > 0 || trackedRawSupplyPerMinute > 0) ? (
+        {isExpanded && (node.usages.length > 1 || trackedRawSupplyPerMinute > 0) ? (
           <div className="production-tree-expanded">
-            {node.usages.length > 0 ? (
+            {node.usages.length > 1 ? (
               <div className="production-tree-expanded-section">
                 <span className="production-tree-expanded-label">Used in</span>
                 <div className="production-tree-expanded-list">
