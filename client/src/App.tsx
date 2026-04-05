@@ -2091,20 +2091,18 @@ function App() {
             />
             <div className="production-tree-copy">
               <strong>{node.summary.displayName}</strong>
-              {referenceInput ? (
-                <div className="production-tree-reference-meta">
-                  <span>{formatValue(referenceInput.demandPerMinute)} / min used here</span>
+              <div className="production-tree-reference-meta">
+                <span>{formatRoundedUpInteger(node.summary.totalPlannedThroughput)} / min</span>
+                {referenceInput ? (
+                  <>
                   {referenceInput.sharePercent < 99.95 ? <span>{formatFixedValue(referenceInput.sharePercent, 1)}% of project supply</span> : null}
                   {referenceInput.isSharedCrafted ? <span className="production-tree-reference-badge">shared input</span> : null}
-                </div>
-              ) : null}
+                  </>
+                ) : null}
+              </div>
             </div>
           </div>
           <div className="production-tree-metrics">
-            <div className="production-tree-metric">
-              <strong>{formatRoundedUpInteger(node.summary.totalPlannedThroughput)}</strong>
-              <span className="production-tree-metric-label">/ min</span>
-            </div>
             <div className="production-tree-metric">
               <strong>{node.summary.plannedLineCount}</strong>
               <span className="production-tree-metric-label">lines</span>
@@ -2188,18 +2186,13 @@ function App() {
                           <div className="production-tree-copy">
                             <strong>{input.displayName}</strong>
                             <div className="production-tree-reference-meta">
-                              <span>{formatValue(input.demandPerMinute)} / min used here</span>
+                              <span>{formatValue(input.demandPerMinute)} / min</span>
                               {input.sharePercent < 99.95 ? <span>{formatFixedValue(input.sharePercent, 1)}% of project supply</span> : null}
                               <span className="production-tree-reference-badge">{input.isSharedCrafted ? "shared input" : "raw input"}</span>
                             </div>
                           </div>
                         </div>
-                        <div className="production-tree-metrics">
-                          <div className="production-tree-metric">
-                            <strong>{formatValue(input.demandPerMinute)}</strong>
-                            <span className="production-tree-metric-label">/ min</span>
-                          </div>
-                        </div>
+                        <div className="production-tree-metrics production-tree-metrics-empty" />
                       </div>
                     </div>
                   </div>

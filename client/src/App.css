@@ -646,6 +646,10 @@
   color: rgba(211, 223, 235, 0.66);
 }
 
+.production-tree-metrics-empty {
+  min-width: 0;
+}
+
 .production-tree-add-button {
   width: 42px;
   height: 42px;
