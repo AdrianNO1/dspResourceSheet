@@ -2093,7 +2093,7 @@ function App() {
               <strong>{node.summary.displayName}</strong>
               {referenceInput ? (
                 <div className="production-tree-reference-meta">
-                  <span>{formatValue(referenceInput.demandPerMinute)} / min</span>
+                  <span>{formatValue(referenceInput.demandPerMinute)} / min used here</span>
                   {referenceInput.sharePercent < 99.95 ? <span>{formatFixedValue(referenceInput.sharePercent, 1)}% of project supply</span> : null}
                   {referenceInput.isSharedCrafted ? <span className="production-tree-reference-badge">shared input</span> : null}
                 </div>
@@ -2188,6 +2188,7 @@ function App() {
                           <div className="production-tree-copy">
                             <strong>{input.displayName}</strong>
                             <div className="production-tree-reference-meta">
+                              <span>{formatValue(input.demandPerMinute)} / min used here</span>
                               {input.sharePercent < 99.95 ? <span>{formatFixedValue(input.sharePercent, 1)}% of project supply</span> : null}
                               <span className="production-tree-reference-badge">{input.isSharedCrafted ? "shared input" : "raw input"}</span>
                             </div>
