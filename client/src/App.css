@@ -666,23 +666,32 @@
 }
 
 .production-tree-children {
+  position: relative;
   display: grid;
   gap: 8px;
   margin-left: 0;
   padding-left: 0;
-  border-left: 1px solid rgba(122, 219, 216, 0.16);
 }
 
 .production-tree-branch > .production-tree-children {
-  margin-left: 11px;
+  margin-left: 0;
+}
+
+.production-tree-children::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 10px;
+  left: calc((var(--production-depth, 1) - 0.5) * 18px);
+  border-left: 1px solid rgba(122, 219, 216, 0.16);
 }
 
 .production-tree-children > .production-tree-branch::before {
   content: "";
   position: absolute;
-  top: 22px;
-  left: 0;
-  width: 16px;
+  top: 24px;
+  left: calc((var(--production-depth, 1) - 0.5) * 18px);
+  width: 18px;
   border-top: 1px solid rgba(122, 219, 216, 0.16);
 }
 
@@ -740,6 +749,12 @@
   margin: 0;
 }
 
+.production-tree-expanded-copy,
+.production-tree-expanded-row > span {
+  justify-self: start;
+  text-align: left;
+}
+
 .production-recipe-card,
 .production-recipe-summary,
 .production-recipe-io,
@@ -780,23 +795,108 @@
 }
 
 .production-recipe-entry-list {
-  grid-auto-flow: column;
-  grid-auto-columns: minmax(0, 1fr);
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
 }
 
 .production-recipe-entry {
-  display: grid;
-  justify-items: center;
-  gap: 6px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
   padding: 10px 8px;
   border-radius: 14px;
   border: 1px solid rgba(148, 172, 197, 0.12);
   background: rgba(255, 255, 255, 0.03);
 }
 
+.production-recipe-entry-copy {
+  display: grid;
+  gap: 4px;
+}
+
+.production-recipe-entry-copy strong,
+.production-recipe-entry-copy span {
+  margin: 0;
+}
+
+.production-recipe-entry-copy span {
+  color: rgba(211, 223, 235, 0.78);
+  font-size: 0.9rem;
+}
+
 .production-recipe-bonus {
   color: #6de39b;
   font-weight: 700;
+}
+
+.production-line-plan,
+.production-line-plan-header,
+.production-line-plan-list {
+  display: grid;
+  gap: 12px;
+}
+
+.production-line-plan {
+  padding: 16px 18px;
+  border-radius: 20px;
+  border: 1px solid rgba(148, 172, 197, 0.14);
+  background: rgba(7, 13, 23, 0.34);
+}
+
+.production-line-plan-header {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.production-line-plan-stat {
+  display: grid;
+  gap: 4px;
+}
+
+.production-line-plan-stat span {
+  color: rgba(211, 223, 235, 0.72);
+  font-size: 0.88rem;
+}
+
+.production-line-plan-stat strong {
+  font-size: 1.2rem;
+}
+
+.production-line-plan-list {
+  border-top: 1px solid rgba(148, 172, 197, 0.12);
+  padding-top: 12px;
+}
+
+.production-line-plan-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) max-content max-content;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 0;
+  border-bottom: 1px solid rgba(148, 172, 197, 0.08);
+}
+
+.production-line-plan-row:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
+.production-line-plan-row-output {
+  color: #edf5ff;
+}
+
+.production-line-plan-copy {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.production-line-plan-copy strong {
+  margin: 0;
+}
+
+.production-line-plan-row span {
+  color: rgba(211, 223, 235, 0.82);
+  font-size: 0.92rem;
 }
 
 .production-tree-row-leaf .production-tree-main {
@@ -1011,6 +1111,7 @@
 .overview-breakdown-list {
   display: grid;
   gap: 12px;
+  margin-top: 8px;
 }
 
 .overview-breakdown-row {
@@ -1484,6 +1585,7 @@
 
 .empty-state {
   padding: 24px;
+  margin-top: 8px;
   border-radius: 18px;
   border: 1px dashed rgba(130, 153, 184, 0.2);
   color: rgba(219, 229, 239, 0.7);

@@ -724,11 +724,6 @@ function formatFixedValue(value: number, digits = 1) {
   }).format(value);
 }
 
-function formatRoundedUpFixedValue(value: number, digits = 1) {
-  const factor = 10 ** digits;
-  return formatFixedValue(Math.ceil(value * factor - 1e-9) / factor, digits);
-}
-
 function toDisplayName(value: string) {
   return value
     .trim()
@@ -2133,11 +2128,11 @@ function App() {
           </button>
         </div>
 
-        {isExpanded ? (
+        {isExpanded && (node.usages.length > 0 || trackedRawSupplyPerMinute > 0) ? (
           <div className="production-tree-expanded">
-            <div className="production-tree-expanded-section">
-              <span className="production-tree-expanded-label">Used in</span>
-              {node.usages.length > 0 ? (
+            {node.usages.length > 0 ? (
+              <div className="production-tree-expanded-section">
+                <span className="production-tree-expanded-label">Used in</span>
                 <div className="production-tree-expanded-list">
                   {node.usages.map((usage) => (
                     <button
@@ -2161,18 +2156,16 @@ function App() {
                     </button>
                   ))}
                 </div>
-              ) : (
-                <p className="helper-text">No downstream recipe usage in this imported project.</p>
-              )}
-              {trackedRawSupplyPerMinute > 0 ? (
-                <p className="helper-text">Tracked raw supply: {formatValue(trackedRawSupplyPerMinute)} / min.</p>
-              ) : null}
-            </div>
+              </div>
+            ) : null}
+            {trackedRawSupplyPerMinute > 0 ? (
+              <p className="helper-text">Tracked raw supply: {formatValue(trackedRawSupplyPerMinute)} / min.</p>
+            ) : null}
           </div>
         ) : null}
 
         {isExpanded && node.inputs.length > 0 ? (
-          <div className="production-tree-children">
+          <div className="production-tree-children" style={{ "--production-depth": depth + 1 } as CSSProperties}>
             {node.inputs.map((input) => (
               input.dependencyType === "crafted" && productionTree.nodesByKey.has(input.itemKey) && !input.isSharedCrafted
                 ? renderProductionTreeNode(input.itemKey, depth + 1, { referenceInput: input })
@@ -4271,26 +4264,50 @@ function App() {
 
                     {productionDraftPreview ? (
                       <>
-                        <div className="overview-detail-summary">
-                          <div className="entry-stat">
-                            <span>Lines needed</span>
-                            <strong>{productionDraftPreview.lineCount}</strong>
-                            <span>{formatFixedValue(productionDraftPreview.assemblersPerLine, 1)} machines/line</span>
+                        <div className="production-line-plan">
+                          <div className="production-line-plan-header">
+                            <div className="production-line-plan-stat">
+                              <span>Line plan</span>
+                              <strong>{productionDraftPreview.lineCount} lines</strong>
+                              <span>{formatFixedValue(productionDraftPreview.assemblersPerLine, 1)} machines/line</span>
+                            </div>
+                            <div className="production-line-plan-stat">
+                              <span>Estimated power</span>
+                              <strong>{selectedProductionEstimatedPowerWatts > 0 ? formatPowerWatts(selectedProductionEstimatedPowerWatts) : "n/a"}</strong>
+                              <span>{selectedProductionProliferatorLevel > 0 ? `${selectedProductionModeLabel} | energy x${formatFixedValue(selectedProductionEnergyMultiplier, 2)}` : "No proliferator energy bonus"}</span>
+                            </div>
                           </div>
-                          <div className="entry-stat">
-                            <span>Output belts</span>
-                            <strong>{formatFixedValue(productionDraftPreview.outputBelts, 2)}</strong>
-                            <span>{formatFixedValue(productionDraftPreview.outputBeltsPerLine, 2)} belts/line</span>
-                          </div>
-                          <div className="entry-stat">
-                            <span>Estimated power</span>
-                            <strong>{selectedProductionEstimatedPowerWatts > 0 ? formatPowerWatts(selectedProductionEstimatedPowerWatts) : "n/a"}</strong>
-                            <span>{selectedProductionProliferatorLevel > 0 ? `${selectedProductionModeLabel} | energy x${formatFixedValue(selectedProductionEnergyMultiplier, 2)}` : "No proliferator energy bonus"}</span>
-                          </div>
-                          <div className="entry-stat">
-                            <span>Location</span>
-                            <strong>{productionDraftPreview.planetName || "Select planet"}</strong>
-                            <span>{productionDraftPreview.solarSystemName || "Select system"}</span>
+                          <div className="production-line-plan-list">
+                            <div className="production-line-plan-row production-line-plan-row-output">
+                              <div className="production-line-plan-copy">
+                                <ResourceIcon
+                                  name={selectedProductionTemplate.display_name}
+                                  iconUrl={getIconUrlForName(selectedProductionTemplate.display_name)}
+                                  colorStart={productionIconStart}
+                                  colorEnd={productionIconEnd}
+                                  size="sm"
+                                />
+                                <strong>{selectedProductionTemplate.display_name}</strong>
+                              </div>
+                              <span>{formatValue(productionDraftPreview.throughputPerMinute)} / min</span>
+                              <span>{formatFixedValue(productionDraftPreview.outputBeltsPerLine, 2)} belts/line</span>
+                            </div>
+                            {productionDraftPreview.dependencies.map((dependency) => (
+                              <div key={`line:${dependency.dependency.item_key}`} className="production-line-plan-row">
+                                <div className="production-line-plan-copy">
+                                  <ResourceIcon
+                                    name={dependency.dependency.display_name}
+                                    iconUrl={getIconUrlForName(dependency.dependency.display_name)}
+                                    colorStart={productionIconStart}
+                                    colorEnd={productionIconEnd}
+                                    size="sm"
+                                  />
+                                  <strong>{dependency.dependency.display_name}</strong>
+                                </div>
+                                <span>{formatValue(dependency.requiredPerMinute)} / min</span>
+                                <span>{formatFixedValue(dependency.beltsPerLine, 2)} belts/line</span>
+                              </div>
+                            ))}
                           </div>
                         </div>
 
@@ -4394,9 +4411,6 @@ function App() {
                         </div>
                         <p className="helper-text">
                           {selectedProductionModeLabel}
-                          {selectedProductionProliferatorUsage?.machineCountExpectation
-                            ? ` | ${formatRoundedUpFixedValue(selectedProductionProliferatorUsage.machineCountExpectation, 2)} machines expected`
-                            : ""}
                         </p>
 
                         {selectedProductionRecipeInputs.length > 0 ? (
@@ -4412,7 +4426,10 @@ function App() {
                                     colorEnd={productionIconEnd}
                                     size="sm"
                                   />
-                                  <span>{formatValue(entry.quantity)}</span>
+                                  <div className="production-recipe-entry-copy">
+                                    <strong>{entry.displayName}</strong>
+                                    <span>{formatValue(entry.quantity)}</span>
+                                  </div>
                                 </div>
                               ))}
                             </div>
@@ -4432,19 +4449,21 @@ function App() {
                                     colorEnd={productionIconEnd}
                                     size="sm"
                                   />
-                                  <span>
-                                    {formatValue(entry.quantity)}
-                                    {selectedProductionProliferatorUsage?.mode === "extra-products" && selectedProductionProliferatorUsage.outputMultiplier > 1 ? (
-                                      <span className="production-recipe-bonus"> +{formatValue(entry.quantity * (selectedProductionProliferatorUsage.outputMultiplier - 1), 2)}</span>
-                                    ) : null}
-                                  </span>
+                                  <div className="production-recipe-entry-copy">
+                                    <strong>{entry.displayName}</strong>
+                                    <span>
+                                      {formatValue(entry.quantity)}
+                                      {selectedProductionProliferatorUsage?.mode === "extra-products" && selectedProductionProliferatorUsage.outputMultiplier > 1 ? (
+                                        <span className="production-recipe-bonus"> +{formatValue(entry.quantity * (selectedProductionProliferatorUsage.outputMultiplier - 1), 2)}</span>
+                                      ) : null}
+                                    </span>
+                                  </div>
                                 </div>
                               ))}
                             </div>
                           </div>
                         ) : null}
                       </div>
-                      <p className="helper-text">Recipe data from FactorioLab DSP reference; planner rates still come from your imported CSV.</p>
                     </div>
 
                     <button type="submit" className="primary-button full-width" disabled={busy || !productionDraft.itemKey || !productionDraft.planetId}>
