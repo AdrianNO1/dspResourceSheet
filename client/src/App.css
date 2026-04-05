@@ -484,25 +484,38 @@
 
 .production-tree-root-list {
   display: grid;
-  gap: 18px;
+  gap: 10px;
   margin-top: 18px;
-  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
   align-items: start;
 }
 
 .production-tree-branch {
   position: relative;
   display: grid;
+  gap: 8px;
+}
+
+.production-tree-row {
+  width: 100%;
+  display: grid;
+  grid-template-columns: calc(var(--production-depth, 0) * 18px) 24px minmax(0, 1fr);
+  align-items: center;
   gap: 12px;
 }
 
-.production-tree-card {
+.production-tree-indent {
+  min-height: 1px;
+}
+
+.production-tree-main {
   width: 100%;
   display: grid;
-  gap: 12px;
-  padding: 16px 18px;
+  grid-template-columns: minmax(0, 1.4fr) repeat(3, minmax(120px, auto));
+  align-items: center;
+  gap: 14px;
+  padding: 12px 16px;
   border: 1px solid rgba(132, 156, 187, 0.18);
-  border-radius: 20px;
+  border-radius: 16px;
   background:
     radial-gradient(circle at top left, rgba(122, 219, 216, 0.14), transparent 34%),
     linear-gradient(180deg, rgba(18, 29, 45, 0.94), rgba(9, 18, 31, 0.94));
@@ -514,8 +527,8 @@
   transition: transform 140ms ease, border-color 140ms ease, box-shadow 140ms ease, background 140ms ease;
 }
 
-.production-tree-card:hover,
-.production-tree-card-active {
+.production-tree-row:hover .production-tree-main,
+.production-tree-row-active .production-tree-main {
   transform: translateY(-2px);
   border-color: rgba(122, 219, 216, 0.36);
   background:
@@ -524,9 +537,39 @@
   box-shadow: 0 12px 28px rgba(0, 0, 0, 0.2);
 }
 
+.production-tree-usage-toggle {
+  width: 24px;
+  height: 24px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  border-radius: 999px;
+  background: transparent;
+  color: rgba(241, 160, 79, 0.35);
+  font-size: 1.4rem;
+  line-height: 1;
+  cursor: default;
+  transition: transform 140ms ease, color 140ms ease, background 140ms ease;
+}
+
+.production-tree-usage-toggle-visible {
+  color: #f1a04f;
+  cursor: pointer;
+}
+
+.production-tree-usage-toggle-visible:hover {
+  background: rgba(241, 160, 79, 0.12);
+}
+
+.production-tree-usage-toggle-expanded {
+  transform: rotate(90deg);
+}
+
 .production-tree-title,
 .production-tree-copy,
-.production-tree-metrics {
+.production-tree-metrics,
+.production-tree-metric {
   display: flex;
   gap: 12px;
 }
@@ -538,7 +581,6 @@
 
 .production-tree-copy {
   min-width: 0;
-  flex: 1;
   flex-direction: column;
   gap: 4px;
 }
@@ -553,34 +595,71 @@
   font-size: 0.92rem;
 }
 
-.production-tree-metrics {
-  flex-wrap: wrap;
-}
-
-.production-tree-metrics span {
-  padding: 8px 12px;
-  border-radius: 999px;
-  border: 1px solid rgba(148, 172, 197, 0.16);
-  background: rgba(255, 255, 255, 0.04);
+.production-tree-metric {
+  align-items: center;
+  justify-content: flex-end;
+  min-width: 0;
+  gap: 8px;
+  padding: 8px 0;
   color: rgba(237, 245, 255, 0.92);
   font-size: 0.9rem;
 }
 
+.production-tree-metric strong {
+  font-size: 1rem;
+}
+
+.production-tree-metric-label {
+  color: rgba(211, 223, 235, 0.66);
+}
+
 .production-tree-children {
   display: grid;
-  gap: 12px;
-  margin-left: 24px;
-  padding-left: 18px;
+  gap: 8px;
+  margin-left: 0;
+  padding-left: 0;
   border-left: 1px solid rgba(122, 219, 216, 0.16);
+}
+
+.production-tree-branch > .production-tree-children {
+  margin-left: 11px;
 }
 
 .production-tree-children > .production-tree-branch::before {
   content: "";
   position: absolute;
-  top: 24px;
-  left: -18px;
-  width: 18px;
+  top: 22px;
+  left: 0;
+  width: 16px;
   border-top: 1px solid rgba(122, 219, 216, 0.16);
+}
+
+.production-tree-usage-list {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-left: calc(var(--production-depth, 0) * 18px + 36px);
+  padding-left: 14px;
+}
+
+.production-tree-usage-label {
+  color: rgba(241, 160, 79, 0.86);
+  font-size: 0.84rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.production-tree-usage-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(241, 160, 79, 0.18);
+  background: rgba(241, 160, 79, 0.08);
+  color: #edf5ff;
+  cursor: pointer;
 }
 
 .production-card-heading,
@@ -1567,6 +1646,15 @@
   .overview-detail-summary,
   .overview-breakdown-grid {
     grid-template-columns: 1fr;
+  }
+
+  .production-tree-main {
+    grid-template-columns: 1fr;
+    justify-items: start;
+  }
+
+  .production-tree-metric {
+    justify-content: flex-start;
   }
 
   .overview-transport-controls,
