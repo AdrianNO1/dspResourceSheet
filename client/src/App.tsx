@@ -151,6 +151,12 @@ type ProductionTreeUsage = {
   sharePercent: number;
 };
 
+type RecipeEntry = {
+  itemKey: string;
+  displayName: string;
+  quantity: number;
+};
+
 function describeExtractionRollup(row: ExtractionRollupRow) {
   if (row.type === "ore_vein") {
     return `${formatValue(row.supplyMetric)} node eq | ${formatValue(row.supplyPerMinute)} / min`;
@@ -717,10 +723,36 @@ function formatFixedValue(value: number, digits = 1) {
   }).format(value);
 }
 
+function toDisplayName(value: string) {
+  return value
+    .trim()
+    .split(/[-_\s]+/g)
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(" ");
+}
+
 function formatRoundedUpInteger(value: number) {
   return new Intl.NumberFormat("en-US", {
     maximumFractionDigits: 0,
   }).format(Math.max(0, Math.ceil(value - 1e-9)));
+}
+
+function parseRecipeEntries(value: string) {
+  return value
+    .split(",")
+    .map((entry) => entry.trim())
+    .filter(Boolean)
+    .map((entry) => {
+      const [name = "", quantityValue = "0"] = entry.split(":");
+      const quantity = Number(quantityValue);
+      return {
+        itemKey: name.trim().toLowerCase().replace(/[_\s]+/g, "-"),
+        displayName: toDisplayName(name),
+        quantity: Number.isFinite(quantity) ? quantity : 0,
+      } satisfies RecipeEntry;
+    })
+    .filter((entry) => entry.displayName.length > 0 && entry.quantity > 0);
 }
 
 function buildProductionTree(craftedItems: ProjectImportedItem[], projectItems: ProjectImportedItem[], summaries: ProductionItemSummary[]) {
@@ -749,7 +781,7 @@ function buildProductionTree(craftedItems: ProjectImportedItem[], projectItems: 
   for (const item of craftedItems) {
     const dependencyKeys = Array.from(new Set(
       item.dependencies
-        .filter((dependency) => dependency.dependency_type === "crafted" && itemByKey.has(dependency.item_key))
+        .filter((dependency) => itemByKey.has(dependency.item_key))
         .map((dependency) => dependency.item_key),
     )).sort(compareKeys);
 
@@ -775,6 +807,10 @@ function buildProductionTree(craftedItems: ProjectImportedItem[], projectItems: 
 
     const inputs = item.dependencies
       .filter((dependency) => {
+        if (!itemByKey.has(dependency.item_key)) {
+          return true;
+        }
+
         if (dependency.dependency_type !== "crafted") {
           return true;
         }
@@ -783,20 +819,20 @@ function buildProductionTree(craftedItems: ProjectImportedItem[], projectItems: 
           return false;
         }
 
-        return itemByKey.has(dependency.item_key);
+        return true;
       })
       .map<ProductionTreeInput>((dependency) => {
         const totalTarget = totalTargetByKey.get(dependency.item_key) ?? 0;
-        const parentCount = dependency.dependency_type === "crafted"
+        const parentCount = itemByKey.has(dependency.item_key)
           ? (parentKeysByChild.get(dependency.item_key)?.length ?? 0)
           : 0;
         return {
           itemKey: dependency.item_key,
           displayName: dependency.display_name,
-          dependencyType: dependency.dependency_type,
+          dependencyType: itemByKey.has(dependency.item_key) ? "crafted" : dependency.dependency_type,
           demandPerMinute: dependency.imported_demand_per_minute,
           sharePercent: totalTarget > 0 ? Math.min(100, (dependency.imported_demand_per_minute / totalTarget) * 100) : 0,
-          isSharedCrafted: dependency.dependency_type === "crafted" && parentCount > 1,
+          isSharedCrafted: itemByKey.has(dependency.item_key) && parentCount > 1,
         };
       })
       .sort((left, right) => right.demandPerMinute - left.demandPerMinute || left.displayName.localeCompare(right.displayName));
@@ -840,6 +876,11 @@ function buildProductionTree(craftedItems: ProjectImportedItem[], projectItems: 
   return {
     rootKeys: rootKeys.length > 0 ? rootKeys : allKeys,
     nodesByKey,
+    uniqueParentByChild: new Map(
+      allKeys
+        .filter((itemKey) => (parentKeysByChild.get(itemKey)?.length ?? 0) === 1)
+        .map((itemKey) => [itemKey, parentKeysByChild.get(itemKey)?.[0] ?? ""]),
+    ),
   };
 }
 
@@ -1867,6 +1908,59 @@ function App() {
     productionDraft.solarSystemId,
     productionDraft.planetId,
   );
+  const selectedProductionRecipeOutputs = selectedProductionTemplate ? parseRecipeEntries(selectedProductionTemplate.outputs || "") : [];
+  const selectedProductionPrimaryOutputQuantity = selectedProductionRecipeOutputs[0]?.quantity ?? 1;
+  const selectedProductionRecipeInputs = selectedProductionTemplate
+    ? selectedProductionTemplate.dependencies.map<RecipeEntry>((dependency) => ({
+        itemKey: dependency.item_key,
+        displayName: dependency.display_name,
+        quantity: dependency.per_unit_ratio * selectedProductionPrimaryOutputQuantity,
+      }))
+    : [];
+  const selectedProductionEffectiveCycleSeconds =
+    selectedProductionTemplate &&
+    selectedProductionTemplate.machine_count > 0 &&
+    selectedProductionTemplate.imported_throughput_per_minute > 0
+      ? (selectedProductionTemplate.machine_count * selectedProductionPrimaryOutputQuantity * 60) /
+        selectedProductionTemplate.imported_throughput_per_minute
+      : null;
+  const allExpandableProductionKeys = Array.from(productionTree.nodesByKey.values())
+    .filter((node) => node.inputs.length > 0 || node.usages.length > 0)
+    .map((node) => node.itemKey);
+  const allProductionRowsExpanded =
+    allExpandableProductionKeys.length > 0 &&
+    allExpandableProductionKeys.every((itemKey) => expandedProductionItemKeys[itemKey]);
+
+  function focusProductionTreeItem(itemKey: string) {
+    setSelectedProductionItemKey(itemKey);
+    const nextExpanded: Record<string, boolean> = {};
+    let currentKey: string | undefined = itemKey;
+    while (currentKey) {
+      nextExpanded[currentKey] = true;
+      currentKey = productionTree.uniqueParentByChild.get(currentKey);
+    }
+    setExpandedProductionItemKeys((current) => ({
+      ...current,
+      ...nextExpanded,
+    }));
+    window.setTimeout(() => {
+      document.getElementById(`production-tree-node-${itemKey}`)?.scrollIntoView({
+        behavior: "smooth",
+        block: "center",
+      });
+    }, 0);
+  }
+
+  function toggleExpandAllProductionRows() {
+    if (allProductionRowsExpanded) {
+      setExpandedProductionItemKeys({});
+      return;
+    }
+
+    setExpandedProductionItemKeys(
+      Object.fromEntries(allExpandableProductionKeys.map((itemKey) => [itemKey, true])),
+    );
+  }
 
   function renderProductionTreeNode(
     itemKey: string,
@@ -1882,6 +1976,10 @@ function App() {
     const isExpanded = expandedProductionItemKeys[node.itemKey] ?? false;
     const canExpand = node.inputs.length > 0 || node.usages.length > 0;
     const referenceInput = options?.referenceInput ?? null;
+    const matchingRawResource = resourceByNameLookup.get(node.summary.displayName.toLowerCase()) ?? null;
+    const trackedRawSupplyPerMinute = matchingRawResource
+      ? loadedData.summary.resourceSummaries.find((summary) => summary.resourceId === matchingRawResource.id)?.supplyPerMinute ?? 0
+      : 0;
 
     function toggleExpanded() {
       setSelectedProductionItemKey(node.itemKey);
@@ -1895,8 +1993,13 @@ function App() {
     }
 
     return (
-      <div key={node.itemKey} className="production-tree-branch" style={{ "--production-depth": depth } as CSSProperties}>
+      <div
+        key={`${referenceInput ? `${referenceInput.itemKey}:${depth}` : "node"}:${node.itemKey}`}
+        className="production-tree-branch"
+        style={{ "--production-depth": depth } as CSSProperties}
+      >
         <div
+          id={referenceInput ? undefined : `production-tree-node-${node.itemKey}`}
           className={`production-tree-row ${isSelected ? "production-tree-row-active" : ""}`}
         >
           <div className="production-tree-indent" aria-hidden="true" />
@@ -1926,7 +2029,7 @@ function App() {
               {referenceInput ? (
                 <div className="production-tree-reference-meta">
                   <span>{formatValue(referenceInput.demandPerMinute)} / min</span>
-                  <span>{formatFixedValue(referenceInput.sharePercent, 1)}% of project supply</span>
+                  {referenceInput.sharePercent < 99.95 ? <span>{formatFixedValue(referenceInput.sharePercent, 1)}% of project supply</span> : null}
                   {referenceInput.isSharedCrafted ? <span className="production-tree-reference-badge">shared input</span> : null}
                 </div>
               ) : null}
@@ -1971,7 +2074,7 @@ function App() {
                       key={`${node.itemKey}:${usage.itemKey}`}
                       type="button"
                       className="production-tree-expanded-row"
-                      onClick={() => setSelectedProductionItemKey(usage.itemKey)}
+                      onClick={() => focusProductionTreeItem(usage.itemKey)}
                     >
                       <div className="production-tree-expanded-copy">
                         <ResourceIcon
@@ -1983,14 +2086,17 @@ function App() {
                         />
                         <strong>{usage.displayName}</strong>
                       </div>
-                      <span>{formatValue(usage.demandPerMinute)} / min</span>
                       <span>{formatFixedValue(usage.sharePercent, 1)}% of project supply</span>
+                      <span>{formatValue(usage.demandPerMinute)} / min</span>
                     </button>
                   ))}
                 </div>
               ) : (
                 <p className="helper-text">No downstream recipe usage in this imported project.</p>
               )}
+              {trackedRawSupplyPerMinute > 0 ? (
+                <p className="helper-text">Tracked raw supply: {formatValue(trackedRawSupplyPerMinute)} / min.</p>
+              ) : null}
             </div>
           </div>
         ) : null}
@@ -1998,7 +2104,7 @@ function App() {
         {isExpanded && node.inputs.length > 0 ? (
           <div className="production-tree-children">
             {node.inputs.map((input) => (
-              input.dependencyType === "crafted" && productionTree.nodesByKey.has(input.itemKey)
+              input.dependencyType === "crafted" && productionTree.nodesByKey.has(input.itemKey) && !input.isSharedCrafted
                 ? renderProductionTreeNode(input.itemKey, depth + 1, { referenceInput: input })
                 : (
                   <div key={`${node.itemKey}:${input.itemKey}`} className="production-tree-branch" style={{ "--production-depth": depth + 1 } as CSSProperties}>
@@ -2018,17 +2124,16 @@ function App() {
                           />
                           <div className="production-tree-copy">
                             <strong>{input.displayName}</strong>
-                            <span className="production-tree-reference-badge">raw input</span>
+                            <div className="production-tree-reference-meta">
+                              {input.sharePercent < 99.95 ? <span>{formatFixedValue(input.sharePercent, 1)}% of project supply</span> : null}
+                              <span className="production-tree-reference-badge">{input.isSharedCrafted ? "shared input" : "raw input"}</span>
+                            </div>
                           </div>
                         </div>
                         <div className="production-tree-metrics">
                           <div className="production-tree-metric">
                             <strong>{formatValue(input.demandPerMinute)}</strong>
                             <span className="production-tree-metric-label">/ min</span>
-                          </div>
-                          <div className="production-tree-metric">
-                            <strong>{formatFixedValue(input.sharePercent, 1)}%</strong>
-                            <span className="production-tree-metric-label">of project supply</span>
                           </div>
                         </div>
                       </div>
@@ -3797,7 +3902,12 @@ function App() {
                   <p className="eyebrow">Summary</p>
                   <h2>Production tree</h2>
                 </div>
-                <span className="helper-text">Imported crafted items arranged by dependency, similar to your FactorioLab plan.</span>
+                <div className="overview-detail-actions">
+                  <span className="helper-text">Imported crafted items arranged by dependency, similar to your FactorioLab plan.</span>
+                  <button type="button" className="ghost-button" onClick={toggleExpandAllProductionRows}>
+                    {allProductionRowsExpanded ? "Collapse all" : "Expand everything"}
+                  </button>
+                </div>
               </div>
               {productionItemSummaries.length > 0 ? (
                 <div className="production-tree-root-list">
@@ -4195,6 +4305,58 @@ function App() {
                           size="sm"
                         />
                         {selectedProductionTemplate.machine_label || "Imported machine"}
+                      </div>
+                      <div className="production-recipe-card">
+                        <div className="production-recipe-summary">
+                          <div className="production-recipe-stat">
+                            <span>Cycle</span>
+                            <strong>{selectedProductionEffectiveCycleSeconds === null ? "n/a" : `${formatFixedValue(selectedProductionEffectiveCycleSeconds, 2)} s`}</strong>
+                          </div>
+                          <div className="production-recipe-stat">
+                            <span>Output</span>
+                            <strong>{formatValue(selectedProductionPrimaryOutputQuantity)}</strong>
+                          </div>
+                        </div>
+
+                        {selectedProductionRecipeInputs.length > 0 ? (
+                          <div className="production-recipe-io">
+                            <span className="production-recipe-label">Inputs</span>
+                            <div className="production-recipe-entry-list">
+                              {selectedProductionRecipeInputs.map((entry) => (
+                                <div key={`input:${entry.itemKey}`} className="production-recipe-entry">
+                                  <ResourceIcon
+                                    name={entry.displayName}
+                                    iconUrl={getIconUrlForName(entry.displayName)}
+                                    colorStart={productionIconStart}
+                                    colorEnd={productionIconEnd}
+                                    size="sm"
+                                  />
+                                  <span>{formatValue(entry.quantity)}</span>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        ) : null}
+
+                        {selectedProductionRecipeOutputs.length > 0 ? (
+                          <div className="production-recipe-io">
+                            <span className="production-recipe-label">Outputs</span>
+                            <div className="production-recipe-entry-list">
+                              {selectedProductionRecipeOutputs.map((entry) => (
+                                <div key={`output:${entry.itemKey}`} className="production-recipe-entry">
+                                  <ResourceIcon
+                                    name={entry.displayName}
+                                    iconUrl={getIconUrlForName(entry.displayName)}
+                                    colorStart={productionIconStart}
+                                    colorEnd={productionIconEnd}
+                                    size="sm"
+                                  />
+                                  <span>{formatValue(entry.quantity)}</span>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        ) : null}
                       </div>
                       <p className="helper-text">{selectedProductionTemplate.outputs || "Single-output imported recipe."}</p>
                     </div>
