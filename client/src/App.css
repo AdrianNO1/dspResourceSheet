@@ -990,6 +990,11 @@
   gap: 4px;
 }
 
+.production-ingredient-heading > div {
+  display: grid;
+  gap: 4px;
+}
+
 .production-card-heading,
 .production-site-heading {
   min-width: 0;
