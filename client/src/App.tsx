@@ -4742,7 +4742,7 @@ function App() {
                             <p className="helper-text">
                               {ingredient.sourcesLabel}
                               {ingredient.shortagePerMinute > 0 ? ` · Missing ${formatValue(ingredient.shortagePerMinute)} / min.` : ""}
-                              {ingredient.hasOutboundIlsWarning ? " Source outbound ILS is overbooked." : ""}
+                              {ingredient.hasSourceIlsWarning ? " One or more source exporters need more source ILS than currently configured." : ""}
                             </p>
                           </article>
                         ))}
@@ -4931,7 +4931,7 @@ function App() {
                                   <p className="helper-text">
                                     {dependency.sourcesLabel}
                                     {dependency.shortagePerMinute > 0 ? ` | Missing ${formatValue(dependency.shortagePerMinute)} / min.` : ""}
-                                    {dependency.hasOutboundIlsWarning ? " Source outbound ILS is overbooked." : ""}
+                                    {dependency.hasSourceIlsWarning ? " One or more source exporters need more source ILS than currently configured." : ""}
                                   </p>
                                   {dependency.sources.length > 0 && (
                                     <div className="overview-breakdown-list">
@@ -4951,17 +4951,20 @@ function App() {
                                                 <span>{source.solarSystemName} | {source.producerName}</span>
                                               </div>
                                             </div>
-                                            <div className="overview-breakdown-values">
-                                              <strong>{formatValue(source.throughputPerMinute)} / min</strong>
-                                              <span>
-                                                {source.isLocalPlanet
-                                                  ? "Local planet"
+                                          <div className="overview-breakdown-values">
+                                            <strong>{formatValue(source.throughputPerMinute)} / min</strong>
+                                            <span>
+                                              {source.isLocalPlanet
+                                                ? "Local planet"
                                                   : source.isLocalSystem
                                                     ? "Local system"
                                                     : `Source ILS ${source.sourceStationsNeeded === null ? "?" : formatFixedValue(source.sourceStationsNeeded, 2)}`}
                                               </span>
                                             </div>
                                           </div>
+                                          {source.hasSourceIlsWarning ? (
+                                            <p className="helper-text">This source is still allocated, but it needs more source ILS than is currently configured.</p>
+                                          ) : null}
                                         </article>
                                       ))}
                                     </div>

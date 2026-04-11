@@ -66,6 +66,7 @@ export type ProductionIngredientSource = {
   isLocalSystem: boolean;
   sourceStationsNeeded: number | null;
   targetStationsNeeded: number | null;
+  hasSourceIlsWarning: boolean;
 };
 
 export type ProductionSiteDependencyView = {
@@ -78,7 +79,7 @@ export type ProductionSiteDependencyView = {
   shortagePerMinute: number;
   targetIlsFraction: number | null;
   sourcesLabel: string;
-  hasOutboundIlsWarning: boolean;
+  hasSourceIlsWarning: boolean;
   sources: ProductionIngredientSource[];
 };
 
@@ -171,7 +172,7 @@ type ProjectContext = {
   allocations: Allocation[];
   allocationsByConsumer: Record<string, Allocation[]>;
   outboundIlsRequiredBySiteId: Record<string, number>;
-  warnedProducerIds: Set<string>;
+  warnedSourceProducerIds: Set<string>;
 };
 
 function roundUp(value: number, decimals: number) {
@@ -513,13 +514,59 @@ function packMixedIls(dependencies: ProductionSiteDependencyView[]) {
   return { fullStations, bins };
 }
 
+function getWarnedSourceProducerIds(
+  data: BootstrapData,
+  producers: ProducerNode[],
+  allocations: Allocation[],
+  outboundIlsRequiredBySiteId: Record<string, number>,
+) {
+  const warnedSourceProducerIds = new Set<string>();
+  const rawRemoteIlsByProducerId = allocations.reduce<Record<string, number>>((acc, allocation) => {
+    const producer = producers.find((entry) => entry.id === allocation.producerId);
+    if (!producer || producer.kind !== "raw" || allocation.isLocalPlanet || allocation.isLocalSystem) {
+      return acc;
+    }
+
+    acc[producer.id] = (acc[producer.id] ?? 0) + (allocation.sourceStationsNeeded ?? 0);
+    return acc;
+  }, {});
+
+  for (const producer of producers) {
+    if (producer.kind === "raw") {
+      const remoteIlsNeeded = rawRemoteIlsByProducerId[producer.id] ?? 0;
+      if (
+        remoteIlsNeeded > 0 &&
+        (producer.extractionOutboundIlsCount === null || remoteIlsNeeded - producer.extractionOutboundIlsCount > 1e-9)
+      ) {
+        warnedSourceProducerIds.add(producer.id);
+      }
+      continue;
+    }
+
+    if (!producer.productionSiteId) {
+      continue;
+    }
+
+    const site = data.productionSites.find((entry) => entry.id === producer.productionSiteId);
+    if (!site) {
+      continue;
+    }
+
+    if ((outboundIlsRequiredBySiteId[site.id] ?? 0) - Number(site.outbound_ils_count) > 1e-9) {
+      warnedSourceProducerIds.add(producer.id);
+    }
+  }
+
+  return warnedSourceProducerIds;
+}
+
 function buildDependencyViews(
   importedItem: ProjectImportedItem,
   throughputPerMinute: number,
   consumerIdPrefix: string,
   allocationsByConsumer: Record<string, Allocation[]>,
   producers: ProducerNode[],
-  warnedProducerIds: Set<string>,
+  warnedSourceProducerIds: Set<string>,
 ) {
   const scale = importedItem.imported_throughput_per_minute > 0
     ? throughputPerMinute / importedItem.imported_throughput_per_minute
@@ -545,6 +592,7 @@ function buildDependencyViews(
         isLocalSystem: row.isLocalSystem,
         sourceStationsNeeded: row.sourceStationsNeeded,
         targetStationsNeeded: row.targetStationsNeeded,
+        hasSourceIlsWarning: warnedSourceProducerIds.has(producer.id),
       }];
     });
 
@@ -560,10 +608,7 @@ function buildDependencyViews(
       sourcesLabel: sources.length > 0
         ? sources.map((source) => `${source.planetName} (${roundUp(source.throughputPerMinute, 2)}/min)`).join(", ")
         : "No source assigned",
-      hasOutboundIlsWarning: rows.some((row) => {
-        const producer = producers.find((entry) => entry.id === row.producerId);
-        return producer?.productionSiteId ? warnedProducerIds.has(producer.productionSiteId) : false;
-      }),
+      hasSourceIlsWarning: sources.some((source) => source.hasSourceIlsWarning),
       sources,
     };
   });
@@ -593,11 +638,7 @@ function buildProjectContext(data: BootstrapData, projectId: string): ProjectCon
   const allocations = buildAllocations(data, producers, consumers);
   const allocationsByConsumer = groupAllocationsByConsumer(allocations);
   const outboundIlsRequiredBySiteId = getOutboundIlsRequiredBySiteId(allocations, producers);
-  const warnedProducerIds = new Set(
-    data.productionSites
-      .filter((site) => (outboundIlsRequiredBySiteId[site.id] ?? 0) - Number(site.outbound_ils_count) > 1e-9)
-      .map((site) => site.id),
-  );
+  const warnedSourceProducerIds = getWarnedSourceProducerIds(data, producers, allocations, outboundIlsRequiredBySiteId);
 
   return {
     importedItems,
@@ -606,7 +647,7 @@ function buildProjectContext(data: BootstrapData, projectId: string): ProjectCon
     allocations,
     allocationsByConsumer,
     outboundIlsRequiredBySiteId,
-    warnedProducerIds,
+    warnedSourceProducerIds,
   };
 }
 
@@ -786,7 +827,7 @@ export function buildProductionDraftPreview(
     consumerPrefix,
     allocationLookup,
     context.producers,
-    context.warnedProducerIds,
+    context.warnedSourceProducerIds,
   );
 
   return {
@@ -852,7 +893,7 @@ export function buildProductionPlanner(data: BootstrapData, projectId: string | 
         site.id,
         context.allocationsByConsumer,
         context.producers,
-        context.warnedProducerIds,
+        context.warnedSourceProducerIds,
       );
 
       return [{
@@ -881,7 +922,7 @@ export function buildProductionPlanner(data: BootstrapData, projectId: string | 
       "__summary__",
       {},
       context.producers,
-      context.warnedProducerIds,
+      context.warnedSourceProducerIds,
     );
     const totalRequired = dependencies.reduce((sum, dependency) => sum + dependency.requiredPerMinute, 0);
     const totalCovered = dependencies.reduce((sum, dependency) => sum + dependency.coveragePerMinute, 0);
