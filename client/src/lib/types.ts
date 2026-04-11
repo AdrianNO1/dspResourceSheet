@@ -31,12 +31,18 @@ export type SystemDistance = {
   distance_ly: number;
 };
 
+export type PlanetExtractionIlsOverride = {
+  resource_id: string;
+  ils_count: number;
+};
+
 export type Planet = {
   id: string;
   solar_system_id: string;
   name: string;
   planet_type: PlanetType;
   extraction_outbound_ils_count: number | null;
+  extraction_outbound_ils_overrides: PlanetExtractionIlsOverride[];
 };
 
 export type Project = {

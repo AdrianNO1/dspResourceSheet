@@ -16,6 +16,7 @@ import type {
   OreVein,
   OreVeinMiner,
   Planet,
+  PlanetExtractionIlsOverride,
   PlanetType,
   Project,
   ProjectGoal,
@@ -170,6 +171,28 @@ function ensureSettingsObject(value: unknown) {
     acc[key] = String(item ?? "");
     return acc;
   }, {});
+}
+
+function normalizePlanetExtractionIlsOverrides(value: unknown) {
+  const overridesByResourceId = new Map<string, PlanetExtractionIlsOverride>();
+
+  for (const item of ensureArray<PlanetExtractionIlsOverride>(value)) {
+    const resourceId = getSortableValue(item.resource_id);
+    const ilsCount = typeof item.ils_count === "number" && Number.isFinite(item.ils_count) && item.ils_count >= 0
+      ? item.ils_count
+      : null;
+
+    if (!resourceId || ilsCount === null) {
+      continue;
+    }
+
+    overridesByResourceId.set(resourceId, {
+      resource_id: resourceId,
+      ils_count: ilsCount,
+    });
+  }
+
+  return Array.from(overridesByResourceId.values());
 }
 
 function createEmptySnapshot(): Snapshot {
@@ -336,6 +359,7 @@ function normalizeSnapshot(input: unknown): Snapshot {
       typeof item.extraction_outbound_ils_count === "number" && Number.isFinite(item.extraction_outbound_ils_count)
         ? item.extraction_outbound_ils_count
         : null,
+    extraction_outbound_ils_overrides: normalizePlanetExtractionIlsOverrides(item.extraction_outbound_ils_overrides),
   }));
 
   snapshot.projects = ensureArray<Project>(source.projects).map((item) => ({
@@ -687,9 +711,9 @@ function buildBootstrap(snapshot: Snapshot): BootstrapData {
         : getRegularMinerOutputPerMinute(Number(miner.covered_nodes), miningSpeedPercent);
 
     aggregate.placementIds.add(parentVein.id);
+    aggregate.supplyMetric += Number(miner.covered_nodes);
     aggregate.supplyPerMinute += supplyPerMinute;
     aggregate.supplyPerSecond = aggregate.supplyPerMinute / 60;
-    aggregate.supplyMetric = aggregate.supplyPerMinute / 30;
   });
 
   snapshot.liquidSites.forEach((site) => {
@@ -712,7 +736,7 @@ function buildBootstrap(snapshot: Snapshot): BootstrapData {
     }
 
     aggregate.placementIds.add(extractor.id);
-    aggregate.supplyPerSecond += getOilOutputPerSecond(Number(extractor.oil_per_second));
+    aggregate.supplyPerSecond += getOilOutputPerSecond(Number(extractor.oil_per_second), miningSpeedPercent);
     aggregate.supplyPerMinute = aggregate.supplyPerSecond * 60;
     aggregate.supplyMetric = aggregate.supplyPerMinute;
   });
@@ -920,6 +944,13 @@ export async function mutateStore(url: string, method: string, body?: unknown) {
     if (!name) {
       throw new Error("Planet name is required.");
     }
+    if (
+      snapshot.planets.some(
+        (planet) => planet.solar_system_id === solarSystemId && planet.name.toLowerCase() === name.toLowerCase(),
+      )
+    ) {
+      throw new Error("A planet with that name already exists in this system.");
+    }
 
     const id = generateId();
     snapshot.planets.push({
@@ -928,6 +959,7 @@ export async function mutateStore(url: string, method: string, body?: unknown) {
       name,
       planet_type: planetType,
       extraction_outbound_ils_count: null,
+      extraction_outbound_ils_overrides: [],
     });
     snapshot.settings.currentSolarSystemId = solarSystemId;
     snapshot.settings.currentPlanetId = id;
@@ -965,6 +997,16 @@ export async function mutateStore(url: string, method: string, body?: unknown) {
     if (!name) {
       throw new Error("Planet name is required.");
     }
+    if (
+      snapshot.planets.some(
+        (item) =>
+          item.id !== planetId &&
+          item.solar_system_id === planet.solar_system_id &&
+          item.name.toLowerCase() === name.toLowerCase(),
+      )
+    ) {
+      throw new Error("A planet with that name already exists in this system.");
+    }
 
     planet.name = name;
     if ("extractionOutboundIlsCount" in payload) {
@@ -975,6 +1017,24 @@ export async function mutateStore(url: string, method: string, body?: unknown) {
           : Number.isFinite(Number(nextIlsCount))
             ? Number(nextIlsCount)
             : planet.extraction_outbound_ils_count;
+    }
+    if ("extractionOutboundIlsOverrides" in payload) {
+      const overridesByResourceId = new Map<string, PlanetExtractionIlsOverride>();
+
+      ensureArray<{ resourceId: string; ilsCount: number }>(payload.extractionOutboundIlsOverrides).forEach((override) => {
+        const resourceId = String(override.resourceId ?? "").trim();
+        const ilsCount = Number(override.ilsCount);
+        if (!resourceId || !Number.isFinite(ilsCount) || ilsCount < 0) {
+          return;
+        }
+
+        overridesByResourceId.set(resourceId, {
+          resource_id: resourceId,
+          ils_count: ilsCount,
+        });
+      });
+
+      planet.extraction_outbound_ils_overrides = Array.from(overridesByResourceId.values());
     }
   } else if (url === "/api/settings" && method === "PATCH") {
     Object.entries(payload).forEach(([key, value]) => {

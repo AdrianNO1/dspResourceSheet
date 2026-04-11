@@ -24,6 +24,7 @@ type ProducerNode = {
   id: string;
   kind: ProducerKind;
   key: string;
+  resourceId: string | null;
   displayName: string;
   solarSystemId: string;
   solarSystemName: string;
@@ -186,6 +187,17 @@ function getPlanetLookup(data: BootstrapData) {
   return new Map(data.planets.map((planet) => [planet.id, planet]));
 }
 
+function getPlanetExtractionOutboundIlsCount(planet: Planet, resourceId: string | null) {
+  if (resourceId) {
+    const override = planet.extraction_outbound_ils_overrides.find((item) => item.resource_id === resourceId);
+    if (override) {
+      return override.ils_count;
+    }
+  }
+
+  return planet.extraction_outbound_ils_count;
+}
+
 function getSystemLookup(data: BootstrapData) {
   return new Map(data.solarSystems.map((system) => [system.id, system]));
 }
@@ -233,6 +245,7 @@ function buildRawProducers(data: BootstrapData) {
       id: key,
       kind: "raw",
       key: normalizeKey(resource.name),
+      resourceId: resource.id,
       displayName: resource.name,
       solarSystemId: solarSystem.id,
       solarSystemName: solarSystem.name,
@@ -241,7 +254,7 @@ function buildRawProducers(data: BootstrapData) {
       availablePerMinute: amountPerMinute,
       createdAt,
       productionSiteId: null,
-      extractionOutboundIlsCount: planet.extraction_outbound_ils_count,
+      extractionOutboundIlsCount: getPlanetExtractionOutboundIlsCount(planet, resource.id),
     });
   }
 
@@ -273,7 +286,7 @@ function buildRawProducers(data: BootstrapData) {
     addProducer(
       resourceLookup.get(site.resource_id),
       planetLookup.get(site.planet_id),
-      getOilOutputPerSecond(Number(site.oil_per_second)) * 60,
+      getOilOutputPerSecond(Number(site.oil_per_second), data.settings.miningSpeedPercent) * 60,
       site.created_at,
     );
   }
@@ -319,6 +332,7 @@ function buildCraftedProducers(data: BootstrapData, importedItems: Map<string, P
         id: `site:${site.id}`,
         kind: "crafted",
         key: site.item_key,
+        resourceId: null,
         displayName: importedItem.display_name,
         solarSystemId: solarSystem.id,
         solarSystemName: solarSystem.name,
@@ -616,53 +630,92 @@ function buildWarnings(
 ) {
   const warnings: ProductionWarning[] = [];
   const planetLookup = getPlanetLookup(data);
-  const extractionPlanets = new Map<string, Planet>();
-
-  for (const producer of context.producers) {
-    if (producer.kind !== "raw") {
-      continue;
-    }
-    const planet = planetLookup.get(producer.planetId);
-    if (planet) {
-      extractionPlanets.set(planet.id, planet);
-    }
-  }
-
-  const rawRemoteIlsByPlanetId = context.allocations.reduce<Record<string, number>>((acc, allocation) => {
+  const rawProducers = context.producers.filter((producer) => producer.kind === "raw");
+  const rawRemoteIlsByProducerId = context.allocations.reduce<Record<string, number>>((acc, allocation) => {
     const producer = context.producers.find((entry) => entry.id === allocation.producerId);
     if (!producer || producer.kind !== "raw" || allocation.isLocalPlanet || allocation.isLocalSystem) {
       return acc;
     }
-    acc[producer.planetId] = (acc[producer.planetId] ?? 0) + (allocation.sourceStationsNeeded ?? 0);
+    acc[producer.id] = (acc[producer.id] ?? 0) + (allocation.sourceStationsNeeded ?? 0);
+    return acc;
+  }, {});
+  const extractedRawResourceIdsByPlanetId = rawProducers.reduce<Record<string, Set<string>>>((acc, producer) => {
+    if (!producer.resourceId) {
+      return acc;
+    }
+
+    acc[producer.planetId] ??= new Set<string>();
+    acc[producer.planetId].add(producer.resourceId);
     return acc;
   }, {});
 
-  for (const planet of extractionPlanets.values()) {
-    if (planet.extraction_outbound_ils_count === null) {
+  for (const producer of rawProducers) {
+    const producerPlanet = planetLookup.get(producer.planetId);
+    if (producerPlanet?.planet_type === "gas_giant") {
+      continue;
+    }
+
+    const remoteIlsNeeded = rawRemoteIlsByProducerId[producer.id] ?? 0;
+
+    if (producer.extractionOutboundIlsCount === null && remoteIlsNeeded > 0) {
       warnings.push({
-        id: `missing-extraction-ils:${planet.id}`,
+        id: `missing-extraction-ils:${producer.id}`,
         kind: "missing-extraction-ils",
         severity: "warning",
-        title: `${planet.name} is missing extraction ILS capacity`,
-        detail:
-          (rawRemoteIlsByPlanetId[planet.id] ?? 0) > 0
-            ? "This extraction planet is already serving remote demand, but its available outbound raw ILS count is unset."
-            : "Set the outbound raw ILS count on this extraction planet before trusting logistics warnings.",
+        title: `${producer.planetName} is missing ${producer.displayName} export ILS capacity`,
+        detail: "This raw resource is already serving remote demand, but its source ILS capacity is unset. Set a planet default or add a resource override.",
       });
     }
 
     if (
-      planet.extraction_outbound_ils_count !== null &&
-      (rawRemoteIlsByPlanetId[planet.id] ?? 0) - planet.extraction_outbound_ils_count > 1e-9
+      producer.extractionOutboundIlsCount !== null &&
+      remoteIlsNeeded - producer.extractionOutboundIlsCount > 1e-9
     ) {
       warnings.push({
-        id: `overbooked-extraction-ils:${planet.id}`,
+        id: `overbooked-extraction-ils:${producer.id}`,
         kind: "overbooked-extraction-ils",
         severity: "danger",
-        title: `${planet.name} is overbooked on raw export ILS`,
-        detail: `${roundUp(rawRemoteIlsByPlanetId[planet.id] ?? 0, 2)} source ILS are required, but only ${planet.extraction_outbound_ils_count} are configured.`,
+        title: `${producer.planetName} is overbooked on ${producer.displayName} export ILS`,
+        detail: `${roundUp(remoteIlsNeeded, 2)} source ILS are required, but only ${producer.extractionOutboundIlsCount} are configured for this resource.`,
       });
     }
+  }
+
+  for (const planet of planetLookup.values()) {
+    if (planet.planet_type === "gas_giant") {
+      continue;
+    }
+
+    if (planet.extraction_outbound_ils_count !== null) {
+      continue;
+    }
+
+    const extractedResourceIds = Array.from(extractedRawResourceIdsByPlanetId[planet.id] ?? []);
+    if (extractedResourceIds.length === 0) {
+      continue;
+    }
+
+    const hasOverrideForEveryExtractedResource = extractedResourceIds.every((resourceId) =>
+      planet.extraction_outbound_ils_overrides.some((override) => override.resource_id === resourceId),
+    );
+    if (hasOverrideForEveryExtractedResource) {
+      continue;
+    }
+
+    const hasRemoteDemand = rawProducers.some(
+      (producer) => producer.planetId === planet.id && (rawRemoteIlsByProducerId[producer.id] ?? 0) > 0,
+    );
+    if (hasRemoteDemand) {
+      continue;
+    }
+
+    warnings.push({
+      id: `missing-extraction-ils:default:${planet.id}`,
+      kind: "missing-extraction-ils",
+      severity: "warning",
+      title: `${planet.name} is missing a default raw export ILS count`,
+      detail: "Set a planet-wide default or add resource-specific overrides before trusting future logistics warnings.",
+    });
   }
 
   for (const site of data.productionSites.filter((entry) => entry.project_id === projectId)) {

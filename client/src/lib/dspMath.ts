@@ -67,8 +67,18 @@ export function getPumpOutputPerMinute(pumpCount: number, miningSpeedPercent: nu
   return pumpCount * PUMP_OUTPUT_PER_MINUTE * getMiningSpeedMultiplier(miningSpeedPercent);
 }
 
-export function getOilOutputPerSecond(baseOilPerSecond: number) {
-  return baseOilPerSecond * OIL_OUTPUT_MULTIPLIER;
+export function normalizeOilPerSecondTo100Percent(oilPerSecond: number, miningSpeedPercent: number) {
+  const miningSpeedMultiplier = getMiningSpeedMultiplier(miningSpeedPercent);
+
+  if (miningSpeedMultiplier <= 0) {
+    return 0;
+  }
+
+  return oilPerSecond / miningSpeedMultiplier;
+}
+
+export function getOilOutputPerSecond(baseOilPerSecondAt100Percent: number, miningSpeedPercent: number) {
+  return baseOilPerSecondAt100Percent * OIL_OUTPUT_MULTIPLIER * getMiningSpeedMultiplier(miningSpeedPercent);
 }
 
 export function getOrbitalCollectorTrueBoost(

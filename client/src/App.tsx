@@ -20,6 +20,7 @@ import {
   getItemsPerMinutePerVessel,
   getMultiSourceTransportPlan,
   getOilOutputPerSecond,
+  normalizeOilPerSecondTo100Percent,
   getOrbitalCollectorTrueBoost,
   getPumpOutputPerMinute,
   getRegularMinerOutputPerMinute,
@@ -38,13 +39,13 @@ import type {
   OilExtractor,
   OreVeinMiner,
   Planet,
+  SolarSystem,
   Project,
   ProjectGoal,
   ProjectImportedItem,
   ResourceDefinition,
   ResourceSummary,
   ResourceType,
-  SystemDistance,
 } from "./lib/types";
 
 type MinerDraft = {
@@ -56,12 +57,6 @@ type MinerDraft = {
 type GasOutputDraft = {
   resourceId: string;
   ratePerSecond: number;
-};
-
-type SystemDistanceDraft = {
-  systemAId: string;
-  systemBId: string;
-  distanceLy: number;
 };
 
 type ResourceOriginEntry = {
@@ -121,6 +116,14 @@ type ExtractionRollupRow = {
   placementCount: number;
 };
 
+type PlanetExtractionIlsResourceRow = {
+  resourceId: string;
+  name: string;
+  iconUrl: string | null;
+  colorStart: string;
+  colorEnd: string;
+};
+
 type ExtractionActivityRow = {
   id: string;
   kind: "ore" | "liquid" | "oil" | "gas";
@@ -156,22 +159,124 @@ type ProductionTreeUsage = {
   sharePercent: number;
 };
 
+const CREATE_NEW_SYSTEM_OPTION = "__create-new-system__";
+const CREATE_NEW_PLANET_OPTION = "__create-new-planet__";
+
 type RecipeEntry = {
   itemKey: string;
   displayName: string;
   quantity: number;
 };
 
+type ViewKey = "log" | "overview" | "raw" | "map" | "production" | "projects" | "settings";
+
+const viewTabs: Array<{ key: ViewKey; label: string }> = [
+  { key: "log", label: "Logging" },
+  { key: "overview", label: "Overview" },
+  { key: "raw", label: "Raw" },
+  { key: "map", label: "Map" },
+  { key: "production", label: "Production" },
+  { key: "projects", label: "Projects" },
+  { key: "settings", label: "Settings" },
+];
+
+const defaultView: ViewKey = "log";
+
+function getViewFromHash(hash: string): ViewKey {
+  const view = hash.replace(/^#\/?/, "").replace(/\/+$/, "").toLowerCase();
+  return viewTabs.some((tab) => tab.key === view) ? (view as ViewKey) : defaultView;
+}
+
+function getHashForView(view: ViewKey) {
+  return `#/${view}`;
+}
+
 function describeExtractionRollup(row: ExtractionRollupRow) {
   if (row.type === "ore_vein") {
-    return `${formatValue(row.supplyMetric)} node eq | ${formatValue(row.supplyPerMinute)} / min`;
+    return `${formatValue(row.supplyMetric)} nodes covered | ${formatValue(row.supplyPerMinute)} / min`;
   }
 
   if (row.type === "liquid_pump") {
     return `${formatValue(row.supplyPerMinute)} / min`;
   }
 
-  return `${formatValue(row.supplyPerSecond)} / sec | ${formatValue(row.supplyPerMinute)} / min`;
+  return `${formatValue(row.supplyPerMinute)} / min`;
+}
+
+function getPlanetExtractionIlsOverrideDraftKey(planetId: string, resourceId: string) {
+  return `${planetId}:${resourceId}`;
+}
+
+function getPlanetResourceExtractionIlsCount(planet: Planet, resourceId: string) {
+  const override = planet.extraction_outbound_ils_overrides.find((item) => item.resource_id === resourceId);
+  return override?.ils_count ?? planet.extraction_outbound_ils_count;
+}
+
+function getPlanetExtractionIlsResourceRows(
+  planet: Planet,
+  extractionRows: ExtractionRollupRow[],
+  resourceLookup: Map<string, ResourceDefinition>,
+) {
+  const rows = new Map<string, PlanetExtractionIlsResourceRow>();
+
+  extractionRows.forEach((row) => {
+    rows.set(row.resourceId, {
+      resourceId: row.resourceId,
+      name: row.name,
+      iconUrl: row.iconUrl,
+      colorStart: row.colorStart,
+      colorEnd: row.colorEnd,
+    });
+  });
+
+  planet.extraction_outbound_ils_overrides.forEach((override) => {
+    if (rows.has(override.resource_id)) {
+      return;
+    }
+
+    const resource = resourceLookup.get(override.resource_id);
+    if (!resource) {
+      return;
+    }
+
+    rows.set(override.resource_id, {
+      resourceId: resource.id,
+      name: resource.name,
+      iconUrl: resource.icon_url,
+      colorStart: resource.color_start,
+      colorEnd: resource.color_end,
+    });
+  });
+
+  return Array.from(rows.values()).sort((left, right) => left.name.localeCompare(right.name));
+}
+
+function isPlanetMissingExtractionIlsCoverage(
+  data: BootstrapData,
+  planet: Planet,
+) {
+  if (planet.planet_type === "gas_giant" || planet.extraction_outbound_ils_count !== null) {
+    return false;
+  }
+
+  const extractedResourceIds = new Set<string>();
+  data.oreVeins
+    .filter((vein) => vein.planet_id === planet.id)
+    .forEach((vein) => extractedResourceIds.add(vein.resource_id));
+  data.liquidSites
+    .filter((site) => site.planet_id === planet.id)
+    .forEach((site) => extractedResourceIds.add(site.resource_id));
+  data.oilExtractors
+    .filter((site) => site.planet_id === planet.id)
+    .forEach((site) => extractedResourceIds.add(site.resource_id));
+
+  if (extractedResourceIds.size === 0) {
+    return false;
+  }
+
+  return Array.from(extractedResourceIds).some(
+    (resourceId) => !planet.extraction_outbound_ils_overrides.some((override) => override.resource_id === resourceId),
+  );
 }
 
 function getExtractionView(
@@ -243,21 +348,22 @@ function getExtractionView(
     }
 
     const miners = oreMinerLookup[vein.id] ?? [];
+    const coveredNodes = getOreVeinCoveredNodes(miners);
     const supplyPerMinute = getOreVeinOutputPerMinute(miners, data.settings.miningSpeedPercent);
     const rollup = ensureRollup(vein.resource_id);
 
     if (rollup) {
       rollup.placementIds.add(vein.id);
+      rollup.supplyMetric += coveredNodes;
       rollup.supplyPerMinute += supplyPerMinute;
       rollup.supplyPerSecond = rollup.supplyPerMinute / 60;
-      rollup.supplyMetric = rollup.supplyPerMinute / 30;
     }
 
     activityRows.push({
       id: vein.id,
       kind: "ore",
       title: getResourceName(data.resources, vein.resource_id),
-      detail: `${miners.length} ${miners.length === 1 ? "miner" : "miners"} | ${formatValue(supplyPerMinute)} ore/min | ${formatValue(supplyPerMinute / 30)} node eq`,
+      detail: `${miners.length} ${miners.length === 1 ? "miner" : "miners"} | ${formatValue(coveredNodes)} nodes covered | ${formatValue(supplyPerMinute)} ore/min`,
       createdAt: vein.created_at,
       planetId: context.planet.id,
       planetName: context.planetName,
@@ -309,7 +415,7 @@ function getExtractionView(
       continue;
     }
 
-    const supplyPerSecond = getOilOutputPerSecond(Number(extractor.oil_per_second));
+    const supplyPerSecond = getOilOutputPerSecond(Number(extractor.oil_per_second), data.settings.miningSpeedPercent);
     const supplyPerMinute = supplyPerSecond * 60;
     const rollup = ensureRollup(extractor.resource_id);
 
@@ -324,7 +430,7 @@ function getExtractionView(
       id: extractor.id,
       kind: "oil",
       title: getResourceName(data.resources, extractor.resource_id),
-      detail: `${formatValue(supplyPerSecond)} / sec | ${formatValue(supplyPerMinute)} / min`,
+      detail: `${formatValue(supplyPerMinute)} / min`,
       createdAt: extractor.created_at,
       planetId: context.planet.id,
       planetName: context.planetName,
@@ -399,7 +505,7 @@ function getExtractionView(
       supplyPerSecond: row.supplyPerSecond,
       placementCount: row.placementIds.size,
     }))
-    .sort((left, right) => right.supplyMetric - left.supplyMetric || left.name.localeCompare(right.name));
+    .sort((left, right) => right.supplyPerMinute - left.supplyPerMinute || left.name.localeCompare(right.name));
 
   activityRows.sort(
     (left, right) =>
@@ -414,11 +520,15 @@ function getExtractionView(
 }
 
 function getBreakdownSecondaryText(summary: ResourceSummary, row: ResourceOriginBreakdownRow) {
+  if (summary.type === "ore_vein") {
+    return `${formatValue(row.supplyMetric)} nodes covered`;
+  }
+
   if (summary.type === "liquid_pump") {
     return `${formatValue(row.supplyPerMinute)} / min`;
   }
 
-  return `${formatValue(row.supplyPerSecond)} / sec | ${formatValue(row.supplyPerMinute)} / min`;
+  return `${formatValue(row.supplyPerMinute)} / min`;
 }
 
 function getResourceOriginEntries(
@@ -441,10 +551,9 @@ function getResourceOriginEntries(
       continue;
     }
 
-    const supplyPerMinute = getOreVeinOutputPerMinute(
-      oreMinerLookup[vein.id] ?? [],
-      data.settings.miningSpeedPercent,
-    );
+    const miners = oreMinerLookup[vein.id] ?? [];
+    const supplyPerMinute = getOreVeinOutputPerMinute(miners, data.settings.miningSpeedPercent);
+    const coveredNodes = getOreVeinCoveredNodes(miners);
 
     if (supplyPerMinute <= 0) {
       continue;
@@ -453,7 +562,7 @@ function getResourceOriginEntries(
     originEntries.push({
       planetId: planet.id,
       systemId: planet.solar_system_id,
-      supplyMetric: supplyPerMinute / 30,
+      supplyMetric: coveredNodes,
       supplyPerMinute,
       supplyPerSecond: supplyPerMinute / 60,
       placementId: vein.id,
@@ -499,7 +608,7 @@ function getResourceOriginEntries(
       continue;
     }
 
-    const supplyPerSecond = getOilOutputPerSecond(Number(extractor.oil_per_second));
+    const supplyPerSecond = getOilOutputPerSecond(Number(extractor.oil_per_second), data.settings.miningSpeedPercent);
     const supplyPerMinute = supplyPerSecond * 60;
 
     if (supplyPerMinute <= 0) {
@@ -574,7 +683,7 @@ function getResourceOriginBreakdown(
     resourceLookup,
     planetLookup,
   );
-  const totalMetric = summary.supplyMetric;
+  const totalMetric = summary.supplyPerMinute;
 
   type AggregateRecord = {
     id: string;
@@ -636,9 +745,9 @@ function getResourceOriginBreakdown(
         supplyPerMinute: aggregate.supplyPerMinute,
         supplyPerSecond: aggregate.supplyPerSecond,
         placementCount: aggregate.placementIds.size,
-        percentOfTotal: totalMetric > 0 ? (aggregate.supplyMetric / totalMetric) * 100 : 0,
+        percentOfTotal: totalMetric > 0 ? (aggregate.supplyPerMinute / totalMetric) * 100 : 0,
       }))
-      .sort((left, right) => right.supplyMetric - left.supplyMetric || left.name.localeCompare(right.name));
+      .sort((left, right) => right.supplyPerMinute - left.supplyPerMinute || left.name.localeCompare(right.name));
   }
 
   return {
@@ -924,10 +1033,30 @@ function buildProductionTree(craftedItems: ProjectImportedItem[], summaries: Pro
   };
 }
 
-function toProjectGoalMap(projectGoals: ProjectGoal[], projectId: string) {
+function getProjectGoalDraftQuantity(resourceType: ResourceType | undefined, storedQuantity: number) {
+  return resourceType === "ore_vein" ? storedQuantity * 30 : storedQuantity;
+}
+
+function getStoredProjectGoalQuantity(resourceType: ResourceType | undefined, draftQuantity: number) {
+  return resourceType === "ore_vein" ? draftQuantity / 30 : draftQuantity;
+}
+
+function getProjectGoalUnitLabel(resourceType: ResourceType | undefined, fallbackLabel = "items / min") {
+  switch (resourceType) {
+    case "ore_vein":
+      return "items / min";
+    case "oil_extractor":
+      return "oil / min";
+    default:
+      return fallbackLabel;
+  }
+}
+
+function toProjectGoalMap(projectGoals: ProjectGoal[], projectId: string, resources: ResourceDefinition[]) {
+  const resourceTypeLookup = new Map(resources.map((resource) => [resource.id, resource.type]));
   return projectGoals.reduce<Record<string, number>>((acc, goal) => {
     if (goal.project_id === projectId) {
-      acc[goal.resource_id] = Number(goal.quantity);
+      acc[goal.resource_id] = getProjectGoalDraftQuantity(resourceTypeLookup.get(goal.resource_id), Number(goal.quantity));
     }
     return acc;
   }, {});
@@ -1011,7 +1140,11 @@ function getSummaryTargetPerMinute(summary: ResourceSummary) {
     return 0;
   }
 
-  return summary.type === "ore_vein" ? summary.goalQuantity * 30 : summary.goalQuantity;
+  return getProjectGoalDraftQuantity(summary.type, summary.goalQuantity);
+}
+
+function isTargetMet(currentPerMinute: number, targetPerMinute: number) {
+  return currentPerMinute >= targetPerMinute;
 }
 
 function getDefaultGasOutputs(resources: ResourceDefinition[]) {
@@ -1065,6 +1198,10 @@ function getOreVeinOutputPerMinute(miners: OreVeinMiner[], miningSpeedPercent: n
   }, 0);
 }
 
+function getOreVeinCoveredNodes(miners: OreVeinMiner[]) {
+  return miners.reduce((sum, miner) => sum + Number(miner.covered_nodes), 0);
+}
+
 function getDraftOreOutputPerMinute(miners: MinerDraft[], miningSpeedPercent: number) {
   return miners.reduce((sum, miner) => {
     if (miner.minerType === "advanced") {
@@ -1075,6 +1212,38 @@ function getDraftOreOutputPerMinute(miners: MinerDraft[], miningSpeedPercent: nu
   }, 0);
 }
 
+function getRequiredAdvancedMinerNodes(throughputPerMinute: number, miningSpeedPercent: number) {
+  const perNodeOutputPerMinute = getAdvancedMinerOutputPerMinute(1, 100, miningSpeedPercent);
+  if (throughputPerMinute <= 0 || perNodeOutputPerMinute <= 0) {
+    return 0;
+  }
+
+  return throughputPerMinute / perNodeOutputPerMinute;
+}
+
+function getRequiredPumpCount(throughputPerMinute: number, miningSpeedPercent: number) {
+  const perPumpOutputPerMinute = getPumpOutputPerMinute(1, miningSpeedPercent);
+  if (throughputPerMinute <= 0 || perPumpOutputPerMinute <= 0) {
+    return 0;
+  }
+
+  return throughputPerMinute / perPumpOutputPerMinute;
+}
+
+function getRawCardPlanningLabel(summary: ResourceSummary, miningSpeedPercent: number) {
+  const targetPerMinute = getSummaryTargetPerMinute(summary);
+
+  if (summary.type === "ore_vein") {
+    return `${formatValue(getRequiredAdvancedMinerNodes(targetPerMinute, miningSpeedPercent))} req. nodes`;
+  }
+
+  if (summary.type === "liquid_pump" && (summary.name === "Water" || summary.name === "Sulfuric Acid")) {
+    return `${formatValue(getRequiredPumpCount(targetPerMinute, miningSpeedPercent))} req. pumps`;
+  }
+
+  return null;
+}
+
 function formatCurrentWithPending(current: number, pending: number) {
   if (pending <= 0) {
     return formatValue(current);
@@ -1083,7 +1252,7 @@ function formatCurrentWithPending(current: number, pending: number) {
   return `${formatValue(current)} + ${formatValue(pending)}`;
 }
 
-function MachinePill({ label, variant }: { label: string; variant: "advanced" | "regular" | "pump" | "gas" | "oil" }) {
+function MachinePill({ label, variant }: { label: string; variant: "advanced" | "regular" | "pump" | "gas" | "oil" | "logistics" }) {
   return <span className={`machine-pill machine-pill-${variant}`}>{label}</span>;
 }
 
@@ -1186,12 +1355,15 @@ function FileDropInput({ accept, description, disabled = false, label, onSelect 
 
 function App() {
   const overviewTransportDistanceSaveTimersRef = useRef<Record<string, number>>({});
+  const planetExtractionIlsSaveTimersRef = useRef<Record<string, number>>({});
+  const planetResourceExtractionIlsSaveTimersRef = useRef<Record<string, number>>({});
+  const planetResourceExtractionIlsDraftsRef = useRef<Record<string, string>>({});
   const [data, setData] = useState<BootstrapData | null>(null);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
-  const [activeView, setActiveView] = useState<"log" | "overview" | "raw" | "map" | "production" | "projects" | "settings">("log");
+  const [activeView, setActiveView] = useState<ViewKey>(() => getViewFromHash(window.location.hash));
   const [showAllLedger, setShowAllLedger] = useState(true);
   const [selectedOverviewResourceId, setSelectedOverviewResourceId] = useState("");
   const [isOverviewTransportModalOpen, setIsOverviewTransportModalOpen] = useState(false);
@@ -1206,6 +1378,7 @@ function App() {
   const [selectedMapSelection, setSelectedMapSelection] = useState<MapSelection>({ scope: "system", id: "" });
   const [clusterAddressDraft, setClusterAddressDraft] = useState("");
   const [planetExtractionIlsDrafts, setPlanetExtractionIlsDrafts] = useState<Record<string, string>>({});
+  const [planetResourceExtractionIlsDrafts, setPlanetResourceExtractionIlsDrafts] = useState<Record<string, string>>({});
   const [isProductionModalOpen, setIsProductionModalOpen] = useState(false);
 
   const [newSystemName, setNewSystemName] = useState("");
@@ -1246,17 +1419,6 @@ function App() {
   ]);
   const [quickCalcDistanceLy, setQuickCalcDistanceLy] = useState(0);
   const [quickCalcThroughputPerMinute, setQuickCalcThroughputPerMinute] = useState(0);
-  const [distanceDraft, setDistanceDraft] = useState<SystemDistanceDraft>({
-    systemAId: "",
-    systemBId: "",
-    distanceLy: 0,
-  });
-  const [editingDistanceId, setEditingDistanceId] = useState("");
-  const [editingDistanceDraft, setEditingDistanceDraft] = useState<SystemDistanceDraft>({
-    systemAId: "",
-    systemBId: "",
-    distanceLy: 0,
-  });
   const [productionDraft, setProductionDraft] = useState({
     itemKey: "",
     throughputPerMinute: 0,
@@ -1280,8 +1442,34 @@ function App() {
     }
   }
 
+  function navigateToView(view: ViewKey) {
+    setActiveView(view);
+
+    const nextHash = getHashForView(view);
+    if (window.location.hash !== nextHash) {
+      window.location.hash = nextHash;
+    }
+  }
+
   useEffect(() => {
     void refreshBootstrap();
+  }, []);
+
+  useEffect(() => {
+    const syncViewFromHash = () => {
+      const nextView = getViewFromHash(window.location.hash);
+      setActiveView((currentView) => (currentView === nextView ? currentView : nextView));
+    };
+
+    const canonicalHash = getHashForView(getViewFromHash(window.location.hash));
+    if (window.location.hash !== canonicalHash) {
+      window.history.replaceState(null, "", `${window.location.pathname}${window.location.search}${canonicalHash}`);
+    }
+
+    window.addEventListener("hashchange", syncViewFromHash);
+    return () => {
+      window.removeEventListener("hashchange", syncViewFromHash);
+    };
   }, []);
 
   useEffect(() => {
@@ -1325,15 +1513,7 @@ function App() {
     if (gasResources.length > 0 && gasOutputs.every((output) => !output.resourceId)) {
       setGasOutputs(getDefaultGasOutputs(gasResources));
     }
-    if (!distanceDraft.systemAId && data.solarSystems[0]) {
-      setDistanceDraft((current) => ({
-        ...current,
-        systemAId: data.solarSystems[0]?.id ?? "",
-        systemBId: current.systemBId || data.solarSystems[1]?.id || "",
-      }));
-    }
-
-  }, [data, distanceDraft.systemAId, gasOutputs, liquidResourceId, oilResourceId, oreResourceId]);
+  }, [data, gasOutputs, liquidResourceId, oilResourceId, oreResourceId]);
 
   useEffect(() => {
     if (!data || !selectedProjectId) {
@@ -1348,7 +1528,7 @@ function App() {
     setProjectNameDraft(selectedProject.name);
     setProjectNotesDraft(selectedProject.notes);
     setProjectActiveDraft(selectedProject.is_active === 1);
-    setGoalDrafts(toProjectGoalMap(data.projectGoals, selectedProjectId));
+    setGoalDrafts(toProjectGoalMap(data.projectGoals, selectedProjectId, data.resources));
   }, [data, selectedProjectId]);
 
   useEffect(() => {
@@ -1357,13 +1537,44 @@ function App() {
     }
 
     setClusterAddressDraft(data.settings.clusterAddress ?? "");
-    setPlanetExtractionIlsDrafts(
+    setPlanetExtractionIlsDrafts((current) =>
       data.planets.reduce<Record<string, string>>((acc, planet) => {
-        acc[planet.id] = planet.extraction_outbound_ils_count === null ? "" : String(planet.extraction_outbound_ils_count);
+        const pendingSave = planetExtractionIlsSaveTimersRef.current[planet.id];
+        acc[planet.id] =
+          pendingSave
+            ? (current[planet.id] ?? "")
+            : planet.extraction_outbound_ils_count === null
+              ? ""
+              : String(planet.extraction_outbound_ils_count);
         return acc;
       }, {}),
     );
   }, [data]);
+
+  useEffect(() => {
+    if (!data) {
+      return;
+    }
+
+    setPlanetResourceExtractionIlsDrafts((current) => {
+      const nextDrafts: Record<string, string> = {};
+
+      data.planets.forEach((planet) => {
+        planet.extraction_outbound_ils_overrides.forEach((override) => {
+          const draftKey = getPlanetExtractionIlsOverrideDraftKey(planet.id, override.resource_id);
+          nextDrafts[draftKey] = planetResourceExtractionIlsSaveTimersRef.current[draftKey]
+            ? (current[draftKey] ?? "")
+            : String(override.ils_count);
+        });
+      });
+
+      return nextDrafts;
+    });
+  }, [data]);
+
+  useEffect(() => {
+    planetResourceExtractionIlsDraftsRef.current = planetResourceExtractionIlsDrafts;
+  }, [planetResourceExtractionIlsDrafts]);
 
   useEffect(() => {
     if (!data || !selectedProjectId) {
@@ -1417,7 +1628,9 @@ function App() {
     const defaultPlanetId =
       latestSite?.planet_id ??
       data.settings.currentPlanetId ??
-      data.planets.find((planet) => planet.solar_system_id === defaultSystemId && planet.planet_type === "solid")?.id ??
+      data.planets
+        .filter((planet) => planet.solar_system_id === defaultSystemId && planet.planet_type === "solid")
+        .sort((left, right) => left.name.localeCompare(right.name))[0]?.id ??
       "";
 
     setProductionDraft((current) => {
@@ -1547,6 +1760,24 @@ function App() {
   }, []);
 
   useEffect(() => {
+    const timers = planetExtractionIlsSaveTimersRef.current;
+    return () => {
+      Object.values(timers).forEach((timerId) => {
+        window.clearTimeout(timerId);
+      });
+    };
+  }, []);
+
+  useEffect(() => {
+    const timers = planetResourceExtractionIlsSaveTimersRef.current;
+    return () => {
+      Object.values(timers).forEach((timerId) => {
+        window.clearTimeout(timerId);
+      });
+    };
+  }, []);
+
+  useEffect(() => {
     if (!data || newPlanetName) {
       return;
     }
@@ -1668,9 +1899,21 @@ function App() {
   const selectedOreSummary = loadedData.summary.resourceSummaries.find((summary) => summary.resourceId === oreResourceId) ?? null;
   const selectedLiquidSummary = loadedData.summary.resourceSummaries.find((summary) => summary.resourceId === liquidResourceId) ?? null;
   const selectedOilSummary = loadedData.summary.resourceSummaries.find((summary) => summary.resourceId === oilResourceId) ?? null;
-  const pendingOreNodeEquivalents = getDraftOreOutputPerMinute(oreMiners, loadedData.settings.miningSpeedPercent) / 30;
+  const pendingOreRequiredNodes = getRequiredAdvancedMinerNodes(
+    getDraftOreOutputPerMinute(oreMiners, loadedData.settings.miningSpeedPercent),
+    loadedData.settings.miningSpeedPercent,
+  );
+  const selectedOreRequiredNodes = selectedOreSummary
+    ? getRequiredAdvancedMinerNodes(selectedOreSummary.supplyPerMinute, loadedData.settings.miningSpeedPercent)
+    : 0;
+  const selectedOreTargetRequiredNodes = selectedOreSummary
+    ? getRequiredAdvancedMinerNodes(getSummaryTargetPerMinute(selectedOreSummary), loadedData.settings.miningSpeedPercent)
+    : 0;
   const pendingLiquidOutputPerMinute = getPumpOutputPerMinute(pumpCount, loadedData.settings.miningSpeedPercent);
-  const pendingOilPerMinute = getOilOutputPerSecond(oilPerSecond) * 60;
+  const pendingOilPerMinute = getOilOutputPerSecond(
+    normalizeOilPerSecondTo100Percent(oilPerSecond, loadedData.settings.miningSpeedPercent),
+    loadedData.settings.miningSpeedPercent,
+  ) * 60;
   const pendingGasTrueBoost = getOrbitalCollectorTrueBoost(
     gasOutputs
       .filter((output) => output.resourceId)
@@ -1865,6 +2108,17 @@ function App() {
     selectedMapSelection.scope === "planet"
       ? loadedData.planets.find((planet) => planet.id === selectedMapSelection.id) ?? null
       : null;
+  const currentPlanetExtraction = currentPlanet
+    ? getExtractionView(
+        loadedData,
+        [currentPlanet.id],
+        oreMinerLookup,
+        gasOutputLookup,
+        resourceLookup,
+        planetLookup,
+        systemLookup,
+      )
+    : { resourceRows: [], activityRows: [] };
   const selectedMapParentSystem = selectedMapPlanet
     ? systemLookup.get(selectedMapPlanet.solar_system_id) ?? null
     : selectedMapSystem;
@@ -1967,6 +2221,13 @@ function App() {
   const productionDraftPlanetOptions = loadedData.planets
     .filter((planet) => planet.solar_system_id === productionDraft.solarSystemId && planet.planet_type === "solid")
     .sort((left, right) => left.name.localeCompare(right.name));
+  const canSubmitProductionSite =
+    !busy &&
+    !!productionDraft.itemKey &&
+    !!productionDraft.solarSystemId &&
+    productionDraft.solarSystemId !== CREATE_NEW_SYSTEM_OPTION &&
+    !!productionDraft.planetId &&
+    productionDraft.planetId !== CREATE_NEW_PLANET_OPTION;
   const productionDraftPreview = buildProductionDraftPreview(
     loadedData,
     selectedProjectId || null,
@@ -2128,6 +2389,12 @@ function App() {
             </div>
           </div>
           <div className="production-tree-metrics">
+            {node.summary.siteCount > 0 ? (
+              <div className="production-tree-metric">
+                <strong>{node.summary.siteCount}</strong>
+                <span className="production-tree-metric-label">{node.summary.siteCount === 1 ? "setup" : "setups"}</span>
+              </div>
+            ) : null}
             <div className="production-tree-metric">
               <strong>{formatRoundedUpInteger(node.summary.plannedMachineCount)}</strong>
               <span className="production-tree-metric-label">machines</span>
@@ -2234,7 +2501,7 @@ function App() {
         .map((goal) => {
           const resource = resourceLookup.get(goal.resource_id);
           const summary = loadedData.summary.resourceSummaries.find((entry) => entry.resourceId === goal.resource_id);
-          const targetPerMinute = resource ? (resource.type === "ore_vein" ? goal.quantity * 30 : goal.quantity) : 0;
+          const targetPerMinute = getProjectGoalDraftQuantity(resource?.type, goal.quantity);
           const coveragePercent = targetPerMinute > 0 && summary
             ? Math.min(100, (summary.supplyPerMinute / targetPerMinute) * 100)
             : 0;
@@ -2260,14 +2527,6 @@ function App() {
       return null;
     }
   })();
-  const sortedSystemDistances = loadedData.systemDistances
-    .slice()
-    .sort((left, right) => {
-      const leftLabel = `${systemLookup.get(left.system_a_id)?.name ?? ""} ${systemLookup.get(left.system_b_id)?.name ?? ""}`;
-      const rightLabel = `${systemLookup.get(right.system_a_id)?.name ?? ""} ${systemLookup.get(right.system_b_id)?.name ?? ""}`;
-      return leftLabel.localeCompare(rightLabel);
-    });
-
   function getPreferredPlanetIdForSystem(systemId: string | null) {
     if (!systemId) {
       return null;
@@ -2470,6 +2729,165 @@ function App() {
     await mutate(() => patchBootstrap("/api/settings", payload), applyBootstrap);
   }
 
+  function getFirstPlanetIdForSystem(systemId: string) {
+    return (
+      loadedData.planets
+        .filter((planet) => planet.solar_system_id === systemId)
+        .sort((left, right) => left.name.localeCompare(right.name))[0]?.id ?? ""
+    );
+  }
+
+  function getFirstSolidPlanetIdForSystem(systemId: string) {
+    return (
+      loadedData.planets
+        .filter((planet) => planet.solar_system_id === systemId && planet.planet_type === "solid")
+        .sort((left, right) => left.name.localeCompare(right.name))[0]?.id ?? ""
+    );
+  }
+
+  async function handleProductionSystemChange(nextSystemId: string) {
+    if (nextSystemId !== CREATE_NEW_SYSTEM_OPTION) {
+      setProductionDraft((current) => ({
+        ...current,
+        solarSystemId: nextSystemId,
+        planetId: getFirstSolidPlanetIdForSystem(nextSystemId) || "",
+      }));
+      return;
+    }
+
+    const promptedName = window.prompt("New system name", "");
+    if (promptedName === null) {
+      return;
+    }
+
+    const nextSystemName = promptedName.trim();
+    if (!nextSystemName) {
+      return;
+    }
+
+    const existingSystem = loadedData.solarSystems.find(
+      (solarSystem) => solarSystem.name.trim().toLowerCase() === nextSystemName.toLowerCase(),
+    );
+    if (existingSystem) {
+      setProductionDraft((current) => ({
+        ...current,
+        solarSystemId: existingSystem.id,
+        planetId: getFirstSolidPlanetIdForSystem(existingSystem.id) || "",
+      }));
+      return;
+    }
+
+    await mutate(
+      () => postBootstrap("/api/systems", { name: nextSystemName }),
+      (nextData) => {
+        applyBootstrap(nextData);
+        const createdSystem =
+          nextData.solarSystems.find((solarSystem) => solarSystem.name.trim().toLowerCase() === nextSystemName.toLowerCase()) ?? null;
+        setProductionDraft((current) => ({
+          ...current,
+          solarSystemId: createdSystem?.id ?? nextData.settings.currentSolarSystemId ?? "",
+          planetId: "",
+        }));
+      },
+    );
+  }
+
+  async function handleProductionPlanetChange(nextPlanetId: string) {
+    if (nextPlanetId !== CREATE_NEW_PLANET_OPTION) {
+      setProductionDraft((current) => ({ ...current, planetId: nextPlanetId }));
+      return;
+    }
+
+    if (!productionDraft.solarSystemId || productionDraft.solarSystemId === CREATE_NEW_SYSTEM_OPTION) {
+      return;
+    }
+
+    const selectedSystem = loadedData.solarSystems.find((solarSystem) => solarSystem.id === productionDraft.solarSystemId) ?? null;
+    const promptedName = window.prompt("New planet name", buildPlanetNamePrefix(selectedSystem?.name ?? ""));
+    if (promptedName === null) {
+      return;
+    }
+
+    const nextPlanetName = normalizePlanetName(promptedName);
+    if (!nextPlanetName) {
+      return;
+    }
+
+    const existingPlanet = loadedData.planets.find(
+      (planet) =>
+        planet.solar_system_id === productionDraft.solarSystemId &&
+        planet.planet_type === "solid" &&
+        planet.name.trim().toLowerCase() === nextPlanetName.toLowerCase(),
+    );
+    if (existingPlanet) {
+      setProductionDraft((current) => ({ ...current, planetId: existingPlanet.id }));
+      return;
+    }
+
+    await mutate(
+      () =>
+        postBootstrap("/api/planets", {
+          solarSystemId: productionDraft.solarSystemId,
+          name: nextPlanetName,
+          planetType: "solid",
+        }),
+      (nextData) => {
+        applyBootstrap(nextData);
+        const createdPlanet =
+          nextData.planets.find(
+            (planet) =>
+              planet.solar_system_id === productionDraft.solarSystemId &&
+              planet.planet_type === "solid" &&
+              planet.name.trim().toLowerCase() === nextPlanetName.toLowerCase(),
+          ) ?? null;
+        setProductionDraft((current) => ({
+          ...current,
+          planetId: createdPlanet?.id ?? nextData.settings.currentPlanetId ?? "",
+        }));
+      },
+    );
+  }
+
+  async function focusExistingSystem(system: SolarSystem) {
+    const currentPlanetInSystem = loadedData.planets.find(
+      (planet) => planet.id === loadedData.settings.currentPlanetId && planet.solar_system_id === system.id,
+    );
+    const nextPlanetId = currentPlanetInSystem?.id ?? getFirstPlanetIdForSystem(system.id);
+
+    await mutate(
+      () =>
+        patchBootstrap("/api/settings", {
+          currentSolarSystemId: system.id,
+          currentPlanetId: nextPlanetId || null,
+        }),
+      (nextData) => {
+        applyBootstrap(nextData);
+        setSelectedMapSelection({ scope: "system", id: system.id });
+        setNewSystemName("");
+        setNewPlanetName(buildPlanetNamePrefix(system.name));
+        setNotice(`System "${system.name}" already exists. Selected it instead.`);
+      },
+    );
+  }
+
+  async function focusExistingPlanet(planet: Planet) {
+    await mutate(
+      () =>
+        patchBootstrap("/api/settings", {
+          currentSolarSystemId: planet.solar_system_id,
+          currentPlanetId: planet.id,
+        }),
+      (nextData) => {
+        applyBootstrap(nextData);
+        setSelectedMapSelection({ scope: "planet", id: planet.id });
+        const currentSystemName =
+          nextData.solarSystems.find((solarSystem) => solarSystem.id === planet.solar_system_id)?.name ?? "";
+        setNewPlanetName(currentSystemName ? buildPlanetNamePrefix(currentSystemName) : "");
+        setNotice(`Planet "${planet.name}" already exists in this system. Selected it instead.`);
+      },
+    );
+  }
+
   async function handleRenameSystem(systemId: string) {
     const nextName = systemNameDrafts[systemId]?.trim() ?? "";
     if (!nextName) {
@@ -2499,10 +2917,14 @@ function App() {
     );
   }
 
-  async function handleSavePlanetExtractionIls(planetId: string) {
-    const rawValue = planetExtractionIlsDrafts[planetId] ?? "";
+  async function savePlanetExtractionIls(planetId: string, rawValue: string) {
     const nextValue = rawValue.trim() === "" ? null : Number(rawValue);
     if (nextValue !== null && (!Number.isFinite(nextValue) || nextValue < 0)) {
+      return;
+    }
+
+    const currentValue = data?.planets.find((planet) => planet.id === planetId)?.extraction_outbound_ils_count ?? null;
+    if (currentValue === nextValue) {
       return;
     }
 
@@ -2510,6 +2932,117 @@ function App() {
       () => patchBootstrap(`/api/planets/${planetId}`, { extractionOutboundIlsCount: nextValue }),
       applyBootstrap,
     );
+  }
+
+  function queuePlanetExtractionIlsSave(planetId: string, rawValue: string) {
+    const existingTimerId = planetExtractionIlsSaveTimersRef.current[planetId];
+    if (existingTimerId) {
+      window.clearTimeout(existingTimerId);
+    }
+
+    const nextValue = rawValue.trim() === "" ? null : Number(rawValue);
+    if (nextValue !== null && (!Number.isFinite(nextValue) || nextValue < 0)) {
+      delete planetExtractionIlsSaveTimersRef.current[planetId];
+      return;
+    }
+
+    planetExtractionIlsSaveTimersRef.current[planetId] = window.setTimeout(() => {
+      delete planetExtractionIlsSaveTimersRef.current[planetId];
+      void savePlanetExtractionIls(planetId, rawValue);
+    }, 350);
+  }
+
+  function handlePlanetExtractionIlsDraftChange(planetId: string, rawValue: string) {
+    setPlanetExtractionIlsDrafts((current) => ({
+      ...current,
+      [planetId]: rawValue,
+    }));
+    queuePlanetExtractionIlsSave(planetId, rawValue);
+  }
+
+  async function savePlanetResourceExtractionIls(planetId: string, resourceId: string, rawValue: string) {
+    const nextValue = rawValue.trim() === "" ? null : Number(rawValue);
+    if (nextValue !== null && (!Number.isFinite(nextValue) || nextValue < 0)) {
+      return;
+    }
+
+    const planet = data?.planets.find((item) => item.id === planetId);
+    if (!planet) {
+      return;
+    }
+
+    const currentValue = planet.extraction_outbound_ils_overrides.find((item) => item.resource_id === resourceId)?.ils_count ?? null;
+    if (currentValue === nextValue) {
+      return;
+    }
+
+    const draftPrefix = `${planetId}:`;
+    const draftResourceIds = Object.keys(planetResourceExtractionIlsDraftsRef.current)
+      .filter((draftKey) => draftKey.startsWith(draftPrefix))
+      .map((draftKey) => draftKey.slice(draftPrefix.length));
+    const nextOverrides = Array.from(
+      new Set([
+        resourceId,
+        ...planet.extraction_outbound_ils_overrides.map((item) => item.resource_id),
+        ...draftResourceIds,
+      ]),
+    ).flatMap((draftResourceId) => {
+      const draftKey = getPlanetExtractionIlsOverrideDraftKey(planetId, draftResourceId);
+      const draftValue = planetResourceExtractionIlsDraftsRef.current[draftKey];
+      if (draftValue !== undefined) {
+        const parsedValue = draftValue.trim() === "" ? null : Number(draftValue);
+        if (parsedValue === null || !Number.isFinite(parsedValue) || parsedValue < 0) {
+          return [];
+        }
+
+        return [{
+          resource_id: draftResourceId,
+          ils_count: parsedValue,
+        }];
+      }
+
+      const existingOverride = planet.extraction_outbound_ils_overrides.find((item) => item.resource_id === draftResourceId);
+      return existingOverride ? [existingOverride] : [];
+    });
+
+    await mutate(
+      () =>
+        patchBootstrap(`/api/planets/${planetId}`, {
+          extractionOutboundIlsOverrides: nextOverrides.map((item) => ({
+            resourceId: item.resource_id,
+            ilsCount: item.ils_count,
+          })),
+        }),
+      applyBootstrap,
+    );
+  }
+
+  function queuePlanetResourceExtractionIlsSave(planetId: string, resourceId: string, rawValue: string) {
+    const draftKey = getPlanetExtractionIlsOverrideDraftKey(planetId, resourceId);
+    const existingTimerId = planetResourceExtractionIlsSaveTimersRef.current[draftKey];
+    if (existingTimerId) {
+      window.clearTimeout(existingTimerId);
+    }
+
+    const nextValue = rawValue.trim() === "" ? null : Number(rawValue);
+    if (nextValue !== null && (!Number.isFinite(nextValue) || nextValue < 0)) {
+      delete planetResourceExtractionIlsSaveTimersRef.current[draftKey];
+      return;
+    }
+
+    planetResourceExtractionIlsSaveTimersRef.current[draftKey] = window.setTimeout(() => {
+      delete planetResourceExtractionIlsSaveTimersRef.current[draftKey];
+      void savePlanetResourceExtractionIls(planetId, resourceId, rawValue);
+    }, 350);
+  }
+
+  function handlePlanetResourceExtractionIlsDraftChange(planetId: string, resourceId: string, rawValue: string) {
+    const draftKey = getPlanetExtractionIlsOverrideDraftKey(planetId, resourceId);
+    setPlanetResourceExtractionIlsDrafts((current) => ({
+      ...current,
+      [draftKey]: rawValue,
+    }));
+    queuePlanetResourceExtractionIlsSave(planetId, resourceId, rawValue);
   }
 
   function openProductionSiteModal(itemKey: string) {
@@ -2543,7 +3076,7 @@ function App() {
         isActive: projectActiveDraft,
         goals: loadedData.resources.map((resource) => ({
           resourceId: resource.id,
-          quantity: Number(goalDrafts[resource.id] ?? 0),
+          quantity: getStoredProjectGoalQuantity(resource.type, Number(goalDrafts[resource.id] ?? 0)),
         })),
       });
     }, applyBootstrap);
@@ -2626,7 +3159,7 @@ function App() {
           planetId: currentPlanet.id,
           resourceId: oilResourceId,
           label: "",
-          oilPerSecond: Number(oilPerSecond),
+          oilPerSecond: normalizeOilPerSecondTo100Percent(Number(oilPerSecond), loadedData.settings.miningSpeedPercent),
         }),
       (nextData) => {
         applyBootstrap(nextData);
@@ -2657,20 +3190,6 @@ function App() {
         setGasOutputs(getDefaultGasOutputs(gasResources));
       },
     );
-  }
-
-  function startDistanceEdit(distance: SystemDistance) {
-    setEditingDistanceId(distance.id);
-    setEditingDistanceDraft({
-      systemAId: distance.system_a_id,
-      systemBId: distance.system_b_id,
-      distanceLy: Number(distance.distance_ly),
-    });
-  }
-
-  function cancelDistanceEdit() {
-    setEditingDistanceId("");
-    setEditingDistanceDraft({ systemAId: "", systemBId: "", distanceLy: 0 });
   }
 
   function openOverviewTransportModal() {
@@ -2717,43 +3236,6 @@ function App() {
     }, 350);
   }
 
-  async function handleCreateSystemDistance() {
-    if (!distanceDraft.systemAId || !distanceDraft.systemBId || distanceDraft.distanceLy <= 0) {
-      return;
-    }
-
-    await mutate(
-      () =>
-        postBootstrap("/api/system-distances", {
-          systemAId: distanceDraft.systemAId,
-          systemBId: distanceDraft.systemBId,
-          distanceLy: Number(distanceDraft.distanceLy),
-        }),
-      (nextData) => {
-        applyBootstrap(nextData);
-      },
-    );
-  }
-
-  async function handleSaveDistanceEdit() {
-    if (!editingDistanceId || !editingDistanceDraft.systemAId || !editingDistanceDraft.systemBId || editingDistanceDraft.distanceLy <= 0) {
-      return;
-    }
-
-    await mutate(
-      () =>
-        patchBootstrap(`/api/system-distances/${editingDistanceId}`, {
-          systemAId: editingDistanceDraft.systemAId,
-          systemBId: editingDistanceDraft.systemBId,
-          distanceLy: Number(editingDistanceDraft.distanceLy),
-        }),
-      (nextData) => {
-        applyBootstrap(nextData);
-        cancelDistanceEdit();
-      },
-    );
-  }
-
   async function handleExport() {
     await mutate(async () => {
       const payload = await exportSnapshot();
@@ -2765,8 +3247,6 @@ function App() {
       anchor.click();
       URL.revokeObjectURL(url);
       return payload;
-    }, (payload) => {
-      setNotice(`Exported snapshot and downloaded JSON. Source: ${payload.exportPath}`);
     });
   }
 
@@ -2810,7 +3290,7 @@ function App() {
         .sort((left, right) => right.sort_order - left.sort_order)[0];
 
       setSelectedProjectId(project?.id ?? bootstrap.projects[0]?.id ?? "");
-      setActiveView("projects");
+      navigateToView("projects");
 
       const skippedLabel = importedProject.skippedRawResources.length > 0
         ? ` Skipped unsupported raw entries: ${importedProject.skippedRawResources.join(", ")}.`
@@ -2840,7 +3320,7 @@ function App() {
     }, ({ bootstrap, importedProject }) => {
       applyBootstrap(bootstrap);
       setSelectedProjectId(selectedProject.id);
-      setActiveView("projects");
+      navigateToView("projects");
 
       const skippedLabel = importedProject.skippedRawResources.length > 0
         ? ` Skipped unsupported raw entries: ${importedProject.skippedRawResources.join(", ")}.`
@@ -2850,7 +3330,14 @@ function App() {
   }
 
   async function handleCreateProductionSite() {
-    if (!selectedProjectId || !productionDraft.itemKey || !productionDraft.solarSystemId || !productionDraft.planetId) {
+    if (
+      !selectedProjectId ||
+      !productionDraft.itemKey ||
+      !productionDraft.solarSystemId ||
+      !productionDraft.planetId ||
+      productionDraft.solarSystemId === CREATE_NEW_SYSTEM_OPTION ||
+      productionDraft.planetId === CREATE_NEW_PLANET_OPTION
+    ) {
       return;
     }
 
@@ -2896,6 +3383,71 @@ function App() {
     );
   }
 
+  function renderPlanetExtractionIlsFields(planet: Planet, extractionRows: ExtractionRollupRow[]) {
+    const resourceRows = getPlanetExtractionIlsResourceRows(planet, extractionRows, resourceLookup);
+    const showOverrides = resourceRows.length > 1 || planet.extraction_outbound_ils_overrides.length > 0;
+
+    return (
+      <div className="planet-ils-stack">
+        <label className="field">
+          <span>Default outbound raw ILS on this planet</span>
+          <input
+            type="number"
+            min={0}
+            step="any"
+            value={planetExtractionIlsDrafts[planet.id] ?? ""}
+            onChange={(event) => handlePlanetExtractionIlsDraftChange(planet.id, event.target.value)}
+            placeholder="Leave blank if unknown"
+          />
+        </label>
+        <span className="helper-text">Auto-saves after you stop typing. Used for any raw resource without an override.</span>
+
+        {showOverrides && (
+          <div className="planet-ils-overrides">
+            <div className="planet-ils-overrides-copy">
+              <strong>Per-resource overrides</strong>
+              <span>Optional. Give shared resources the same count, and leave a field blank to use the planet default.</span>
+            </div>
+
+            <div className="planet-ils-override-list">
+              {resourceRows.map((row) => {
+                const draftKey = getPlanetExtractionIlsOverrideDraftKey(planet.id, row.resourceId);
+                const effectiveCount = getPlanetResourceExtractionIlsCount(planet, row.resourceId);
+
+                return (
+                  <label key={row.resourceId} className="planet-ils-override-row">
+                    <span className="planet-ils-override-label">
+                      <ResourceIcon
+                        name={row.name}
+                        iconUrl={row.iconUrl}
+                        colorStart={row.colorStart}
+                        colorEnd={row.colorEnd}
+                        size="sm"
+                      />
+                      <span>{row.name}</span>
+                    </span>
+
+                    <div className="planet-ils-override-input">
+                      <input
+                        type="number"
+                        min={0}
+                        step="any"
+                        value={planetResourceExtractionIlsDrafts[draftKey] ?? ""}
+                        onChange={(event) => handlePlanetResourceExtractionIlsDraftChange(planet.id, row.resourceId, event.target.value)}
+                        placeholder="Use default"
+                      />
+                      <span>{effectiveCount === null ? "Unset" : `Using ${formatValue(effectiveCount)}`}</span>
+                    </div>
+                  </label>
+                );
+              })}
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  }
+
   return (
     <main className="shell">
       {(error || notice) && (
@@ -2906,20 +3458,12 @@ function App() {
       )}
 
       <nav className="view-tabs">
-        {[
-          ["log", "Logging"],
-          ["overview", "Overview"],
-          ["raw", "Raw"],
-          ["map", "Map"],
-          ["production", "Production"],
-          ["projects", "Projects"],
-          ["settings", "Settings"],
-        ].map(([viewKey, label]) => (
+        {viewTabs.map(({ key: viewKey, label }) => (
           <button
             key={viewKey}
             type="button"
             className={`view-tab ${activeView === viewKey ? "view-tab-active" : ""}`}
-            onClick={() => setActiveView(viewKey as "log" | "overview" | "raw" | "map" | "production" | "projects" | "settings")}
+            onClick={() => navigateToView(viewKey)}
           >
             {label}
           </button>
@@ -2987,15 +3531,28 @@ function App() {
                 className="inline-form"
                 onSubmit={(event) => {
                   event.preventDefault();
-                  if (!newSystemName.trim()) {
+                  const nextSystemName = newSystemName.trim();
+                  if (!nextSystemName) {
+                    return;
+                  }
+
+                  const existingSystem = loadedData.solarSystems.find(
+                    (solarSystem) => solarSystem.name.trim().toLowerCase() === nextSystemName.toLowerCase(),
+                  );
+                  if (existingSystem) {
+                    void focusExistingSystem(existingSystem);
                     return;
                   }
 
                   void mutate(
-                    () => postBootstrap("/api/systems", { name: newSystemName }),
+                    () => postBootstrap("/api/systems", { name: nextSystemName }),
                     (nextData) => {
                       applyBootstrap(nextData);
-                      setNewPlanetName(buildPlanetNamePrefix(newSystemName.trim()));
+                      const selectedSystemId = nextData.settings.currentSolarSystemId || "";
+                      if (selectedSystemId) {
+                        setSelectedMapSelection({ scope: "system", id: selectedSystemId });
+                      }
+                      setNewPlanetName(buildPlanetNamePrefix(nextSystemName));
                       setNewSystemName("");
                     },
                   );
@@ -3014,19 +3571,34 @@ function App() {
                 className="inline-form"
                 onSubmit={(event) => {
                   event.preventDefault();
-                  if (!data.settings.currentSolarSystemId || !newPlanetName.trim()) {
+                  const currentSolarSystemId = data.settings.currentSolarSystemId;
+                  const normalizedPlanetName = normalizePlanetName(newPlanetName);
+                  if (!currentSolarSystemId || !normalizedPlanetName) {
+                    return;
+                  }
+
+                  const existingPlanet = loadedData.planets.find(
+                    (planet) =>
+                      planet.solar_system_id === currentSolarSystemId &&
+                      planet.name.trim().toLowerCase() === normalizedPlanetName.toLowerCase(),
+                  );
+                  if (existingPlanet) {
+                    void focusExistingPlanet(existingPlanet);
                     return;
                   }
 
                   void mutate(
                     () =>
                       postBootstrap("/api/planets", {
-                        solarSystemId: data.settings.currentSolarSystemId,
-                        name: normalizePlanetName(newPlanetName),
+                        solarSystemId: currentSolarSystemId,
+                        name: normalizedPlanetName,
                         planetType: newPlanetType,
                       }),
                     (nextData) => {
                       applyBootstrap(nextData);
+                      if (nextData.settings.currentPlanetId) {
+                        setSelectedMapSelection({ scope: "planet", id: nextData.settings.currentPlanetId });
+                      }
                       const currentSystemName =
                         nextData.solarSystems.find((solarSystem) => solarSystem.id === nextData.settings.currentSolarSystemId)?.name ?? "";
                       setNewPlanetName(currentSystemName ? buildPlanetNamePrefix(currentSystemName) : "");
@@ -3079,6 +3651,16 @@ function App() {
 
             {!currentPlanet && <p className="empty-state">Select or create a planet above before logging extraction sites.</p>}
 
+            {currentPlanet && (
+              <section className="entry-card entry-card-wide">
+                <div className="entry-card-header">
+                  <MachinePill label="ILS" variant="logistics" />
+                  <h3>Raw export capacity</h3>
+                </div>
+                {renderPlanetExtractionIlsFields(currentPlanet, currentPlanetExtraction.resourceRows)}
+              </section>
+            )}
+
             {currentPlanet?.planet_type === "solid" && (
               <div className="entry-grid">
                 <form
@@ -3099,12 +3681,12 @@ function App() {
                   {selectedOreSummary && (
                     <div className="entry-stat-strip">
                       <div className="entry-stat">
-                        <span>Current</span>
-                        <strong>{formatCurrentWithPending(selectedOreSummary.supplyMetric, pendingOreNodeEquivalents)}</strong>
+                        <span>Current req. nodes</span>
+                        <strong>{formatCurrentWithPending(selectedOreRequiredNodes, pendingOreRequiredNodes)}</strong>
                       </div>
                       <div className="entry-stat">
-                        <span>Target</span>
-                        <strong>{formatValue(selectedOreSummary.goalQuantity)}</strong>
+                        <span>Target req. nodes</span>
+                        <strong>{formatValue(selectedOreTargetRequiredNodes)}</strong>
                       </div>
                     </div>
                   )}
@@ -3313,12 +3895,12 @@ function App() {
                     </div>
                   )}
                   <label className="field">
-                    <span>Oil per second</span>
+                    <span>Oil per second at current mining speed</span>
                     <input
                       type="number"
                       min={0.1}
                       max={30}
-                      step={0.1}
+                      step="any"
                       value={oilPerSecond}
                       onChange={(event) => setOilPerSecond(Number(event.target.value))}
                     />
@@ -3480,7 +4062,7 @@ function App() {
                   </article>
                   <article className="entry-stat">
                     <span>Raw goals covered</span>
-                    <strong>{productionOverview.totalRawGoals === 0 ? "None" : `${productionOverview.coveredRawGoals}/${productionOverview.totalRawGoals}`}</strong>
+                    <strong>{productionOverview.totalRawGoals === 0 ? "None" : `${productionOverview.coveredRawGoals} / ${productionOverview.totalRawGoals}`}</strong>
                     <span>{formatFixedValue(productionOverview.rawCoveragePercent, 1)}% coverage</span>
                   </article>
                 </div>
@@ -3560,7 +4142,7 @@ function App() {
                   <h3>Total throughput</h3>
                   <p>All targeted resources combined, normalized to per-minute output.</p>
                 </div>
-                <div className={`metric-line metric-line-inline ${combinedCappedSupplyPerMinute >= combinedTargetPerMinute && combinedTargetPerMinute > 0 ? "metric-line-done" : ""}`}>
+                <div className={`metric-line metric-line-inline ${isTargetMet(combinedCappedSupplyPerMinute, combinedTargetPerMinute) ? "metric-line-done" : ""}`}>
                   <strong>{formatValue(combinedCappedSupplyPerMinute)}</strong>
                   <span>/ {formatValue(combinedTargetPerMinute)} / min</span>
                 </div>
@@ -3571,6 +4153,9 @@ function App() {
             </article>
             <div className="resource-grid">
               {overviewResourceSummaries.map((summary) => (
+                (() => {
+                  const planningLabel = getRawCardPlanningLabel(summary, loadedData.settings.miningSpeedPercent);
+                  return (
                 <button
                   key={summary.resourceId}
                   type="button"
@@ -3592,7 +4177,7 @@ function App() {
                     </div>
                   </div>
 
-                  <div className={`metric-line metric-line-inline ${summary.supplyPerMinute >= getSummaryTargetPerMinute(summary) && getSummaryTargetPerMinute(summary) > 0 ? "metric-line-done" : ""}`}>
+                  <div className={`metric-line metric-line-inline ${isTargetMet(summary.supplyPerMinute, getSummaryTargetPerMinute(summary)) ? "metric-line-done" : ""}`}>
                     <strong>{formatValue(summary.supplyPerMinute)}</strong>
                     <span>/ {formatValue(getSummaryTargetPerMinute(summary))} / min</span>
                   </div>
@@ -3601,13 +4186,15 @@ function App() {
                   </div>
                   <div className="resource-meta">
                     <span>{summary.placementCount} setups</span>
-                    {summary.type !== "liquid_pump" && (
-                      <span>
-                        {formatValue(summary.supplyPerSecond)} / sec | {formatValue(summary.supplyPerMinute)} / min
-                      </span>
+                    {planningLabel ? (
+                      <span>{planningLabel}</span>
+                    ) : (
+                      summary.type !== "liquid_pump" && <span>{formatValue(summary.supplyPerMinute)} / min</span>
                     )}
                   </div>
                 </button>
+                  );
+                })()
               ))}
             </div>
 
@@ -3933,7 +4520,6 @@ function App() {
                   <p className="eyebrow">Production</p>
                   <h2>{selectedProject ? `${selectedProject.name} factory plan` : "Factory plan"}</h2>
                 </div>
-                <span className="helper-text">Pick an imported crafted item first, then place one planet build at a time.</span>
               </div>
 
               <div className="project-pills">
@@ -3985,7 +4571,6 @@ function App() {
                   <h2>Production tree</h2>
                 </div>
                 <div className="overview-detail-actions">
-                  <span className="helper-text">Imported crafted items arranged by dependency, similar to your FactorioLab plan.</span>
                   <button type="button" className="ghost-button" onClick={toggleExpandAllProductionRows}>
                     {allProductionRowsExpanded ? "Collapse all" : "Expand everything"}
                   </button>
@@ -4239,14 +4824,9 @@ function App() {
                         <span>System</span>
                         <select
                           value={productionDraft.solarSystemId}
-                          onChange={(event) =>
-                            setProductionDraft((current) => ({
-                              ...current,
-                              solarSystemId: event.target.value,
-                              planetId:
-                                loadedData.planets.find((planet) => planet.solar_system_id === event.target.value && planet.planet_type === "solid")?.id ?? "",
-                            }))
-                          }
+                          onChange={(event) => {
+                            void handleProductionSystemChange(event.target.value);
+                          }}
                         >
                           <option value="">Select system</option>
                           {loadedData.solarSystems.map((solarSystem) => (
@@ -4254,13 +4834,17 @@ function App() {
                               {solarSystem.name}
                             </option>
                           ))}
+                          <option value={CREATE_NEW_SYSTEM_OPTION}>Add new system...</option>
                         </select>
                       </label>
                       <label className="field">
                         <span>Planet</span>
                         <select
                           value={productionDraft.planetId}
-                          onChange={(event) => setProductionDraft((current) => ({ ...current, planetId: event.target.value }))}
+                          onChange={(event) => {
+                            void handleProductionPlanetChange(event.target.value);
+                          }}
+                          disabled={!productionDraft.solarSystemId}
                         >
                           <option value="">Select planet</option>
                           {productionDraftPlanetOptions.map((planet) => (
@@ -4268,6 +4852,7 @@ function App() {
                               {planet.name}
                             </option>
                           ))}
+                          {productionDraft.solarSystemId ? <option value={CREATE_NEW_PLANET_OPTION}>Add new planet...</option> : null}
                         </select>
                       </label>
                     </div>
@@ -4476,7 +5061,7 @@ function App() {
                       </div>
                     </div>
 
-                    <button type="submit" className="primary-button full-width" disabled={busy || !productionDraft.itemKey || !productionDraft.planetId}>
+                    <button type="submit" className="primary-button full-width" disabled={!canSubmitProductionSite}>
                       Add production site
                     </button>
                   </div>
@@ -4528,6 +5113,9 @@ function App() {
                             const isPlanetSelected =
                               selectedMapSelection.scope === "planet" && selectedMapSelection.id === planet.id;
                             const siteCount = extractionSiteCountByPlanetId.get(planet.id) ?? 0;
+                            const showMissingIlsWarning =
+                              planet.id === data.settings.currentPlanetId &&
+                              isPlanetMissingExtractionIlsCoverage(loadedData, planet);
 
                             return (
                               <button
@@ -4542,7 +5130,7 @@ function App() {
                                     {planet.planet_type === "gas_giant" ? "Gas giant" : "Solid planet"} | {siteCount} sites
                                   </span>
                                 </div>
-                                {planet.id === data.settings.currentPlanetId && <span className="resource-badge">Current</span>}
+                                {showMissingIlsWarning ? <span className="resource-badge resource-badge-warning">Missing ILS</span> : null}
                               </button>
                             );
                           })
@@ -4593,13 +5181,14 @@ function App() {
                         if (item.kind === "ore") {
                           const vein = item.data;
                           const miners = oreMinerLookup[vein.id] ?? [];
+                          const coveredNodes = getOreVeinCoveredNodes(miners);
                           const throughputPerMinute = getOreVeinOutputPerMinute(miners, data.settings.miningSpeedPercent);
 
                           return (
                             <article key={vein.id} className="ledger-item">
                               <div>
                                 <h3>{getResourceName(data.resources, vein.resource_id)}</h3>
-                                <p>{miners.length} {miners.length === 1 ? "miner" : "miners"} | {formatValue(throughputPerMinute)} ore/min | {formatValue(throughputPerMinute / 30)} node equivalents</p>
+                                <p>{miners.length} {miners.length === 1 ? "miner" : "miners"} | {formatValue(coveredNodes)} nodes covered | {formatValue(throughputPerMinute)} ore/min</p>
                                 {renderLocationEditor(`ore:${vein.id}`, `/api/ore-veins/${vein.id}/location`, "solid")}
                               </div>
                               <div className="ledger-item-actions">
@@ -4637,12 +5226,12 @@ function App() {
 
                         if (item.kind === "oil") {
                           const site = item.data as OilExtractor;
-                          const oilPerSecondActual = getOilOutputPerSecond(site.oil_per_second);
+                          const oilPerSecondActual = getOilOutputPerSecond(site.oil_per_second, data.settings.miningSpeedPercent);
                           return (
                             <article key={site.id} className="ledger-item">
                               <div>
                                 <h3>{getResourceName(data.resources, site.resource_id)}</h3>
-                                <p>{formatValue(oilPerSecondActual)} / sec | {formatValue(oilPerSecondActual * 60)} / min</p>
+                                <p>{formatValue(oilPerSecondActual * 60)} / min</p>
                                 {renderLocationEditor(`oil:${site.id}`, `/api/oil-extractors/${site.id}/location`, "solid")}
                               </div>
                               <div className="ledger-item-actions">
@@ -4824,33 +5413,9 @@ function App() {
 
                       <div className="divider" />
 
-                      <label className="field">
-                        <span>Outbound raw ILS on this planet</span>
-                        <input
-                          type="number"
-                          min={0}
-                          step="1"
-                          value={planetExtractionIlsDrafts[selectedMapPlanet.id] ?? ""}
-                          onChange={(event) =>
-                            setPlanetExtractionIlsDrafts((current) => ({
-                              ...current,
-                              [selectedMapPlanet.id]: event.target.value,
-                            }))
-                          }
-                          placeholder="Leave blank if unknown"
-                        />
-                      </label>
-                      <div className="action-row">
-                        <button
-                          type="button"
-                          className="ghost-button"
-                          onClick={() => void handleSavePlanetExtractionIls(selectedMapPlanet.id)}
-                          disabled={busy}
-                        >
-                          Save raw ILS count
-                        </button>
-                        <span className="helper-text">Used by project warnings when this extraction planet feeds remote production.</span>
-                      </div>
+                      {selectedMapPlanet.planet_type === "solid"
+                        ? renderPlanetExtractionIlsFields(selectedMapPlanet, selectedMapExtraction.resourceRows)
+                        : null}
                     </>
                   )}
                 </>
@@ -4927,7 +5492,7 @@ function App() {
           </>
           )}
 
-          {false && activeView === "settings" && (
+          {activeView === "settings" && (
           <section className="panel">
             <div className="section-heading">
               <div>
@@ -5000,7 +5565,6 @@ function App() {
               >
                 +200
               </button>
-              <span className="helper-text">Each interstellar station can house 10 vessels.</span>
             </div>
             <label className="field">
               <span>ILS storage</span>
@@ -5028,7 +5592,6 @@ function App() {
               >
                 +2000
               </button>
-              <span className="helper-text">Used for the target ILS storage estimate in quick calc.</span>
             </div>
             <label className="field">
               <span>Vessel speed (ly / sec)</span>
@@ -5065,8 +5628,8 @@ function App() {
           <section className="panel">
             <div className="section-heading">
               <div>
-                <p className="eyebrow">Fallback tools</p>
-                <h2>Manual distances and quick calc</h2>
+                <p className="eyebrow">Transport</p>
+                <h2>Quick calc</h2>
               </div>
             </div>
             <div className="transport-form-grid transport-form-grid-compact">
@@ -5110,147 +5673,6 @@ function App() {
                 <strong>{quickCalcTargetStationsNeeded === null ? "Incomplete" : formatFixedValue(quickCalcTargetStationsNeeded, 1)}</strong>
               </div>
             </div>
-
-            <div className="divider" />
-
-            <form
-              className="transport-form-grid"
-              onSubmit={(event) => {
-                event.preventDefault();
-                void handleCreateSystemDistance();
-              }}
-            >
-              <label className="field">
-                <span>System A</span>
-                <select
-                  value={distanceDraft.systemAId}
-                  onChange={(event) => setDistanceDraft((current) => ({ ...current, systemAId: event.target.value }))}
-                >
-                  <option value="">Select system</option>
-                  {data.solarSystems.map((solarSystem) => (
-                    <option key={solarSystem.id} value={solarSystem.id}>
-                      {solarSystem.name}
-                    </option>
-                  ))}
-                </select>
-              </label>
-
-              <label className="field">
-                <span>System B</span>
-                <select
-                  value={distanceDraft.systemBId}
-                  onChange={(event) => setDistanceDraft((current) => ({ ...current, systemBId: event.target.value }))}
-                >
-                  <option value="">Select system</option>
-                  {data.solarSystems.map((solarSystem) => (
-                    <option key={solarSystem.id} value={solarSystem.id}>
-                      {solarSystem.name}
-                    </option>
-                  ))}
-                </select>
-              </label>
-
-              <label className="field">
-                <span>Distance (ly)</span>
-                <input
-                  type="number"
-                  min={0}
-                  step="any"
-                  value={distanceDraft.distanceLy}
-                  onChange={(event) => setDistanceDraft((current) => ({ ...current, distanceLy: Number(event.target.value) }))}
-                />
-              </label>
-
-              <div className="transport-form-actions">
-                <button type="submit" className="primary-button" disabled={busy || data.solarSystems.length < 2}>
-                  Save distance
-                </button>
-              </div>
-            </form>
-
-            {sortedSystemDistances.length > 0 ? (
-              <div className="transport-ledger">
-                {sortedSystemDistances.map((distance) => {
-                  const systemALabel = systemLookup.get(distance.system_a_id)?.name ?? "Unknown System";
-                  const systemBLabel = systemLookup.get(distance.system_b_id)?.name ?? "Unknown System";
-
-                  return (
-                    <article key={distance.id} className="transport-row-card">
-                      <div className="transport-row-main">
-                        <div>
-                          <h3>{systemALabel} {"->"} {systemBLabel}</h3>
-                          <p>{formatFixedValue(Number(distance.distance_ly), 1)} ly</p>
-                        </div>
-                        <div className="ledger-item-actions">
-                          <button type="button" className="ghost-button" onClick={() => startDistanceEdit(distance)}>
-                            Edit
-                          </button>
-                          <button type="button" className="ghost-button" onClick={() => void confirmAndDelete(`/api/system-distances/${distance.id}`, `distance ${systemALabel} to ${systemBLabel}`)}>
-                            Delete
-                          </button>
-                        </div>
-                      </div>
-
-                      {editingDistanceId === distance.id && (
-                        <div className="transport-inline-editor">
-                          <label className="field">
-                            <span>System A</span>
-                            <select
-                              value={editingDistanceDraft.systemAId}
-                              onChange={(event) => setEditingDistanceDraft((current) => ({ ...current, systemAId: event.target.value }))}
-                            >
-                              <option value="">Select system</option>
-                              {data.solarSystems.map((solarSystem) => (
-                                <option key={solarSystem.id} value={solarSystem.id}>
-                                  {solarSystem.name}
-                                </option>
-                              ))}
-                            </select>
-                          </label>
-
-                          <label className="field">
-                            <span>System B</span>
-                            <select
-                              value={editingDistanceDraft.systemBId}
-                              onChange={(event) => setEditingDistanceDraft((current) => ({ ...current, systemBId: event.target.value }))}
-                            >
-                              <option value="">Select system</option>
-                              {data.solarSystems.map((solarSystem) => (
-                                <option key={solarSystem.id} value={solarSystem.id}>
-                                  {solarSystem.name}
-                                </option>
-                              ))}
-                            </select>
-                          </label>
-
-                          <label className="field">
-                            <span>Distance (ly)</span>
-                            <input
-                              type="number"
-                              min={0}
-                              step="any"
-                              value={editingDistanceDraft.distanceLy}
-                              onChange={(event) => setEditingDistanceDraft((current) => ({ ...current, distanceLy: Number(event.target.value) }))}
-                            />
-                          </label>
-
-                          <div className="transport-form-actions">
-                            <button type="button" className="primary-button" onClick={() => void handleSaveDistanceEdit()} disabled={busy}>
-                              Save
-                            </button>
-                            <button type="button" className="ghost-button" onClick={cancelDistanceEdit} disabled={busy}>
-                              Cancel
-                            </button>
-                          </div>
-                        </div>
-                      )}
-                    </article>
-                  );
-                })}
-              </div>
-            ) : (
-              <p className="empty-state">No manual distance fallbacks saved.</p>
-            )}
           </section>
           )}
 
@@ -5306,7 +5728,7 @@ function App() {
                           />
                           <div>
                             <strong>{resource.name}</strong>
-                            <span>{summary?.goalUnitLabel}</span>
+                            <span>{getProjectGoalUnitLabel(resource.type, summary?.goalUnitLabel)}</span>
                           </div>
                         </div>
                         <input
