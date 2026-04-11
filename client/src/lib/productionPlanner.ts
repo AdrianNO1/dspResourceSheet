@@ -1,11 +1,16 @@
 import {
+  METERS_PER_AU,
   getAdvancedMinerOutputPerMinute,
   getOilOutputPerSecond,
   getOrbitalCollectorTrueBoost,
   getPumpOutputPerMinute,
   getRegularMinerOutputPerMinute,
   getRequiredStations,
+  getRequiredStationsForRoundTripSeconds,
   getTargetStationsNeeded,
+  getTargetStationsNeededForRoundTripSeconds,
+  getTransportRoundTripSeconds,
+  getTransportRoundTripSecondsMeters,
 } from "./dspMath";
 import { getSystemDistanceLy } from "./dspCluster";
 import type {
@@ -19,6 +24,8 @@ import type {
 } from "./types";
 
 type ProducerKind = "raw" | "crafted";
+type SameSystemTransportMode = "cruise" | "warp";
+const SAME_SYSTEM_DISTANCE_AU = 5;
 
 type ProducerNode = {
   id: string;
@@ -44,6 +51,7 @@ type ConsumerNode = {
   planetId: string;
   requiredPerMinute: number;
   displayName: string;
+  sameSystemTransportMode: SameSystemTransportMode;
 };
 
 type Allocation = {
@@ -54,6 +62,7 @@ type Allocation = {
   sourceStationsNeeded: number | null;
   isLocalPlanet: boolean;
   isLocalSystem: boolean;
+  sameSystemTransportMode: SameSystemTransportMode | null;
 };
 
 export type ProductionIngredientSource = {
@@ -64,6 +73,7 @@ export type ProductionIngredientSource = {
   throughputPerMinute: number;
   isLocalPlanet: boolean;
   isLocalSystem: boolean;
+  sameSystemTransportMode: SameSystemTransportMode | null;
   sourceStationsNeeded: number | null;
   targetStationsNeeded: number | null;
   hasSourceIlsWarning: boolean;
@@ -370,6 +380,7 @@ function buildConsumersFromSites(data: BootstrapData, importedItems: Map<string,
         planetId: planet.id,
         requiredPerMinute: dependency.imported_demand_per_minute * scale,
         displayName: dependency.display_name,
+        sameSystemTransportMode: site.same_system_warp_item_keys.includes(dependency.item_key) ? "warp" : "cruise",
       }));
     });
 }
@@ -393,6 +404,58 @@ function sortEdges(data: BootstrapData, producers: ProducerNode[], consumers: Co
       left.producer.id.localeCompare(right.producer.id)
     );
   });
+}
+
+function getSameSystemTransportMetrics(
+  data: BootstrapData,
+  throughputPerMinute: number,
+  mode: SameSystemTransportMode,
+) {
+  if (mode === "warp") {
+    const roundTripSeconds = getTransportRoundTripSeconds(
+      0,
+      data.settings.vesselSpeedLyPerSecond,
+      data.settings.vesselDockingSeconds,
+    );
+    if (roundTripSeconds === null) {
+      return { sourceStationsNeeded: null, targetStationsNeeded: null };
+    }
+
+    return {
+      sourceStationsNeeded: getRequiredStationsForRoundTripSeconds(
+        throughputPerMinute,
+        data.settings.vesselCapacityItems,
+        roundTripSeconds,
+      ),
+      targetStationsNeeded: getTargetStationsNeededForRoundTripSeconds(
+        throughputPerMinute,
+        data.settings.ilsStorageItems,
+        roundTripSeconds,
+      ),
+    };
+  }
+
+  const roundTripSeconds = getTransportRoundTripSecondsMeters(
+    SAME_SYSTEM_DISTANCE_AU * METERS_PER_AU,
+    data.settings.vesselCruisingSpeedMetersPerSecond,
+    data.settings.vesselDockingSeconds,
+  );
+  if (roundTripSeconds === null) {
+    return { sourceStationsNeeded: null, targetStationsNeeded: null };
+  }
+
+  return {
+    sourceStationsNeeded: getRequiredStationsForRoundTripSeconds(
+      throughputPerMinute,
+      data.settings.vesselCapacityItems,
+      roundTripSeconds,
+    ),
+    targetStationsNeeded: getTargetStationsNeededForRoundTripSeconds(
+      throughputPerMinute,
+      data.settings.ilsStorageItems,
+      roundTripSeconds,
+    ),
+  };
 }
 
 function buildAllocations(data: BootstrapData, producers: ProducerNode[], consumers: ConsumerNode[]) {
@@ -426,7 +489,12 @@ function buildAllocations(data: BootstrapData, producers: ProducerNode[], consum
       remainingDemand.set(edge.consumer.id, needed - allocation);
       const isLocalPlanet = edge.producer.planetId === edge.consumer.planetId;
       const isLocalSystem = !isLocalPlanet && edge.producer.solarSystemId === edge.consumer.solarSystemId;
-      const remoteDistance = isLocalPlanet || isLocalSystem ? 0 : edge.distanceLy;
+      const sameSystemTransportMode = isLocalSystem ? edge.consumer.sameSystemTransportMode : null;
+      const remoteDistance = isLocalPlanet || isLocalSystem ? null : edge.distanceLy;
+      const sameSystemMetrics =
+        isLocalSystem && sameSystemTransportMode
+          ? getSameSystemTransportMetrics(data, allocation, sameSystemTransportMode)
+          : null;
 
       allocations.push({
         producerId: edge.producer.id,
@@ -434,9 +502,14 @@ function buildAllocations(data: BootstrapData, producers: ProducerNode[], consum
         throughputPerMinute: allocation,
         isLocalPlanet,
         isLocalSystem,
+        sameSystemTransportMode,
         targetStationsNeeded:
-          remoteDistance === null || remoteDistance <= 0
-            ? remoteDistance === 0 ? 0 : null
+          isLocalPlanet
+            ? 0
+            : isLocalSystem
+              ? sameSystemMetrics?.targetStationsNeeded ?? null
+              : remoteDistance === null || remoteDistance < 0
+                ? null
             : getTargetStationsNeeded(
                 allocation,
                 data.settings.ilsStorageItems,
@@ -445,8 +518,12 @@ function buildAllocations(data: BootstrapData, producers: ProducerNode[], consum
                 data.settings.vesselDockingSeconds,
               ),
         sourceStationsNeeded:
-          remoteDistance === null || remoteDistance <= 0
-            ? remoteDistance === 0 ? 0 : null
+          isLocalPlanet
+            ? 0
+            : isLocalSystem
+              ? sameSystemMetrics?.sourceStationsNeeded ?? null
+              : remoteDistance === null || remoteDistance < 0
+                ? null
             : getRequiredStations(
                 allocation,
                 data.settings.vesselCapacityItems,
@@ -472,7 +549,7 @@ function groupAllocationsByConsumer(allocations: Allocation[]) {
 function getOutboundIlsRequiredBySiteId(allocations: Allocation[], producers: ProducerNode[]) {
   return allocations.reduce<Record<string, number>>((acc, allocation) => {
     const producer = producers.find((entry) => entry.id === allocation.producerId);
-    if (!producer?.productionSiteId || allocation.isLocalPlanet || allocation.isLocalSystem) {
+    if (!producer?.productionSiteId || allocation.isLocalPlanet) {
       return acc;
     }
     acc[producer.productionSiteId] = (acc[producer.productionSiteId] ?? 0) + (allocation.sourceStationsNeeded ?? 0);
@@ -523,7 +600,7 @@ function getWarnedSourceProducerIds(
   const warnedSourceProducerIds = new Set<string>();
   const rawRemoteIlsByProducerId = allocations.reduce<Record<string, number>>((acc, allocation) => {
     const producer = producers.find((entry) => entry.id === allocation.producerId);
-    if (!producer || producer.kind !== "raw" || allocation.isLocalPlanet || allocation.isLocalSystem) {
+    if (!producer || producer.kind !== "raw" || allocation.isLocalPlanet) {
       return acc;
     }
 
@@ -590,6 +667,7 @@ function buildDependencyViews(
         throughputPerMinute: row.throughputPerMinute,
         isLocalPlanet: row.isLocalPlanet,
         isLocalSystem: row.isLocalSystem,
+        sameSystemTransportMode: row.sameSystemTransportMode,
         sourceStationsNeeded: row.sourceStationsNeeded,
         targetStationsNeeded: row.targetStationsNeeded,
         hasSourceIlsWarning: warnedSourceProducerIds.has(producer.id),
@@ -674,7 +752,7 @@ function buildWarnings(
   const rawProducers = context.producers.filter((producer) => producer.kind === "raw");
   const rawRemoteIlsByProducerId = context.allocations.reduce<Record<string, number>>((acc, allocation) => {
     const producer = context.producers.find((entry) => entry.id === allocation.producerId);
-    if (!producer || producer.kind !== "raw" || allocation.isLocalPlanet || allocation.isLocalSystem) {
+    if (!producer || producer.kind !== "raw" || allocation.isLocalPlanet) {
       return acc;
     }
     acc[producer.id] = (acc[producer.id] ?? 0) + (allocation.sourceStationsNeeded ?? 0);
@@ -704,7 +782,7 @@ function buildWarnings(
         kind: "missing-extraction-ils",
         severity: "warning",
         title: `${producer.planetName} is missing ${producer.displayName} export ILS capacity`,
-        detail: "This raw resource is already serving remote demand, but its source ILS capacity is unset. Set a planet default or add a resource override.",
+        detail: "This raw resource is already serving off-planet demand, but its source ILS capacity is unset. Set a planet default or add a resource override.",
       });
     }
 
@@ -794,6 +872,7 @@ export function buildProductionDraftPreview(
   throughputPerMinute: number,
   solarSystemId: string,
   planetId: string,
+  sameSystemWarpByItemKey: Record<string, boolean> = {},
 ): ProductionDraftPreview | null {
   if (!projectId || !itemKey || throughputPerMinute <= 0 || !solarSystemId || !planetId) {
     return null;
@@ -808,7 +887,7 @@ export function buildProductionDraftPreview(
   }
 
   const consumerPrefix = `draft:${itemKey}:${planetId}:${solarSystemId}`;
-  const syntheticConsumers = importedItem.dependencies.map((dependency, dependencyIndex) => ({
+  const syntheticConsumers = importedItem.dependencies.map<ConsumerNode>((dependency, dependencyIndex) => ({
     id: `${consumerPrefix}:${dependencyIndex}`,
     key: dependency.item_key,
     siteId: consumerPrefix,
@@ -819,6 +898,7 @@ export function buildProductionDraftPreview(
         ? dependency.imported_demand_per_minute * (throughputPerMinute / importedItem.imported_throughput_per_minute)
         : 0,
     displayName: dependency.display_name,
+    sameSystemTransportMode: sameSystemWarpByItemKey[dependency.item_key] ? "warp" : "cruise",
   }));
   const allocationLookup = groupAllocationsByConsumer(buildAllocations(data, context.producers, syntheticConsumers));
   const metrics = buildDependencyViews(

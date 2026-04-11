@@ -100,6 +100,7 @@ export type ProductionSite = {
   solar_system_id: string;
   planet_id: string;
   outbound_ils_count: number;
+  same_system_warp_item_keys: string[];
   is_finished: number;
   created_at: string;
 };
@@ -200,6 +201,7 @@ export type BootstrapData = {
     miningSpeedPercent: number;
     vesselCapacityItems: number;
     vesselSpeedLyPerSecond: number;
+    vesselCruisingSpeedMetersPerSecond: number;
     vesselDockingSeconds: number;
     ilsStorageItems: number;
     clusterAddress: string;

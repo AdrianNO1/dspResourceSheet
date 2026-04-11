@@ -9,6 +9,7 @@ export const ORBITAL_COLLECTOR_INTERNAL_POWER_MW = 30;
 export const INTERSTELLAR_LOGISTICS_STATION_VESSEL_CAPACITY = 1000;
 export const INTERSTELLAR_LOGISTICS_STATION_VESSEL_COUNT = 10;
 export const INTERSTELLAR_LOGISTICS_STATION_STORAGE_CAPACITY = 10000;
+export const METERS_PER_AU = 40000;
 
 export type MultiSourceTransportInput = {
   id: string;
@@ -108,6 +109,47 @@ export function getTransportRoundTripSeconds(
   }
 
   return 2 * (distanceLy / vesselSpeedLyPerSecond) + 2 * vesselDockingSeconds;
+}
+
+export function getTransportRoundTripSecondsMeters(
+  distanceMeters: number,
+  vesselSpeedMetersPerSecond: number,
+  vesselDockingSeconds: number,
+) {
+  if (distanceMeters < 0 || vesselSpeedMetersPerSecond <= 0 || vesselDockingSeconds < 0) {
+    return null;
+  }
+
+  return 2 * (distanceMeters / vesselSpeedMetersPerSecond) + 2 * vesselDockingSeconds;
+}
+
+export function getRequiredStationsForRoundTripSeconds(
+  throughputPerMinute: number,
+  vesselCapacityItems: number,
+  roundTripSeconds: number,
+) {
+  if (roundTripSeconds <= 0 || vesselCapacityItems <= 0 || throughputPerMinute < 0) {
+    return null;
+  }
+
+  const itemsPerMinutePerVessel = (vesselCapacityItems * 60) / roundTripSeconds;
+  if (itemsPerMinutePerVessel <= 0) {
+    return null;
+  }
+
+  return throughputPerMinute / itemsPerMinutePerVessel / INTERSTELLAR_LOGISTICS_STATION_VESSEL_COUNT;
+}
+
+export function getTargetStationsNeededForRoundTripSeconds(
+  throughputPerMinute: number,
+  ilsStorageItems: number,
+  roundTripSeconds: number,
+) {
+  if (roundTripSeconds <= 0 || throughputPerMinute < 0 || ilsStorageItems <= 0) {
+    return null;
+  }
+
+  return throughputPerMinute * (roundTripSeconds / 60) / ilsStorageItems;
 }
 
 export function getItemsPerMinutePerVessel(

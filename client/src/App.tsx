@@ -1426,6 +1426,7 @@ function App() {
     isFinished: true,
     solarSystemId: "",
     planetId: "",
+    sameSystemWarpItemKeys: {} as Record<string, boolean>,
   });
 
   async function refreshBootstrap() {
@@ -2235,6 +2236,7 @@ function App() {
     Number(productionDraft.throughputPerMinute),
     productionDraft.solarSystemId,
     productionDraft.planetId,
+    productionDraft.sameSystemWarpItemKeys,
   );
   const selectedProductionFallbackRecipeOutputs = selectedProductionTemplate ? parseRecipeEntries(selectedProductionTemplate.outputs || "") : [];
   const selectedProductionRecipeOutputs = selectedProductionReference?.outputs ?? selectedProductionFallbackRecipeOutputs;
@@ -3056,6 +3058,7 @@ function App() {
       ...current,
       itemKey,
       throughputPerMinute: Number(nextTemplate.imported_throughput_per_minute),
+      sameSystemWarpItemKeys: {},
     }));
     setIsProductionModalOpen(true);
   }
@@ -3351,6 +3354,9 @@ function App() {
           isFinished: productionDraft.isFinished,
           solarSystemId: productionDraft.solarSystemId,
           planetId: productionDraft.planetId,
+          sameSystemWarpItemKeys: Object.entries(productionDraft.sameSystemWarpItemKeys)
+            .filter(([, isEnabled]) => isEnabled)
+            .map(([itemKey]) => itemKey),
         }),
       (nextData) => {
         applyBootstrap(nextData);
@@ -3364,6 +3370,7 @@ function App() {
           throughputPerMinute: Number(importedItem?.imported_throughput_per_minute ?? current.throughputPerMinute),
           outboundIlsCount: 0,
           isFinished: true,
+          sameSystemWarpItemKeys: {},
         }));
       },
     );
@@ -4928,6 +4935,24 @@ function App() {
                                   </div>
                                 </summary>
                                 <div className="production-ingredient-body">
+                                  {dependency.sources.some((source) => source.isLocalSystem) ? (
+                                    <label className="toggle-field">
+                                      <input
+                                        type="checkbox"
+                                        checked={Boolean(productionDraft.sameSystemWarpItemKeys[dependency.dependency.item_key])}
+                                        onChange={(event) =>
+                                          setProductionDraft((current) => ({
+                                            ...current,
+                                            sameSystemWarpItemKeys: {
+                                              ...current.sameSystemWarpItemKeys,
+                                              [dependency.dependency.item_key]: event.target.checked,
+                                            },
+                                          }))
+                                        }
+                                      />
+                                      <span>Use warp for same-system transport</span>
+                                    </label>
+                                  ) : null}
                                   <p className="helper-text">
                                     {dependency.sourcesLabel}
                                     {dependency.shortagePerMinute > 0 ? ` | Missing ${formatValue(dependency.shortagePerMinute)} / min.` : ""}
@@ -4957,7 +4982,7 @@ function App() {
                                               {source.isLocalPlanet
                                                 ? "Local planet"
                                                   : source.isLocalSystem
-                                                    ? "Local system"
+                                                    ? `${source.sameSystemTransportMode === "warp" ? "Same system warp" : "Same system cruise"} | Source ILS ${source.sourceStationsNeeded === null ? "?" : formatFixedValue(source.sourceStationsNeeded, 2)}`
                                                     : `Source ILS ${source.sourceStationsNeeded === null ? "?" : formatFixedValue(source.sourceStationsNeeded, 2)}`}
                                               </span>
                                             </div>
@@ -5606,6 +5631,20 @@ function App() {
                 onChange={(event) =>
                   void updateSettings({
                     vesselSpeedLyPerSecond: Number(event.target.value),
+                  })
+                }
+              />
+            </label>
+            <label className="field">
+              <span>Cruising speed (m / sec)</span>
+              <input
+                type="number"
+                min={1}
+                step="any"
+                value={data.settings.vesselCruisingSpeedMetersPerSecond}
+                onChange={(event) =>
+                  void updateSettings({
+                    vesselCruisingSpeedMetersPerSecond: Number(event.target.value),
                   })
                 }
               />

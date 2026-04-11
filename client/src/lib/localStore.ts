@@ -92,6 +92,7 @@ const settingsDefaults = new Map<string, string>([
   ["miningSpeedPercent", "100"],
   ["vesselCapacityItems", "1000"],
   ["vesselSpeedLyPerSecond", "0.25"],
+  ["vesselCruisingSpeedMetersPerSecond", "2000"],
   ["vesselDockingSeconds", "0"],
   ["ilsStorageItems", "10000"],
   ["clusterAddress", ""],
@@ -160,6 +161,16 @@ function getNumericValue(value: unknown, fallback = 0) {
 
 function ensureArray<T>(value: unknown) {
   return Array.isArray(value) ? (value as T[]) : [];
+}
+
+function normalizeStringArray(value: unknown) {
+  return Array.from(
+    new Set(
+      ensureArray<unknown>(value)
+        .map((item) => String(item ?? "").trim())
+        .filter((item) => item.length > 0),
+    ),
+  );
 }
 
 function ensureSettingsObject(value: unknown) {
@@ -459,6 +470,7 @@ function normalizeSnapshot(input: unknown): Snapshot {
     solar_system_id: getSortableValue(item.solar_system_id),
     planet_id: getSortableValue(item.planet_id),
     outbound_ils_count: getNumericValue(item.outbound_ils_count),
+    same_system_warp_item_keys: normalizeStringArray(item.same_system_warp_item_keys),
     is_finished: getNumericValue(item.is_finished, 1),
     created_at: getSortableValue(item.created_at) || nowIso(),
   }));
@@ -814,6 +826,7 @@ function buildBootstrap(snapshot: Snapshot): BootstrapData {
       miningSpeedPercent,
       vesselCapacityItems: Number(snapshot.settings.vesselCapacityItems ?? "1000"),
       vesselSpeedLyPerSecond: Number(snapshot.settings.vesselSpeedLyPerSecond ?? "0.25"),
+      vesselCruisingSpeedMetersPerSecond: Number(snapshot.settings.vesselCruisingSpeedMetersPerSecond ?? "2000"),
       vesselDockingSeconds: Number(snapshot.settings.vesselDockingSeconds ?? "0"),
       ilsStorageItems: Number(snapshot.settings.ilsStorageItems ?? "10000"),
       clusterAddress: snapshot.settings.clusterAddress ?? "",
@@ -1134,6 +1147,7 @@ export async function mutateStore(url: string, method: string, body?: unknown) {
       solar_system_id: solarSystemId,
       planet_id: planetId,
       outbound_ils_count: Number(payload.outboundIlsCount ?? 0),
+      same_system_warp_item_keys: normalizeStringArray(payload.sameSystemWarpItemKeys),
       is_finished: payload.isFinished === false ? 0 : 1,
       created_at: nowIso(),
     });
@@ -1161,6 +1175,9 @@ export async function mutateStore(url: string, method: string, body?: unknown) {
     productionSite.solar_system_id = solarSystemId;
     productionSite.planet_id = planetId;
     productionSite.outbound_ils_count = Number(payload.outboundIlsCount ?? productionSite.outbound_ils_count);
+    if ("sameSystemWarpItemKeys" in payload) {
+      productionSite.same_system_warp_item_keys = normalizeStringArray(payload.sameSystemWarpItemKeys);
+    }
     productionSite.is_finished = payload.isFinished === undefined ? productionSite.is_finished : payload.isFinished ? 1 : 0;
   } else if (url === "/api/ore-veins" && method === "POST") {
     const planetId = String(payload.planetId ?? "");
