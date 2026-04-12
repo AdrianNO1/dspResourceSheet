@@ -4973,7 +4973,10 @@ function App() {
                                               />
                                               <div>
                                                 <strong>{source.planetName}</strong>
-                                                <span>{source.solarSystemName} | {source.producerName}</span>
+                                                <span>
+                                                  {source.solarSystemName} | {source.producerName}
+                                                  {source.distanceLy === null ? "" : ` | ${formatFixedValue(source.distanceLy, 1)} ly`}
+                                                </span>
                                               </div>
                                             </div>
                                           <div className="overview-breakdown-values">

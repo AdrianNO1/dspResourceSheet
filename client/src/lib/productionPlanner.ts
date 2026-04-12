@@ -58,6 +58,7 @@ type Allocation = {
   producerId: string;
   consumerId: string;
   throughputPerMinute: number;
+  distanceLy: number | null;
   targetStationsNeeded: number | null;
   sourceStationsNeeded: number | null;
   isLocalPlanet: boolean;
@@ -70,6 +71,7 @@ export type ProductionIngredientSource = {
   producerName: string;
   planetName: string;
   solarSystemName: string;
+  distanceLy: number | null;
   throughputPerMinute: number;
   isLocalPlanet: boolean;
   isLocalSystem: boolean;
@@ -500,6 +502,7 @@ function buildAllocations(data: BootstrapData, producers: ProducerNode[], consum
         producerId: edge.producer.id,
         consumerId: edge.consumer.id,
         throughputPerMinute: allocation,
+        distanceLy: edge.distanceLy,
         isLocalPlanet,
         isLocalSystem,
         sameSystemTransportMode,
@@ -664,6 +667,7 @@ function buildDependencyViews(
         producerName: producer.displayName,
         planetName: producer.planetName,
         solarSystemName: producer.solarSystemName,
+        distanceLy: row.distanceLy,
         throughputPerMinute: row.throughputPerMinute,
         isLocalPlanet: row.isLocalPlanet,
         isLocalSystem: row.isLocalSystem,
