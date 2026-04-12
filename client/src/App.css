@@ -48,12 +48,6 @@
   color: #ffd9d7;
 }
 
-.notice-message {
-  background: rgba(49, 109, 128, 0.18);
-  border-color: rgba(122, 219, 216, 0.25);
-  color: #dffbf8;
-}
-
 .grid-layout {
   display: grid;
   grid-template-columns: minmax(0, 2fr) minmax(320px, 0.95fr);

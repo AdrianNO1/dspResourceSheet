@@ -1362,7 +1362,6 @@ function App() {
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
-  const [notice, setNotice] = useState("");
   const [activeView, setActiveView] = useState<ViewKey>(() => getViewFromHash(window.location.hash));
   const [showAllLedger, setShowAllLedger] = useState(true);
   const [selectedOverviewResourceId, setSelectedOverviewResourceId] = useState("");
@@ -1838,7 +1837,6 @@ function App() {
   async function mutate<T>(request: () => Promise<T>, onSuccess?: (payload: T) => void) {
     setBusy(true);
     setError("");
-    setNotice("");
 
     try {
       const payload = await request();
@@ -2867,7 +2865,6 @@ function App() {
         setSelectedMapSelection({ scope: "system", id: system.id });
         setNewSystemName("");
         setNewPlanetName(buildPlanetNamePrefix(system.name));
-        setNotice(`System "${system.name}" already exists. Selected it instead.`);
       },
     );
   }
@@ -2885,7 +2882,6 @@ function App() {
         const currentSystemName =
           nextData.solarSystems.find((solarSystem) => solarSystem.id === planet.solar_system_id)?.name ?? "";
         setNewPlanetName(currentSystemName ? buildPlanetNamePrefix(currentSystemName) : "");
-        setNotice(`Planet "${planet.name}" already exists in this system. Selected it instead.`);
       },
     );
   }
@@ -3264,7 +3260,6 @@ function App() {
       return importSnapshot(snapshot);
     }, (nextData) => {
       applyBootstrap(nextData);
-      setNotice("Imported snapshot successfully.");
     });
   }
 
@@ -3294,11 +3289,6 @@ function App() {
 
       setSelectedProjectId(project?.id ?? bootstrap.projects[0]?.id ?? "");
       navigateToView("projects");
-
-      const skippedLabel = importedProject.skippedRawResources.length > 0
-        ? ` Skipped unsupported raw entries: ${importedProject.skippedRawResources.join(", ")}.`
-        : "";
-      setNotice(`Imported project from CSV with ${importedProject.importedItems.length} crafted items.${skippedLabel}`);
     });
   }
 
@@ -3320,15 +3310,10 @@ function App() {
         }),
         importedProject,
       };
-    }, ({ bootstrap, importedProject }) => {
+    }, ({ bootstrap }) => {
       applyBootstrap(bootstrap);
       setSelectedProjectId(selectedProject.id);
       navigateToView("projects");
-
-      const skippedLabel = importedProject.skippedRawResources.length > 0
-        ? ` Skipped unsupported raw entries: ${importedProject.skippedRawResources.join(", ")}.`
-        : "";
-      setNotice(`Updated ${selectedProject.name} from CSV with ${importedProject.importedItems.length} crafted items.${skippedLabel}`);
     });
   }
 
@@ -3385,7 +3370,6 @@ function App() {
       () => postBootstrap("/api/cluster/import", { clusterAddress: parsedClusterAddress.clusterAddress }),
       (nextData) => {
         applyBootstrap(nextData);
-        setNotice(`Imported ${parsedClusterAddress.clusterStarCount} generated systems from cluster address.`);
       },
     );
   }
@@ -3457,10 +3441,9 @@ function App() {
 
   return (
     <main className="shell">
-      {(error || notice) && (
+      {error && (
         <section className="message-row">
           {error && <div className="message error-message">{error}</div>}
-          {notice && <div className="message notice-message">{notice}</div>}
         </section>
       )}
 
