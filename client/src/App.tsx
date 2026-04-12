@@ -837,6 +837,13 @@ function formatFixedValue(value: number, digits = 1) {
   }).format(value);
 }
 
+function formatDistanceLy(value: number) {
+  return new Intl.NumberFormat("en-US", {
+    minimumFractionDigits: 1,
+    maximumFractionDigits: 3,
+  }).format(value);
+}
+
 function formatProjectSupplyShare(value: number) {
   if (value > 0 && value < 0.1) {
     return "<0.1";
@@ -4999,7 +5006,7 @@ function App() {
                                                 <strong>{source.planetName}</strong>
                                                 <span>
                                                   {source.solarSystemName} | {source.producerName}
-                                                  {source.distanceLy === null ? "" : ` | ${formatFixedValue(source.distanceLy, 1)} ly`}
+                                                  {source.distanceLy === null ? "" : ` | ${formatDistanceLy(source.distanceLy)} ly`}
                                                 </span>
                                               </div>
                                             </div>
