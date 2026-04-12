@@ -837,6 +837,14 @@ function formatFixedValue(value: number, digits = 1) {
   }).format(value);
 }
 
+function formatProjectSupplyShare(value: number) {
+  if (value > 0 && value < 0.1) {
+    return "<0.1";
+  }
+
+  return formatFixedValue(value, 1);
+}
+
 function toDisplayName(value: string) {
   return value
     .trim()
@@ -900,6 +908,26 @@ function buildProductionTree(craftedItems: ProjectImportedItem[], summaries: Pro
     return value.toLowerCase().includes("proliferator");
   }
 
+  function normalizeDependencyKey(value: string) {
+    return String(value ?? "").trim().toLowerCase().replace(/[_\s]+/g, "-");
+  }
+
+  function getTreeDependencyDemandPerMinute(importedItem: ProjectImportedItem, dependencyItemKey: string) {
+    const canonicalDemand = getImportedItemDependencyDemandPerMinute(importedItem, dependencyItemKey);
+    if (canonicalDemand !== null) {
+      return canonicalDemand;
+    }
+
+    const normalizedDependencyKey = normalizeDependencyKey(dependencyItemKey);
+    const fallbackDependency = importedItem.dependencies.find((dependency) => (
+      dependency.item_key === dependencyItemKey ||
+      normalizeDependencyKey(dependency.item_key) === normalizedDependencyKey ||
+      normalizeDependencyKey(dependency.display_name) === normalizedDependencyKey
+    ));
+
+    return fallbackDependency?.imported_demand_per_minute ?? null;
+  }
+
   for (const item of craftedItems) {
     parentKeysByChild.set(item.item_key, []);
   }
@@ -933,7 +961,7 @@ function buildProductionTree(craftedItems: ProjectImportedItem[], summaries: Pro
 
     const canonicalUsageTotals = new Map<string, number>();
     for (const candidateItem of craftedItems) {
-      const canonicalDemand = getImportedItemDependencyDemandPerMinute(candidateItem, itemKey);
+      const canonicalDemand = getTreeDependencyDemandPerMinute(candidateItem, itemKey);
       if (canonicalDemand !== null && canonicalDemand > 0) {
         canonicalUsageTotals.set(candidateItem.item_key, canonicalDemand);
       }
@@ -959,7 +987,7 @@ function buildProductionTree(craftedItems: ProjectImportedItem[], summaries: Pro
       .map<ProductionTreeInput>((dependency) => {
         const canonicalDemand =
           itemByKey.has(dependency.item_key)
-            ? getImportedItemDependencyDemandPerMinute(item, dependency.item_key)
+            ? getTreeDependencyDemandPerMinute(item, dependency.item_key)
             : null;
         const effectiveDemandPerMinute = canonicalDemand ?? dependency.imported_demand_per_minute;
         const parentCount = itemByKey.has(dependency.item_key)
@@ -968,7 +996,7 @@ function buildProductionTree(craftedItems: ProjectImportedItem[], summaries: Pro
         const totalDemandForDependency =
           itemByKey.has(dependency.item_key)
             ? craftedItems.reduce((sum, candidateItem) => (
-                sum + (getImportedItemDependencyDemandPerMinute(candidateItem, dependency.item_key) ?? 0)
+                sum + (getTreeDependencyDemandPerMinute(candidateItem, dependency.item_key) ?? 0)
               ), 0)
             : 0;
         return {
@@ -998,7 +1026,7 @@ function buildProductionTree(craftedItems: ProjectImportedItem[], summaries: Pro
         }
 
         const effectiveDemandPerMinute =
-          getImportedItemDependencyDemandPerMinute(parentItem, itemKey) ?? dependency.imported_demand_per_minute;
+          getTreeDependencyDemandPerMinute(parentItem, itemKey) ?? dependency.imported_demand_per_minute;
         return {
           itemKey: parentKey,
           displayName: parentItem.display_name,
@@ -2381,7 +2409,7 @@ function App() {
                 <span>{formatRoundedUpInteger(node.summary.totalPlannedThroughput)} / min</span>
                 {referenceInput ? (
                   <>
-                  {referenceInput.sharePercent < 99.95 ? <span>{formatFixedValue(referenceInput.sharePercent, 1)}% of project supply</span> : null}
+                  {referenceInput.sharePercent < 99.95 ? <span>{formatProjectSupplyShare(referenceInput.sharePercent)}% of project supply</span> : null}
                   {referenceInput.isSharedCrafted ? <span className="production-tree-reference-badge">shared input</span> : null}
                   </>
                 ) : null}
@@ -2441,7 +2469,7 @@ function App() {
                         />
                         <strong>{usage.displayName}</strong>
                       </div>
-                      <span>{formatFixedValue(usage.sharePercent, 1)}% of project supply</span>
+                      <span>{formatProjectSupplyShare(usage.sharePercent)}% of project supply</span>
                       <span>{formatValue(usage.demandPerMinute)} / min</span>
                     </button>
                   ))}
@@ -2479,7 +2507,7 @@ function App() {
                             <strong>{input.displayName}</strong>
                             <div className="production-tree-reference-meta">
                               <span>{formatValue(input.demandPerMinute)} / min</span>
-                              {input.sharePercent < 99.95 ? <span>{formatFixedValue(input.sharePercent, 1)}% of project supply</span> : null}
+                              {input.sharePercent < 99.95 ? <span>{formatProjectSupplyShare(input.sharePercent)}% of project supply</span> : null}
                               <span className="production-tree-reference-badge">{input.isSharedCrafted ? "shared input" : "raw input"}</span>
                             </div>
                           </div>
