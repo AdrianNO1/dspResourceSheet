@@ -1,6 +1,6 @@
 import { FACTORIOLAB_RECIPE_CATALOG } from "./factoriolabRecipeCatalog.generated";
 import { FACTORIOLAB_MACHINE_METADATA, FACTORIOLAB_RECIPE_METADATA } from "./factoriolabReference.generated";
-import type { ProjectImportedItem } from "./types";
+import type { ProjectImportedDependency, ProjectImportedItem } from "./types";
 
 export type FactorioLabIoEntry = {
   itemKey: string;
@@ -268,4 +268,73 @@ export function getImportedItemDependencyDemandPerMinute(
     (Number(importedItem.imported_throughput_per_minute) * Number(input.quantity)) /
     (reference.primaryOutputQuantity * effectiveOutputMultiplier)
   );
+}
+
+export function getCanonicalImportedItemDependencies(
+  importedItem: ProjectImportedItem | null,
+): ProjectImportedDependency[] | null {
+  const reference = getFactorioLabReference(importedItem);
+  if (!importedItem || !reference) {
+    return null;
+  }
+
+  const exactDependencyByKey = new Map(importedItem.dependencies.map((dependency) => [dependency.item_key, dependency]));
+  const remainingDependencies = [...importedItem.dependencies];
+  const matchedDependencies = new Set<ProjectImportedDependency>();
+
+  const takeMatchingDependency = (input: FactorioLabIoEntry) => {
+    const exactMatch = exactDependencyByKey.get(input.itemKey);
+    if (exactMatch) {
+      matchedDependencies.add(exactMatch);
+      return exactMatch;
+    }
+
+    const displayNameKey = normalizeKey(input.displayName);
+    const aliasMatch = remainingDependencies.find((dependency) => normalizeKey(dependency.display_name) === displayNameKey);
+    if (aliasMatch) {
+      matchedDependencies.add(aliasMatch);
+      return aliasMatch;
+    }
+
+    return null;
+  };
+
+  const canonicalRecipeDependencies = reference.inputs.map<ProjectImportedDependency>((input) => {
+    const existingDependency = takeMatchingDependency(input);
+    const importedDemandPerMinute =
+      getImportedItemDependencyDemandPerMinute(importedItem, input.itemKey) ??
+      (
+        reference.primaryOutputQuantity > 0
+          ? (Number(importedItem.imported_throughput_per_minute) * Number(input.quantity)) / reference.primaryOutputQuantity
+          : 0
+      );
+    const perUnitRatio =
+      importedItem.imported_throughput_per_minute > 0
+        ? importedDemandPerMinute / Number(importedItem.imported_throughput_per_minute)
+        : (
+          reference.primaryOutputQuantity > 0
+            ? Number(input.quantity) / reference.primaryOutputQuantity
+            : 0
+        );
+
+    return {
+      item_key: existingDependency?.item_key ?? input.itemKey,
+      display_name: existingDependency?.display_name ?? getDisplayName(input.displayName, input.itemKey),
+      dependency_type: existingDependency?.dependency_type ?? "crafted",
+      per_unit_ratio: perUnitRatio,
+      imported_demand_per_minute: importedDemandPerMinute,
+    };
+  });
+
+  const preservedExtraDependencies = importedItem.dependencies
+    .filter((dependency) => !matchedDependencies.has(dependency))
+    .map((dependency) => ({
+      item_key: dependency.item_key,
+      display_name: dependency.display_name,
+      dependency_type: dependency.dependency_type,
+      per_unit_ratio: Number(dependency.per_unit_ratio),
+      imported_demand_per_minute: Number(dependency.imported_demand_per_minute),
+    }));
+
+  return [...canonicalRecipeDependencies, ...preservedExtraDependencies];
 }

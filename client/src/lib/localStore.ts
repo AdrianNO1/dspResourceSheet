@@ -6,6 +6,7 @@ import {
   getRegularMinerOutputPerMinute,
 } from "./dspMath";
 import { generateClusterSystems, parseClusterAddress } from "./dspCluster";
+import { getCanonicalImportedItemDependencies } from "./factoriolabCatalog";
 import type {
   BootstrapData,
   GasGiantOutput,
@@ -388,7 +389,7 @@ function normalizeSnapshot(input: unknown): Snapshot {
     quantity: getNumericValue(item.quantity),
   }));
 
-  snapshot.projectImportedItems = ensureArray<ProjectImportedItem>(source.projectImportedItems).map((item) => ({
+  snapshot.projectImportedItems = ensureArray<ProjectImportedItem>(source.projectImportedItems).map<ProjectImportedItem>((item) => ({
     id: getSortableValue(item.id) || generateId(),
     project_id: getSortableValue(item.project_id),
     item_key: getSortableValue(item.item_key),
@@ -410,6 +411,9 @@ function normalizeSnapshot(input: unknown): Snapshot {
       imported_demand_per_minute: getNumericValue(dependency.imported_demand_per_minute),
     })),
     sort_order: getNumericValue(item.sort_order),
+  })).map<ProjectImportedItem>((item) => ({
+    ...item,
+    dependencies: getCanonicalImportedItemDependencies(item) ?? item.dependencies,
   }));
 
   snapshot.oreVeins = ensureArray<OreVein>(source.oreVeins).map((item) => ({
@@ -592,7 +596,7 @@ function replaceProjectImportedItems(
 ) {
   snapshot.projectImportedItems = snapshot.projectImportedItems.filter((item) => item.project_id !== projectId);
   importedItems.forEach((item) => {
-    snapshot.projectImportedItems.push({
+    const nextItem: ProjectImportedItem = {
       id: generateId(),
       project_id: projectId,
       item_key: item.item_key,
@@ -614,6 +618,11 @@ function replaceProjectImportedItems(
         imported_demand_per_minute: Number(dependency.imported_demand_per_minute),
       })),
       sort_order: Number(item.sort_order),
+    };
+
+    snapshot.projectImportedItems.push({
+      ...nextItem,
+      dependencies: getCanonicalImportedItemDependencies(nextItem) ?? nextItem.dependencies,
     });
   });
 }

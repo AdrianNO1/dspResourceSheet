@@ -1,3 +1,4 @@
+import { getCanonicalImportedItemDependencies } from "./factoriolabCatalog";
 import type { ImportedItemCategory, ProjectImportedDependency, ProjectImportedItem, ResourceDefinition } from "./types";
 
 type CsvImportGoal = {
@@ -225,7 +226,7 @@ export function parseFactorioLabProjectCsv(
       };
     });
 
-    importedItems.push({
+    const importedItem: Omit<ProjectImportedItem, "id" | "project_id"> = {
       item_key: itemKey,
       display_name: resource?.name ?? toDisplayName(itemValue),
       category,
@@ -239,6 +240,15 @@ export function parseFactorioLabProjectCsv(
       outputs: row[outputsIndex] ?? "",
       dependencies,
       sort_order: sortOrder,
+    };
+
+    importedItems.push({
+      ...importedItem,
+      dependencies: getCanonicalImportedItemDependencies({
+        ...importedItem,
+        id: "",
+        project_id: "",
+      }) ?? dependencies,
     });
   }
 
