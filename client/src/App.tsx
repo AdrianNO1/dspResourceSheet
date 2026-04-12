@@ -2486,6 +2486,19 @@ function App() {
                         </div>
                         <div className="production-tree-metrics production-tree-metrics-empty" />
                       </div>
+                      {input.isSharedCrafted && productionItemChoices.some((item) => item.item_key === input.itemKey) ? (
+                        <button
+                          type="button"
+                          className="production-tree-add-button"
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            openProductionSiteModal(input.itemKey);
+                          }}
+                          aria-label={`Add production site for ${input.displayName}`}
+                        >
+                          +
+                        </button>
+                      ) : null}
                     </div>
                   </div>
                 )
