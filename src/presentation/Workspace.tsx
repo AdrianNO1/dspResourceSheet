@@ -1057,7 +1057,7 @@ function Workspace() {
             aria-label={canExpand ? `Toggle details for ${node.summary.displayName}` : undefined}
             disabled={!canExpand}
           >
-            â€º
+            {'>'}
           </button>
           <button type="button" className="production-tree-main" onClick={toggleExpanded}>
           <div className="production-tree-title">
@@ -1168,7 +1168,7 @@ function Workspace() {
                     <div className="production-tree-row production-tree-row-leaf">
                       <div className="production-tree-indent" aria-hidden="true" />
                       <span className="production-tree-usage-toggle production-tree-usage-toggle-leaf" aria-hidden="true">
-                        â€¢
+                        *
                       </span>
                       <div className="production-tree-main production-tree-main-leaf">
                         <div className="production-tree-title">
@@ -1239,7 +1239,7 @@ function Workspace() {
     }
   })();
   const clusterAddressHelperText = parsedClusterAddress
-    ? `Seed ${parsedClusterAddress.clusterSeed} · ${parsedClusterAddress.clusterStarCount} stars · ${loadedData.summary.generatedSystemCount} generated systems currently stored.`
+    ? `Seed ${parsedClusterAddress.clusterSeed} | ${parsedClusterAddress.clusterStarCount} stars | ${loadedData.summary.generatedSystemCount} generated systems currently stored.`
     : clusterAddressDraft.trim()
       ? "Cluster address format not recognized yet."
       : "Import a DSP cluster address to generate exact system coordinates and automatic inter-system distances.";
@@ -2901,7 +2901,7 @@ function Workspace() {
                       <strong>{selectedProductionSummary.plannedLineCount}</strong>
                       <span>
                         {selectedProductionMachinePlan && selectedProductionMachinePlan.machinesPerLine > 0
-                          ? `${formatRoundedUpInteger(selectedProductionMachinePlan.machinesPerLine)} machines/line Â· `
+                          ? `${formatRoundedUpInteger(selectedProductionMachinePlan.machinesPerLine)} machines/line | `
                           : ""}
                         {formatRoundedUpInteger(selectedProductionMachinePlan?.totalMachineCount ?? selectedProductionSummary.plannedMachineCount)} machines total
                       </span>
@@ -3020,7 +3020,7 @@ function Workspace() {
                       </div>
 
                       <p className="helper-text">
-                        {siteView.lineCount} lines Â· {formatRoundedUpInteger(siteMachinePlan.machinesPerLine)} machines/line Â· {formatFixedValue(siteView.outputBeltsPerLine, 2)} output belts/line
+                        {siteView.lineCount} lines | {formatRoundedUpInteger(siteMachinePlan.machinesPerLine)} machines/line | {formatFixedValue(siteView.outputBeltsPerLine, 2)} output belts/line
                       </p>
 
                       <div className="overview-breakdown-list">
@@ -3037,7 +3037,7 @@ function Workspace() {
                                 />
                                 <div>
                                   <strong>{ingredient.dependency.display_name}</strong>
-                                  <p>{formatValue(ingredient.requiredPerMinute)} / min required Â· {formatValue(ingredient.coveragePerMinute)} covered</p>
+                                  <p>{formatValue(ingredient.requiredPerMinute)} / min required | {formatValue(ingredient.coveragePerMinute)} covered</p>
                                 </div>
                               </div>
                               <div className="overview-breakdown-values">
@@ -3047,7 +3047,7 @@ function Workspace() {
                             </div>
                             <p className="helper-text">
                               {ingredient.sourcesLabel}
-                              {ingredient.shortagePerMinute > 0 ? ` Â· Missing ${formatValue(ingredient.shortagePerMinute)} / min.` : ""}
+                              {ingredient.shortagePerMinute > 0 ? ` | Missing ${formatValue(ingredient.shortagePerMinute)} / min.` : ""}
                               {ingredient.hasSourceIlsWarning ? " One or more source exporters need more source ILS than currently configured." : ""}
                             </p>
                           </article>
@@ -3057,7 +3057,7 @@ function Workspace() {
                       <p className="helper-text">
                         Mixed target ILS {siteView.mixedIlsFullStationCount + siteView.mixedIlsBins.length}
                         {siteView.mixedIlsBins.length > 0
-                          ? ` Â· shared bins: ${siteView.mixedIlsBins.map((bin) => `[${bin.entries.map((item) => `${item.itemName} ${formatFixedValue(item.fraction, 2)}`).join(", ")}]`).join(" | ")}`
+                          ? ` | shared bins: ${siteView.mixedIlsBins.map((bin) => `[${bin.entries.map((item) => `${item.itemName} ${formatFixedValue(item.fraction, 2)}`).join(", ")}]`).join(" | ")}`
                           : ""}
                       </p>
                     </article>
@@ -3181,7 +3181,7 @@ function Workspace() {
                               <span>Line plan</span>
                               <strong>{formatFixedValue(roundUpValue(productionDraftExactLineDemand ?? productionDraftPreview.lineCount, 1), 1)} lines</strong>
                               <span>
-                                {formatRoundedUpInteger(productionDraftAverageMachinePlan?.machinesPerLine ?? productionDraftPreview.assemblersPerLine)} machines/line Â· {formatRoundedUpInteger(productionDraftMachinePlan?.totalMachineCount ?? productionDraftPreview.machineCount)} machines total
+                                {formatRoundedUpInteger(productionDraftAverageMachinePlan?.machinesPerLine ?? productionDraftPreview.assemblersPerLine)} machines/line | {formatRoundedUpInteger(productionDraftMachinePlan?.totalMachineCount ?? productionDraftPreview.machineCount)} machines total
                               </span>
                             </div>
                             <div className="production-line-plan-stat">
@@ -3224,7 +3224,7 @@ function Workspace() {
                                     />
                                     <div className="production-line-plan-copy-text">
                                       <strong>{dependency.dependency.display_name}</strong>
-                                      <span>{formatValue(dependency.requiredPerMinute)} / min Â· {formatFixedValue(dependency.beltsPerLine, 2)} belts/line</span>
+                                      <span>{formatValue(dependency.requiredPerMinute)} / min | {formatFixedValue(dependency.beltsPerLine, 2)} belts/line</span>
                                     </div>
                                   </div>
                                   <div className="production-line-plan-values">
