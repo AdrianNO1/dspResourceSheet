@@ -255,11 +255,33 @@ function MachinePill({ label, variant }: { label: string; variant: "advanced" | 
   return <span className={`machine-pill machine-pill-${variant}`}>{label}</span>;
 }
 
+function LoadingShell() {
+  return (
+    <main className="shell loading-shell">
+      <section className="panel">
+        <p className="eyebrow">Dyson Sphere Program</p>
+        <h1>Loading extraction ledger...</h1>
+      </section>
+    </main>
+  );
+}
+
+function WorkspaceShell() {
+  const {
+    state: { data, loading },
+  } = useAppContext();
+
+  if (loading || !data) {
+    return <LoadingShell />;
+  }
+
+  return <Workspace />;
+}
+
 function Workspace() {
   const {
     state: {
-      data,
-      loading,
+      data: bootstrapData,
       busy,
       error,
       undoToast,
@@ -279,6 +301,8 @@ function Workspace() {
     undoToastProgressWidth,
     undoToastSecondsLabel,
   } = useAppContext();
+  const data = bootstrapData!;
+
   const planetExtractionIlsSaveTimersRef = useRef<Record<string, number>>({});
   const planetResourceExtractionIlsSaveTimersRef = useRef<Record<string, number>>({});
   const planetResourceExtractionIlsDraftsRef = useRef<Record<string, string>>({});
@@ -634,17 +658,6 @@ function Workspace() {
     undoDescription?: string,
   ) {
     await runUndoableCommand(command, undoTitle, onSuccess, undoDescription);
-  }
-
-  if (loading || !data) {
-    return (
-      <main className="shell loading-shell">
-        <section className="panel">
-          <p className="eyebrow">Dyson Sphere Program</p>
-          <h1>Loading extraction ledger...</h1>
-        </section>
-      </main>
-    );
   }
 
   const loadedData = data;
@@ -3941,7 +3954,7 @@ function Workspace() {
   );
 }
 
-export { Workspace };
-export default Workspace;
+export { Workspace, WorkspaceShell };
+export default WorkspaceShell;
 
 
