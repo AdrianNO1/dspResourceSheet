@@ -2426,6 +2426,16 @@ function App() {
     return currentKey;
   }
 
+  function getProductionSetupStatusLabel(activeSiteCount: number, siteCount: number) {
+    if (siteCount <= 0) {
+      return "";
+    }
+    if (activeSiteCount === siteCount) {
+      return `${siteCount} ${siteCount === 1 ? "setup" : "setups"}`;
+    }
+    return `${activeSiteCount}/${siteCount} setups active`;
+  }
+
   function toggleExpandAllProductionRows() {
     if (allProductionRowsExpanded) {
       setExpandedProductionItemKeys({});
@@ -2528,8 +2538,7 @@ function App() {
           <div className="production-tree-metrics">
             {node.summary.siteCount > 0 ? (
               <div className="production-tree-metric">
-                <strong>{`${node.summary.activeSiteCount}/${node.summary.siteCount}`}</strong>
-                <span className="production-tree-metric-label">setups active</span>
+                <strong>{getProductionSetupStatusLabel(node.summary.activeSiteCount, node.summary.siteCount)}</strong>
               </div>
             ) : null}
             <div className="production-tree-metric">
@@ -4837,11 +4846,11 @@ function App() {
                       <strong>{selectedProductionSummary.plannedLineCount}</strong>
                       <span>{formatFixedValue(selectedProductionSummary.plannedMachineCount, 1)} machines total</span>
                     </div>
-                    <div className="entry-stat">
-                      <span>Placed sites</span>
-                      <strong>{`${selectedProductionSummary.activeSiteCount}/${selectedProductionSummary.siteCount}`}</strong>
-                      <span>setups active</span>
-                    </div>
+                  <div className="entry-stat">
+                    <span>Placed sites</span>
+                    <strong>{getProductionSetupStatusLabel(selectedProductionSummary.activeSiteCount, selectedProductionSummary.siteCount)}</strong>
+                    <span>{selectedProductionSummary.activeSiteCount === selectedProductionSummary.siteCount ? "all active" : "mixed active state"}</span>
+                  </div>
                   </div>
 
                   <div className="overview-breakdown-list">
