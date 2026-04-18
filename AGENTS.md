@@ -19,13 +19,13 @@ There is no backend in active use for the app flow. Working data is stored in th
 - The user logs solar systems, planets, extraction sites, and crafted production sites.
 - The app builds a bootstrap data model from browser storage.
 - Derived views then calculate extraction totals, transport plans, coverage, warnings, and production summaries.
-- Most user-facing behavior lives in `client/src/App.tsx`, while reusable math and planning logic live in `client/src/lib`.
+- Most user-facing behavior lives in `src/App.tsx`, while reusable math and planning logic live in `src/lib`.
 
 ## How Core Calculations Work
 
 ### Extraction Math
 
-Core extraction formulas are in `client/src/lib/dspMath.ts`.
+Core extraction formulas are in `src/lib/dspMath.ts`.
 
 - Regular miner throughput:
   `coveredNodes * 30 * (miningSpeedPercent / 100)`
@@ -42,7 +42,7 @@ Important constants are also in `dspMath.ts`, including miner rates, power draw,
 
 ### Transport Math
 
-Transport planning also lives in `client/src/lib/dspMath.ts`.
+Transport planning also lives in `src/lib/dspMath.ts`.
 
 - Round trip time:
   `2 * (distance / vesselSpeed) + 2 * dockingSeconds`
@@ -58,7 +58,7 @@ Transport planning also lives in `client/src/lib/dspMath.ts`.
 
 ### Production Planning
 
-Production planning is in `client/src/lib/productionPlanner.ts`.
+Production planning is in `src/lib/productionPlanner.ts`.
 
 - Raw producers are built from logged ore veins, liquid sites, oil extractors, and gas giant outputs.
 - Crafted producers come from placed production sites for imported items.
@@ -80,7 +80,7 @@ When a resource-specific override exists, planner warnings and source-capacity c
 
 ### Cluster and Distance Logic
 
-`client/src/lib/dspCluster.ts` handles cluster parsing and generated system-distance helpers. `productionPlanner.ts` uses that distance data to evaluate remote allocations.
+`src/lib/dspCluster.ts` handles cluster parsing and generated system-distance helpers. `productionPlanner.ts` uses that distance data to evaluate remote allocations.
 
 If you change distance logic, also review:
 
@@ -90,7 +90,7 @@ If you change distance logic, also review:
 
 ### Local Storage and Data Normalization
 
-`client/src/lib/localStore.ts` is the persistence layer.
+`src/lib/localStore.ts` is the persistence layer.
 
 - Data is stored in IndexedDB as a single snapshot.
 - The file seeds default resources and settings.
@@ -99,7 +99,7 @@ If you change distance logic, also review:
 
 If you add fields to persisted entities, update:
 
-1. the type definitions in `client/src/lib/types.ts`
+1. the type definitions in `src/lib/types.ts`
 2. snapshot normalization in `localStore.ts`
 3. mutation handlers in `localStore.ts`
 4. any affected derived bootstrap calculations
@@ -109,7 +109,7 @@ If you add fields to persisted entities, update:
 ### Root
 
 - `package.json`
-  workspace entry point; common dev/build/lint commands delegate to the client workspace
+  root app manifest; common dev/build/lint/test commands run directly from the repo root
 - `README.md`
   short project usage notes
 - `scripts/`
@@ -119,31 +119,31 @@ If you add fields to persisted entities, update:
 - `server/`
   currently not part of the main runtime flow; the active app is effectively client-only
 
-### Client App
+### App
 
-- `client/src/App.tsx`
+- `src/App.tsx`
   main application shell, view state, form handlers, and rendering
-- `client/src/App.css`
+- `src/App.css`
   application styling
-- `client/src/components/`
+- `src/components/`
   reusable UI pieces like resource icon/select controls
-- `client/src/lib/api.ts`
+- `src/lib/api.ts`
   frontend API wrapper around the local store layer
-- `client/src/lib/localStore.ts`
+- `src/lib/localStore.ts`
   IndexedDB persistence, snapshot normalization, seeding, and mutation routing
-- `client/src/lib/dspMath.ts`
+- `src/lib/dspMath.ts`
   reusable extraction and transport formulas
-- `client/src/lib/productionPlanner.ts`
+- `src/lib/productionPlanner.ts`
   supply allocation, site coverage, warnings, and production summaries
-- `client/src/lib/projectImport.ts`
+- `src/lib/projectImport.ts`
   FactorioLab CSV import parsing
-- `client/src/lib/factoriolabCatalog.ts`
+- `src/lib/factoriolabCatalog.ts`
   recipe/reference helpers used to enrich imported production data
-- `client/src/lib/*.generated.ts`
+- `src/lib/*.generated.ts`
   generated catalog/reference data; avoid hand-editing unless the workflow specifically requires it
-- `client/src/lib/types.ts`
+- `src/lib/types.ts`
   shared domain model types across the client code
-- `client/public/icons/`
+- `public/icons/`
   game and resource art used in the UI
 
 ## Working Conventions For Agents

@@ -27,7 +27,7 @@ After pushing to GitHub:
 3. Set the source to `GitHub Actions`.
 4. Push to `main` or `master`, or run the `Deploy to GitHub Pages` workflow manually.
 
-The built site is published from `client/dist`.
+The built site is published from `dist`.
 
 ## Notes
 

@@ -1,6 +1,0 @@
-TODO
-- Refine gas giant collector math beyond the current `configured rate * collectors * 8 * mining bonus` approximation.
-- Use gas fuel values in planning and reporting.
-- Add mining power consumption tracking.
-- Add crafting-item checklist support.
-- Replace placeholder resource and machine icons with extracted DSP art where available.
