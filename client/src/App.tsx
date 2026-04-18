@@ -4844,7 +4844,12 @@ function App() {
                     <div className="entry-stat">
                       <span>Lines needed</span>
                       <strong>{selectedProductionSummary.plannedLineCount}</strong>
-                      <span>{formatRoundedUpInteger(selectedProductionSummary.plannedMachineCount)} machines total</span>
+                      <span>
+                        {selectedProductionSummary.plannedLineCount > 0
+                          ? `${formatFixedValue(selectedProductionTemplate.machine_count / selectedProductionSummary.plannedLineCount, 1)} machines/line · `
+                          : ""}
+                        {formatRoundedUpInteger(selectedProductionSummary.plannedMachineCount)} machines total
+                      </span>
                     </div>
                   <div className="entry-stat">
                     <span>Placed sites</span>
@@ -5102,7 +5107,9 @@ function App() {
                             <div className="production-line-plan-stat">
                               <span>Line plan</span>
                               <strong>{productionDraftPreview.lineCount} lines</strong>
-                              <span>{formatRoundedUpInteger(productionDraftPreview.machineCount)} machines total</span>
+                              <span>
+                                {formatFixedValue(productionDraftPreview.assemblersPerLine, 1)} machines/line · {formatRoundedUpInteger(productionDraftPreview.machineCount)} machines total
+                              </span>
                             </div>
                             <div className="production-line-plan-stat">
                               <span>Estimated power</span>
