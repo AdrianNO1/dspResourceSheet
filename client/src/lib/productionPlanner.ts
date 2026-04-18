@@ -12,6 +12,8 @@ import {
   getTransportRoundTripSeconds,
   getTransportRoundTripSecondsMeters,
 } from "./dspMath";
+import { getPlanetExtractionOutboundIlsCount } from "../domain/planetLogistics";
+import { getRoundedMachinePlan } from "../domain/productionMath";
 import { getSystemDistanceLy } from "./dspCluster";
 import type {
   BootstrapData,
@@ -192,27 +194,12 @@ function roundUp(value: number, decimals: number) {
   return Math.ceil(value * factor - 1e-9) / factor;
 }
 
-function getTotalMachineCount(lineCount: number, assemblersPerLine: number) {
-  return lineCount * Math.max(0, Math.ceil(assemblersPerLine - 1e-9));
-}
-
 function normalizeKey(value: string) {
   return value.trim().toLowerCase().replace(/[_\s]+/g, "-");
 }
 
 function getPlanetLookup(data: BootstrapData) {
   return new Map(data.planets.map((planet) => [planet.id, planet]));
-}
-
-function getPlanetExtractionOutboundIlsCount(planet: Planet, resourceId: string | null) {
-  if (resourceId) {
-    const override = planet.extraction_outbound_ils_overrides.find((item) => item.resource_id === resourceId);
-    if (override) {
-      return override.ils_count;
-    }
-  }
-
-  return planet.extraction_outbound_ils_count;
 }
 
 function getSystemLookup(data: BootstrapData) {
@@ -336,7 +323,7 @@ function buildCraftedProducers(data: BootstrapData, importedItems: Map<string, P
   const systemLookup = getSystemLookup(data);
 
   return data.productionSites
-    .filter((site) => site.project_id === projectId)
+    .filter((site) => site.project_id === projectId && Number(site.is_finished) === 1)
     .flatMap<ProducerNode>((site) => {
       const importedItem = importedItems.get(site.item_key);
       const planet = planetLookup.get(site.planet_id);
@@ -710,7 +697,7 @@ function buildDependencyViews(
     dependencyViews,
     outputBelts,
     lineCount,
-    machineCount: getTotalMachineCount(lineCount, assemblersPerLine),
+    machineCount: getRoundedMachinePlan(importedItem.machine_count * scale, lineCount).totalMachineCount,
     assemblersPerLine,
     outputBeltsPerLine: roundUp(outputBelts / lineCount, 2),
     packedIls: packMixedIls(dependencyViews),

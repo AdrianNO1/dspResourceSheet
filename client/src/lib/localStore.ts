@@ -31,7 +31,7 @@ import type {
   TransportRoute,
 } from "./types";
 
-type Snapshot = {
+export type StoredSnapshot = {
   resources: ResourceDefinition[];
   solarSystems: SolarSystem[];
   systemDistances: SystemDistance[];
@@ -49,6 +49,8 @@ type Snapshot = {
   transportRoutes: TransportRoute[];
   settings: Record<string, string>;
 };
+
+type Snapshot = StoredSnapshot;
 
 type ResourceSeed = {
   id: string;
@@ -321,7 +323,7 @@ function migrateLiquidGoalsToItemsPerMinute(snapshot: Snapshot) {
   snapshot.settings.liquidGoalsMigratedToItemsPerMinute = "1";
 }
 
-function normalizeSnapshot(input: unknown): Snapshot {
+export function normalizeSnapshot(input: unknown): StoredSnapshot {
   const source = input && typeof input === "object" ? (input as Partial<Snapshot>) : {};
   const snapshot = createEmptySnapshot();
 
