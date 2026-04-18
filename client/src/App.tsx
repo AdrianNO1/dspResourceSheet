@@ -59,6 +59,15 @@ type GasOutputDraft = {
   ratePerSecond: number;
 };
 
+type UndoToast = {
+  id: string;
+  title: string;
+  description: string;
+  snapshot: unknown;
+  expiresAt: number;
+  durationMs: number;
+};
+
 type ResourceOriginEntry = {
   planetId: string;
   systemId: string;
@@ -1389,6 +1398,7 @@ function FileDropInput({ accept, description, disabled = false, label, onSelect 
 }
 
 function App() {
+  const UNDO_TOAST_DURATION_MS = 6000;
   const overviewTransportDistanceSaveTimersRef = useRef<Record<string, number>>({});
   const planetExtractionIlsSaveTimersRef = useRef<Record<string, number>>({});
   const planetResourceExtractionIlsSaveTimersRef = useRef<Record<string, number>>({});
@@ -1397,6 +1407,8 @@ function App() {
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [undoToast, setUndoToast] = useState<UndoToast | null>(null);
+  const [undoToastNow, setUndoToastNow] = useState(() => Date.now());
   const [activeView, setActiveView] = useState<ViewKey>(() => getViewFromHash(window.location.hash));
   const [showAllLedger, setShowAllLedger] = useState(true);
   const [selectedOverviewResourceId, setSelectedOverviewResourceId] = useState("");
@@ -1652,6 +1664,23 @@ function App() {
   }, [pendingProductionScrollKey, expandedProductionItemKeys]);
 
   useEffect(() => {
+    if (!undoToast) {
+      return;
+    }
+
+    setUndoToastNow(Date.now());
+    const intervalId = window.setInterval(() => {
+      const now = Date.now();
+      setUndoToastNow(now);
+      if (now >= undoToast.expiresAt) {
+        setUndoToast(null);
+      }
+    }, 100);
+
+    return () => window.clearInterval(intervalId);
+  }, [undoToast]);
+
+  useEffect(() => {
     if (!data || !selectedProjectId) {
       return;
     }
@@ -1883,9 +1912,61 @@ function App() {
     }
   }
 
+  function showUndoToast(title: string, snapshot: unknown, description = "Undo available for a few seconds.") {
+    setUndoToast({
+      id: crypto.randomUUID(),
+      title,
+      description,
+      snapshot,
+      expiresAt: Date.now() + UNDO_TOAST_DURATION_MS,
+      durationMs: UNDO_TOAST_DURATION_MS,
+    });
+    setUndoToastNow(Date.now());
+  }
+
+  async function mutateWithUndo<T>(
+    request: () => Promise<T>,
+    undoTitle: string,
+    onSuccess?: (payload: T) => void,
+    undoDescription?: string,
+  ) {
+    setBusy(true);
+    setError("");
+
+    try {
+      const previousSnapshot = (await exportSnapshot()).snapshot;
+      const payload = await request();
+      onSuccess?.(payload);
+      showUndoToast(undoTitle, previousSnapshot, undoDescription);
+    } catch (requestError) {
+      setError(requestError instanceof Error ? requestError.message : "Request failed.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function handleUndoToast() {
+    if (!undoToast) {
+      return;
+    }
+
+    const snapshot = undoToast.snapshot;
+    setUndoToast(null);
+    await mutate(() => importSnapshot(snapshot), applyBootstrap);
+  }
+
   function applyBootstrap(nextData: BootstrapData) {
     setData(nextData);
   }
+
+  const undoToastRemainingMs = undoToast ? Math.max(0, undoToast.expiresAt - undoToastNow) : 0;
+  const undoToastSecondsLabel =
+    undoToastRemainingMs / 1000 < 1
+      ? "<1s remaining"
+      : `${Math.ceil(undoToastRemainingMs / 1000)}s remaining`;
+  const undoToastProgressWidth = undoToast
+    ? Math.max(0, Math.min(100, (undoToastRemainingMs / undoToast.durationMs) * 100))
+    : 0;
 
   if (loading || !data) {
     return (
@@ -2631,7 +2712,12 @@ function App() {
       return;
     }
 
-    await mutate(() => deleteBootstrap(path), applyBootstrap);
+    await mutateWithUndo(
+      () => deleteBootstrap(path),
+      `Deleted ${label}.`,
+      applyBootstrap,
+      "Undo delete is available for a few seconds.",
+    );
   }
 
   function startLocationEdit(entryKey: string, planetId: string, planetType: "solid" | "gas_giant") {
@@ -2978,30 +3064,42 @@ function App() {
 
   async function handleRenameSystem(systemId: string) {
     const nextName = systemNameDrafts[systemId]?.trim() ?? "";
+    const currentName = loadedData.solarSystems.find((system) => system.id === systemId)?.name.trim() ?? "";
     if (!nextName) {
       return;
     }
+    if (nextName === currentName) {
+      return;
+    }
 
-    await mutate(
+    await mutateWithUndo(
       () => patchBootstrap(`/api/systems/${systemId}`, { name: nextName }),
+      `Renamed system to ${nextName}.`,
       (nextData) => {
         applyBootstrap(nextData);
         if (nextData.settings.currentSolarSystemId === systemId && !newPlanetName.trim()) {
           setNewPlanetName(buildPlanetNamePrefix(nextName));
         }
       },
+      "Undo rename is available for a few seconds.",
     );
   }
 
   async function handleRenamePlanet(planetId: string) {
     const nextName = normalizePlanetName(planetNameDrafts[planetId] ?? "");
+    const currentName = normalizePlanetName(loadedData.planets.find((planet) => planet.id === planetId)?.name ?? "");
     if (!nextName) {
       return;
     }
+    if (nextName === currentName) {
+      return;
+    }
 
-    await mutate(
+    await mutateWithUndo(
       () => patchBootstrap(`/api/planets/${planetId}`, { name: nextName }),
+      `Renamed planet to ${nextName}.`,
       applyBootstrap,
+      "Undo rename is available for a few seconds.",
     );
   }
 
@@ -3545,6 +3643,27 @@ function App() {
       {error && (
         <section className="message-row">
           {error && <div className="message error-message">{error}</div>}
+        </section>
+      )}
+      {undoToast && (
+        <section className="message-row">
+          <div className="message undo-toast" key={undoToast.id}>
+            <div className="undo-toast-main">
+              <div className="undo-toast-copy">
+                <strong>{undoToast.title}</strong>
+                <span>{undoToast.description}</span>
+              </div>
+              <button type="button" className="ghost-button undo-toast-button" onClick={() => void handleUndoToast()} disabled={busy}>
+                Undo
+              </button>
+            </div>
+            <div className="undo-toast-timer">
+              <span>{undoToastSecondsLabel}</span>
+              <div className="undo-toast-progress" aria-hidden="true">
+                <span style={{ width: `${undoToastProgressWidth}%` }} />
+              </div>
+            </div>
+          </div>
         </section>
       )}
 

@@ -48,6 +48,63 @@
   color: #ffd9d7;
 }
 
+.undo-toast {
+  display: grid;
+  gap: 12px;
+  border-color: rgba(122, 219, 216, 0.26);
+  background:
+    radial-gradient(circle at top left, rgba(122, 219, 216, 0.16), transparent 38%),
+    rgba(18, 29, 45, 0.94);
+}
+
+.undo-toast-main,
+.undo-toast-copy,
+.undo-toast-timer {
+  display: flex;
+  gap: 14px;
+}
+
+.undo-toast-main,
+.undo-toast-timer {
+  align-items: center;
+  justify-content: space-between;
+}
+
+.undo-toast-copy {
+  flex-direction: column;
+  gap: 4px;
+}
+
+.undo-toast-copy strong {
+  color: #edf5ff;
+}
+
+.undo-toast-copy span,
+.undo-toast-timer span {
+  color: rgba(211, 223, 235, 0.76);
+  font-size: 0.9rem;
+}
+
+.undo-toast-button {
+  flex: 0 0 auto;
+}
+
+.undo-toast-progress {
+  width: min(240px, 42vw);
+  height: 6px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.undo-toast-progress span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, rgba(122, 219, 216, 0.95), rgba(241, 160, 79, 0.92));
+  transition: width 100ms linear;
+}
+
 .grid-layout {
   display: grid;
   grid-template-columns: minmax(0, 2fr) minmax(320px, 0.95fr);
