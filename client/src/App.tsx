@@ -1457,7 +1457,7 @@ function App() {
     itemKey: "",
     throughputPerMinute: 0,
     outboundIlsCount: 0,
-    isFinished: true,
+    isFinished: false,
     solarSystemId: "",
     planetId: "",
     sameSystemWarpItemKeys: {} as Record<string, boolean>,
@@ -2426,8 +2426,8 @@ function App() {
           <div className="production-tree-metrics">
             {node.summary.siteCount > 0 ? (
               <div className="production-tree-metric">
-                <strong>{node.summary.siteCount}</strong>
-                <span className="production-tree-metric-label">{node.summary.siteCount === 1 ? "setup" : "setups"}</span>
+                <strong>{`${node.summary.activeSiteCount}/${node.summary.siteCount}`}</strong>
+                <span className="production-tree-metric-label">setups active</span>
               </div>
             ) : null}
             <div className="production-tree-metric">
@@ -3102,6 +3102,7 @@ function App() {
       ...current,
       itemKey,
       throughputPerMinute: Number(nextTemplate.imported_throughput_per_minute),
+      isFinished: false,
       sameSystemWarpItemKeys: {},
     }));
     setIsProductionModalOpen(true);
@@ -3402,10 +3403,20 @@ function App() {
           ...current,
           throughputPerMinute: Number(importedItem?.imported_throughput_per_minute ?? current.throughputPerMinute),
           outboundIlsCount: 0,
-          isFinished: true,
+          isFinished: false,
           sameSystemWarpItemKeys: {},
         }));
       },
+    );
+  }
+
+  async function handleToggleProductionSiteActive(siteId: string, isActive: boolean) {
+    await mutate(
+      () =>
+        patchBootstrap(`/api/production-sites/${siteId}`, {
+          isFinished: isActive,
+        }),
+      applyBootstrap,
     );
   }
 
@@ -4096,7 +4107,7 @@ function App() {
                   <article className="entry-stat">
                     <span>Placed sites</span>
                     <strong>{productionOverview.placedSiteCount}</strong>
-                    <span>{productionOverview.finishedSiteCount} count as finished</span>
+                    <span>{productionOverview.activeSiteCount} marked active</span>
                   </article>
                   <article className="entry-stat">
                     <span>Raw goals covered</span>
@@ -4589,7 +4600,7 @@ function App() {
                   <article className="entry-stat">
                     <span>Placed sites</span>
                     <strong>{productionOverview.placedSiteCount}</strong>
-                    <span>{productionOverview.finishedSiteCount} finished</span>
+                    <span>{productionOverview.activeSiteCount} active</span>
                   </article>
                   <article className="entry-stat">
                     <span>Warnings</span>
@@ -4667,8 +4678,8 @@ function App() {
                     </div>
                     <div className="entry-stat">
                       <span>Placed sites</span>
-                      <strong>{selectedProductionSummary.siteCount}</strong>
-                      <span>{formatValue(selectedProductionSummary.finishedThroughput)} / min finished</span>
+                      <strong>{`${selectedProductionSummary.activeSiteCount}/${selectedProductionSummary.siteCount}`}</strong>
+                      <span>setups active</span>
                     </div>
                   </div>
 
@@ -4734,10 +4745,20 @@ function App() {
                           </span>
                         </div>
                         <div className="ledger-item-actions">
+                          <label className="toggle-field">
+                            <input
+                              type="checkbox"
+                              checked={Number(siteView.site.is_finished) === 1}
+                              onChange={(event) => void handleToggleProductionSiteActive(siteView.site.id, event.target.checked)}
+                              disabled={busy}
+                            />
+                            <span>Active</span>
+                          </label>
                           <button
                             type="button"
                             className="ghost-button"
                             onClick={() => void confirmAndDelete(`/api/production-sites/${siteView.site.id}`, `${siteView.importedItem.display_name} site`)}
+                            disabled={busy}
                           >
                             Delete
                           </button>
@@ -4901,7 +4922,7 @@ function App() {
                         checked={productionDraft.isFinished}
                         onChange={(event) => setProductionDraft((current) => ({ ...current, isFinished: event.target.checked }))}
                       />
-                      <span>Active</span>
+                      <span>Active setup</span>
                     </label>
 
                     {productionDraftPreview ? (

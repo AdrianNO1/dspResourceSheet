@@ -120,7 +120,7 @@ export type ProductionItemSummary = {
   itemKey: string;
   displayName: string;
   totalPlannedThroughput: number;
-  finishedThroughput: number;
+  activeSiteCount: number;
   siteCount: number;
   coveragePercent: number;
   hasShortage: boolean;
@@ -140,9 +140,9 @@ export type ProductionOverviewStats = {
   importedCraftedCount: number;
   importedRawCount: number;
   placedSiteCount: number;
-  finishedSiteCount: number;
+  activeSiteCount: number;
   plannedCraftedThroughput: number;
-  finishedCraftedThroughput: number;
+  activeCraftedThroughput: number;
   plannedLineCount: number;
   coveredRawGoals: number;
   totalRawGoals: number;
@@ -332,7 +332,7 @@ function buildCraftedProducers(data: BootstrapData, importedItems: Map<string, P
   const systemLookup = getSystemLookup(data);
 
   return data.productionSites
-    .filter((site) => site.project_id === projectId && Number(site.is_finished) === 1)
+    .filter((site) => site.project_id === projectId)
     .flatMap<ProducerNode>((site) => {
       const importedItem = importedItems.get(site.item_key);
       const planet = planetLookup.get(site.planet_id);
@@ -945,9 +945,9 @@ export function buildProductionPlanner(data: BootstrapData, projectId: string | 
         importedCraftedCount: 0,
         importedRawCount: 0,
         placedSiteCount: 0,
-        finishedSiteCount: 0,
+        activeSiteCount: 0,
         plannedCraftedThroughput: 0,
-        finishedCraftedThroughput: 0,
+        activeCraftedThroughput: 0,
         plannedLineCount: 0,
         coveredRawGoals: 0,
         totalRawGoals: 0,
@@ -1014,9 +1014,7 @@ export function buildProductionPlanner(data: BootstrapData, projectId: string | 
       itemKey: item.item_key,
       displayName: item.display_name,
       totalPlannedThroughput: Number(item.imported_throughput_per_minute),
-      finishedThroughput: relatedSites
-        .filter((siteView) => Number(siteView.site.is_finished) === 1)
-        .reduce((sum, siteView) => sum + Number(siteView.site.throughput_per_minute), 0),
+      activeSiteCount: relatedSites.filter((siteView) => Number(siteView.site.is_finished) === 1).length,
       siteCount: relatedSites.length,
       coveragePercent: totalRequired > 0 ? Math.min(100, totalCovered / totalRequired * 100) : 100,
       hasShortage: dependencies.some((dependency) => dependency.shortagePerMinute > 1e-9),
@@ -1042,9 +1040,11 @@ export function buildProductionPlanner(data: BootstrapData, projectId: string | 
       importedCraftedCount: context.importedItems.filter((item) => item.category === "crafted").length,
       importedRawCount: context.importedItems.filter((item) => item.category === "raw").length,
       placedSiteCount: data.productionSites.filter((site) => site.project_id === projectId).length,
-      finishedSiteCount: data.productionSites.filter((site) => site.project_id === projectId && Number(site.is_finished) === 1).length,
+      activeSiteCount: data.productionSites.filter((site) => site.project_id === projectId && Number(site.is_finished) === 1).length,
       plannedCraftedThroughput: craftedSummaries.reduce((sum, item) => sum + item.totalPlannedThroughput, 0),
-      finishedCraftedThroughput: craftedSummaries.reduce((sum, item) => sum + item.finishedThroughput, 0),
+      activeCraftedThroughput: data.productionSites
+        .filter((site) => site.project_id === projectId && Number(site.is_finished) === 1)
+        .reduce((sum, site) => sum + Number(site.throughput_per_minute), 0),
       plannedLineCount: craftedSummaries.reduce((sum, item) => sum + item.plannedLineCount, 0),
       coveredRawGoals,
       totalRawGoals: rawGoals.length,
