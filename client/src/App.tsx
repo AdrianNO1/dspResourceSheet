@@ -2806,7 +2806,14 @@ function App() {
       };
     })
     .filter((group): group is NonNullable<typeof group> => group !== null)
-    .sort((left, right) => new Date(right.latestActivityAt).getTime() - new Date(left.latestActivityAt).getTime());
+    .sort((left, right) => {
+      const leftIsCurrent = left.planet.id === currentPlanet?.id;
+      const rightIsCurrent = right.planet.id === currentPlanet?.id;
+      if (leftIsCurrent !== rightIsCurrent) {
+        return leftIsCurrent ? -1 : 1;
+      }
+      return new Date(right.latestActivityAt).getTime() - new Date(left.latestActivityAt).getTime();
+    });
 
   async function updateSettings(payload: Partial<BootstrapData["settings"]>) {
     await mutate(() => patchBootstrap("/api/settings", payload), applyBootstrap);
