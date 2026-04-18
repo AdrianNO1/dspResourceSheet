@@ -192,6 +192,10 @@ function roundUp(value: number, decimals: number) {
   return Math.ceil(value * factor - 1e-9) / factor;
 }
 
+function getTotalMachineCount(lineCount: number, assemblersPerLine: number) {
+  return lineCount * Math.max(0, Math.ceil(assemblersPerLine - 1e-9));
+}
+
 function normalizeKey(value: string) {
   return value.trim().toLowerCase().replace(/[_\s]+/g, "-");
 }
@@ -697,6 +701,7 @@ function buildDependencyViews(
 
   const outputBelts = importedItem.output_belts * scale;
   const lineCount = Math.max(1, Math.ceil(Math.max(outputBelts, ...dependencyViews.map((dependency) => dependency.requiredBelts), 0)));
+  const assemblersPerLine = importedItem.machine_count * scale / lineCount;
   for (const dependency of dependencyViews) {
     dependency.beltsPerLine = roundUp(dependency.requiredBelts / lineCount, 2);
   }
@@ -705,8 +710,8 @@ function buildDependencyViews(
     dependencyViews,
     outputBelts,
     lineCount,
-    machineCount: importedItem.machine_count * scale,
-    assemblersPerLine: importedItem.machine_count * scale / lineCount,
+    machineCount: getTotalMachineCount(lineCount, assemblersPerLine),
+    assemblersPerLine,
     outputBeltsPerLine: roundUp(outputBelts / lineCount, 2),
     packedIls: packMixedIls(dependencyViews),
   };

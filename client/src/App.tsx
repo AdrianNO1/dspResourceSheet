@@ -4844,7 +4844,7 @@ function App() {
                     <div className="entry-stat">
                       <span>Lines needed</span>
                       <strong>{selectedProductionSummary.plannedLineCount}</strong>
-                      <span>{formatFixedValue(selectedProductionSummary.plannedMachineCount, 1)} machines total</span>
+                      <span>{formatRoundedUpInteger(selectedProductionSummary.plannedMachineCount)} machines total</span>
                     </div>
                   <div className="entry-stat">
                     <span>Placed sites</span>
@@ -4937,7 +4937,7 @@ function App() {
 
                       <div className="transport-route-stats">
                         <span><strong>{formatValue(siteView.site.throughput_per_minute)}</strong> / min</span>
-                        <span>{formatFixedValue(siteView.machineCount, 1)} machines</span>
+                        <span>{formatRoundedUpInteger(siteView.machineCount)} machines</span>
                         <span>{formatFixedValue(siteView.outputBeltsPerLine * siteView.lineCount, 2)} output belts</span>
                         <span>{formatFixedValue(siteView.outboundIlsRequired, 2)} / {formatValue(siteView.site.outbound_ils_count)} outbound ILS</span>
                       </div>
@@ -5102,7 +5102,7 @@ function App() {
                             <div className="production-line-plan-stat">
                               <span>Line plan</span>
                               <strong>{productionDraftPreview.lineCount} lines</strong>
-                              <span>{formatFixedValue(productionDraftPreview.assemblersPerLine, 1)} machines/line</span>
+                              <span>{formatRoundedUpInteger(productionDraftPreview.machineCount)} machines total</span>
                             </div>
                             <div className="production-line-plan-stat">
                               <span>Estimated power</span>
