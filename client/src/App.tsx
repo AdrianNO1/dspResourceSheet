@@ -7,6 +7,7 @@ import { deleteBootstrap, exportSnapshot, getBootstrap, importSnapshot, patchBoo
 import { parseClusterAddress, getSystemDistanceLy as getGeneratedSystemDistanceLy } from "./lib/dspCluster";
 import {
   getFactorioLabReference,
+  getImportedItemExpectedMachineCount,
   getImportedItemDependencyDemandPerMinute,
   inferImportedItemProliferatorUsage,
 } from "./lib/factoriolabCatalog";
@@ -887,6 +888,21 @@ function formatRoundedUpInteger(value: number) {
   return new Intl.NumberFormat("en-US", {
     maximumFractionDigits: 0,
   }).format(Math.max(0, Math.ceil(value - 1e-9)));
+}
+
+function getRoundedMachinePlan(machineCount: number, lineCount: number) {
+  if (!(machineCount > 0) || !(lineCount > 0)) {
+    return {
+      machinesPerLine: 0,
+      totalMachineCount: 0,
+    };
+  }
+
+  const machinesPerLine = Math.max(0, Math.ceil(machineCount / lineCount - 1e-9));
+  return {
+    machinesPerLine,
+    totalMachineCount: lineCount * machinesPerLine,
+  };
 }
 
 function parseRecipeEntries(value: string) {
@@ -2324,6 +2340,7 @@ function App() {
         left.display_name.localeCompare(right.display_name),
     );
   const productionTree = buildProductionTree(craftedProjectImportedItems, productionItemSummaries);
+  const productionTemplateByKey = new Map(craftedProjectImportedItems.map((item) => [item.item_key, item]));
   const selectedProductionTemplate =
     productionItemChoices.find((item) => item.item_key === selectedProductionSummary?.itemKey) ??
     productionItemChoices.find((item) => item.item_key === productionDraft.itemKey) ??
@@ -2390,10 +2407,30 @@ function App() {
           ? `P${selectedProductionProliferatorUsage.level} mode uncertain`
           : "No proliferator";
   const selectedProductionMachinePowerWatts = selectedProductionReference?.machinePowerWatts ?? null;
-  const selectedProductionEstimatedPowerWatts =
+  const selectedProductionMachinePlan =
+    selectedProductionSummary && selectedProductionTemplate
+      ? getRoundedMachinePlan(
+          getImportedItemExpectedMachineCount(
+            selectedProductionTemplate,
+            selectedProductionSummary.totalPlannedThroughput,
+          ) ?? selectedProductionSummary.plannedMachineCount,
+          selectedProductionSummary.plannedLineCount,
+        )
+      : null;
+  const productionDraftMachinePlan =
     productionDraftPreview && selectedProductionTemplate
+      ? getRoundedMachinePlan(
+          getImportedItemExpectedMachineCount(
+            selectedProductionTemplate,
+            productionDraftPreview.throughputPerMinute,
+          ) ?? productionDraftPreview.machineCount,
+          productionDraftPreview.lineCount,
+        )
+      : null;
+  const selectedProductionEstimatedPowerWatts =
+    productionDraftMachinePlan && selectedProductionTemplate
       ? (selectedProductionMachinePowerWatts ?? 0) *
-        productionDraftPreview.machineCount *
+        productionDraftMachinePlan.totalMachineCount *
         selectedProductionEnergyMultiplier
       : 0;
   const allExpandableProductionKeys = Array.from(productionTree.nodesByKey.values())
@@ -2462,6 +2499,11 @@ function App() {
     const canExpand = node.inputs.length > 0 || node.usages.length > 0;
     const referenceInput = options?.referenceInput ?? null;
     const rootItemKey = getProductionTreeRootKey(node.itemKey);
+    const nodeImportedItem = productionTemplateByKey.get(node.itemKey) ?? null;
+    const nodeMachinePlan = getRoundedMachinePlan(
+      getImportedItemExpectedMachineCount(nodeImportedItem, node.summary.totalPlannedThroughput) ?? node.summary.plannedMachineCount,
+      node.summary.plannedLineCount,
+    );
     const matchingRawResource = resourceByNameLookup.get(node.summary.displayName.toLowerCase()) ?? null;
     const trackedRawSupplyPerMinute = matchingRawResource
       ? loadedData.summary.resourceSummaries.find((summary) => summary.resourceId === matchingRawResource.id)?.supplyPerMinute ?? 0
@@ -2542,7 +2584,7 @@ function App() {
               </div>
             ) : null}
             <div className="production-tree-metric">
-              <strong>{formatRoundedUpInteger(node.summary.plannedMachineCount)}</strong>
+              <strong>{formatRoundedUpInteger(nodeMachinePlan.totalMachineCount)}</strong>
               <span className="production-tree-metric-label">machines</span>
             </div>
             <div className="production-tree-metric">
@@ -4845,10 +4887,10 @@ function App() {
                       <span>Lines needed</span>
                       <strong>{selectedProductionSummary.plannedLineCount}</strong>
                       <span>
-                        {selectedProductionSummary.plannedLineCount > 0
-                          ? `${formatFixedValue(selectedProductionTemplate.machine_count / selectedProductionSummary.plannedLineCount, 1)} machines/line · `
+                        {selectedProductionMachinePlan && selectedProductionMachinePlan.machinesPerLine > 0
+                          ? `${formatRoundedUpInteger(selectedProductionMachinePlan.machinesPerLine)} machines/line · `
                           : ""}
-                        {formatRoundedUpInteger(selectedProductionSummary.plannedMachineCount)} machines total
+                        {formatRoundedUpInteger(selectedProductionMachinePlan?.totalMachineCount ?? selectedProductionSummary.plannedMachineCount)} machines total
                       </span>
                     </div>
                   <div className="entry-stat">
@@ -4893,7 +4935,16 @@ function App() {
 
                   {selectedProductionSiteViews.length > 0 ? (
                 <div className="transport-ledger">
-                  {selectedProductionSiteViews.map((siteView) => (
+                  {selectedProductionSiteViews.map((siteView) => {
+                    const siteMachinePlan = getRoundedMachinePlan(
+                      getImportedItemExpectedMachineCount(
+                        siteView.importedItem,
+                        Number(siteView.site.throughput_per_minute),
+                      ) ?? siteView.machineCount,
+                      siteView.lineCount,
+                    );
+
+                    return (
                     <article key={siteView.site.id} className="transport-row-card production-site-card">
                       <div className="transport-row-main">
                         <div className="production-site-heading">
@@ -4942,7 +4993,7 @@ function App() {
 
                       <div className="transport-route-stats">
                         <span><strong>{formatValue(siteView.site.throughput_per_minute)}</strong> / min</span>
-                        <span>{formatRoundedUpInteger(siteView.machineCount)} machines</span>
+                        <span>{formatRoundedUpInteger(siteMachinePlan.totalMachineCount)} machines</span>
                         <span>{formatFixedValue(siteView.outputBeltsPerLine * siteView.lineCount, 2)} output belts</span>
                         <span>{formatFixedValue(siteView.outboundIlsRequired, 2)} / {formatValue(siteView.site.outbound_ils_count)} outbound ILS</span>
                       </div>
@@ -4989,7 +5040,8 @@ function App() {
                           : ""}
                       </p>
                     </article>
-                  ))}
+                    );
+                  })}
                 </div>
               ) : (
                     <p className="empty-state">No production sites placed for this item yet. Use the button above to place one.</p>
@@ -5108,7 +5160,7 @@ function App() {
                               <span>Line plan</span>
                               <strong>{productionDraftPreview.lineCount} lines</strong>
                               <span>
-                                {formatFixedValue(productionDraftPreview.assemblersPerLine, 1)} machines/line · {formatRoundedUpInteger(productionDraftPreview.machineCount)} machines total
+                                {formatRoundedUpInteger(productionDraftMachinePlan?.machinesPerLine ?? productionDraftPreview.assemblersPerLine)} machines/line · {formatRoundedUpInteger(productionDraftMachinePlan?.totalMachineCount ?? productionDraftPreview.machineCount)} machines total
                               </span>
                             </div>
                             <div className="production-line-plan-stat">

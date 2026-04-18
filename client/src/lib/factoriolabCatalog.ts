@@ -274,6 +274,37 @@ export function inferImportedItemProliferatorUsage(importedItem: ProjectImported
   };
 }
 
+export function getImportedItemExpectedMachineCount(
+  importedItem: ProjectImportedItem | null,
+  throughputPerMinute?: number | null,
+) {
+  if (!importedItem) {
+    return null;
+  }
+
+  const baselineThroughputPerMinute = Number(importedItem.imported_throughput_per_minute);
+  if (!(baselineThroughputPerMinute > 0)) {
+    return null;
+  }
+
+  const baselineMachineCount =
+    inferImportedItemProliferatorUsage(importedItem)?.machineCountExpectation ??
+    Number(importedItem.machine_count);
+  if (!Number.isFinite(baselineMachineCount)) {
+    return null;
+  }
+
+  const effectiveThroughputPerMinute =
+    throughputPerMinute === undefined || throughputPerMinute === null
+      ? baselineThroughputPerMinute
+      : Number(throughputPerMinute);
+  if (!(effectiveThroughputPerMinute > 0)) {
+    return 0;
+  }
+
+  return baselineMachineCount * (effectiveThroughputPerMinute / baselineThroughputPerMinute);
+}
+
 export function getImportedItemDependencyDemandPerMinute(
   importedItem: ProjectImportedItem | null,
   dependencyItemKey: string,
