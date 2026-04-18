@@ -53,8 +53,30 @@ function normalizeKey(value: string) {
   return String(value ?? "").trim().toLowerCase().replace(/[_\s]+/g, "-");
 }
 
+const rawResourceAliases = new Map<string, string>([
+  ["optical-grating-crystal", "Grating Crystal"],
+  ["spiniform-stalagmite-crystal", "Stalagmite Crystal"],
+  ["sulphuric-acid", "Sulfuric Acid"],
+]);
+
+function getCanonicalResourceReference(itemKey: string, displayName: string) {
+  const canonicalDisplayName =
+    rawResourceAliases.get(normalizeKey(itemKey)) ??
+    rawResourceAliases.get(normalizeKey(displayName));
+
+  if (!canonicalDisplayName) {
+    return null;
+  }
+
+  return {
+    itemKey: normalizeKey(canonicalDisplayName),
+    displayName: canonicalDisplayName,
+  };
+}
+
 function getDisplayName(value: string, fallback: string) {
-  return value?.trim() || fallback;
+  const displayName = value?.trim() || fallback;
+  return getCanonicalResourceReference(displayName, displayName)?.displayName ?? displayName;
 }
 
 const proliferatorBonusByLevel: Record<number, { energyMultiplier: number; speedMultiplier: number; outputMultiplier: number }> = {
@@ -122,21 +144,29 @@ export function getFactorioLabReference(importedItem: ProjectImportedItem | null
     return null;
   }
 
-  const outputs = recipe.outputs.map((entry) => ({
-    itemKey: entry.itemKey,
-    displayName: getDisplayName(entry.displayName, importedItem.display_name),
-    quantity: Number(entry.quantity),
-  }));
-  const primaryOutput = outputs.find((entry) => entry.itemKey === importedItem.item_key) ?? outputs[0] ?? null;
+  const outputs = recipe.outputs.map((entry) => {
+    const canonicalReference = getCanonicalResourceReference(entry.itemKey, entry.displayName);
+    return {
+      itemKey: canonicalReference?.itemKey ?? entry.itemKey,
+      displayName: canonicalReference?.displayName ?? getDisplayName(entry.displayName, importedItem.display_name),
+      quantity: Number(entry.quantity),
+    };
+  });
+  const canonicalImportedItemKey =
+    getCanonicalResourceReference(importedItem.item_key, importedItem.display_name)?.itemKey ?? importedItem.item_key;
+  const primaryOutput = outputs.find((entry) => entry.itemKey === canonicalImportedItemKey) ?? outputs[0] ?? null;
 
   return {
     recipeId,
     recipeName: getDisplayName(recipe.displayName, importedItem.recipe || importedItem.display_name),
-    inputs: recipe.inputs.map((entry) => ({
-      itemKey: entry.itemKey,
-      displayName: getDisplayName(entry.displayName, entry.itemKey),
-      quantity: Number(entry.quantity),
-    })),
+    inputs: recipe.inputs.map((entry) => {
+      const canonicalReference = getCanonicalResourceReference(entry.itemKey, entry.displayName);
+      return {
+        itemKey: canonicalReference?.itemKey ?? entry.itemKey,
+        displayName: canonicalReference?.displayName ?? getDisplayName(entry.displayName, entry.itemKey),
+        quantity: Number(entry.quantity),
+      };
+    }),
     outputs,
     baseCycleSeconds: Number.isFinite(Number(recipe.timeSeconds)) ? Number(recipe.timeSeconds) : null,
     machineLabel: importedItem.machine_label,
@@ -278,7 +308,10 @@ export function getCanonicalImportedItemDependencies(
     return null;
   }
 
-  const exactDependencyByKey = new Map(importedItem.dependencies.map((dependency) => [dependency.item_key, dependency]));
+  const exactDependencyByKey = new Map(importedItem.dependencies.map((dependency) => [
+    getCanonicalResourceReference(dependency.item_key, dependency.display_name)?.itemKey ?? dependency.item_key,
+    dependency,
+  ]));
   const remainingDependencies = [...importedItem.dependencies];
   const matchedDependencies = new Set<ProjectImportedDependency>();
 
@@ -301,6 +334,7 @@ export function getCanonicalImportedItemDependencies(
 
   const canonicalRecipeDependencies = reference.inputs.map<ProjectImportedDependency>((input) => {
     const existingDependency = takeMatchingDependency(input);
+    const canonicalReference = getCanonicalResourceReference(input.itemKey, input.displayName);
     const importedDemandPerMinute =
       getImportedItemDependencyDemandPerMinute(importedItem, input.itemKey) ??
       (
@@ -318,8 +352,8 @@ export function getCanonicalImportedItemDependencies(
         );
 
     return {
-      item_key: existingDependency?.item_key ?? input.itemKey,
-      display_name: existingDependency?.display_name ?? getDisplayName(input.displayName, input.itemKey),
+      item_key: canonicalReference?.itemKey ?? existingDependency?.item_key ?? input.itemKey,
+      display_name: canonicalReference?.displayName ?? existingDependency?.display_name ?? getDisplayName(input.displayName, input.itemKey),
       dependency_type: existingDependency?.dependency_type ?? "crafted",
       per_unit_ratio: perUnitRatio,
       imported_demand_per_minute: importedDemandPerMinute,
