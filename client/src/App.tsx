@@ -2337,6 +2337,14 @@ function App() {
     setPendingProductionScrollKey(itemKey);
   }
 
+  function getProductionTreeRootKey(itemKey: string) {
+    let currentKey = itemKey;
+    while (productionTree.uniqueParentByChild.has(currentKey)) {
+      currentKey = productionTree.uniqueParentByChild.get(currentKey) ?? currentKey;
+    }
+    return currentKey;
+  }
+
   function toggleExpandAllProductionRows() {
     if (allProductionRowsExpanded) {
       setExpandedProductionItemKeys({});
@@ -2362,6 +2370,7 @@ function App() {
     const isExpanded = expandedProductionItemKeys[node.itemKey] ?? false;
     const canExpand = node.inputs.length > 0 || node.usages.length > 0;
     const referenceInput = options?.referenceInput ?? null;
+    const rootItemKey = getProductionTreeRootKey(node.itemKey);
     const matchingRawResource = resourceByNameLookup.get(node.summary.displayName.toLowerCase()) ?? null;
     const trackedRawSupplyPerMinute = matchingRawResource
       ? loadedData.summary.resourceSummaries.find((summary) => summary.resourceId === matchingRawResource.id)?.supplyPerMinute ?? 0
@@ -2417,7 +2426,19 @@ function App() {
                 {referenceInput ? (
                   <>
                   {referenceInput.sharePercent < 99.95 ? <span>{formatProjectSupplyShare(referenceInput.sharePercent)}% of project supply</span> : null}
-                  {referenceInput.isSharedCrafted ? <span className="production-tree-reference-badge">shared input</span> : null}
+                  {referenceInput.isSharedCrafted ? (
+                    <span
+                      className="production-tree-reference-badge production-tree-reference-badge-clickable"
+                      onClick={(event) => {
+                        event.preventDefault();
+                        event.stopPropagation();
+                        focusProductionTreeItem(rootItemKey);
+                      }}
+                      title={`Jump to ${productionTree.nodesByKey.get(rootItemKey)?.summary.displayName ?? node.summary.displayName}`}
+                    >
+                      shared input
+                    </span>
+                  ) : null}
                   </>
                 ) : null}
               </div>
@@ -2515,7 +2536,21 @@ function App() {
                             <div className="production-tree-reference-meta">
                               <span>{formatValue(input.demandPerMinute)} / min</span>
                               {input.sharePercent < 99.95 ? <span>{formatProjectSupplyShare(input.sharePercent)}% of project supply</span> : null}
-                              <span className="production-tree-reference-badge">{input.isSharedCrafted ? "shared input" : "raw input"}</span>
+                              <span
+                                className={`production-tree-reference-badge ${input.isSharedCrafted ? "production-tree-reference-badge-clickable" : ""}`}
+                                onClick={
+                                  input.isSharedCrafted
+                                    ? () => focusProductionTreeItem(rootItemKey)
+                                    : undefined
+                                }
+                                title={
+                                  input.isSharedCrafted
+                                    ? `Jump to ${productionTree.nodesByKey.get(rootItemKey)?.summary.displayName ?? node.summary.displayName}`
+                                    : undefined
+                                }
+                              >
+                                {input.isSharedCrafted ? "shared input" : "raw input"}
+                              </span>
                             </div>
                           </div>
                         </div>

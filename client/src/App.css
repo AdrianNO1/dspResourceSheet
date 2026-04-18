@@ -658,6 +658,18 @@
   letter-spacing: 0.06em;
 }
 
+.production-tree-reference-badge-clickable {
+  cursor: pointer;
+  transition: border-color 140ms ease, background 140ms ease, color 140ms ease, transform 140ms ease;
+}
+
+.production-tree-reference-badge-clickable:hover {
+  border-color: rgba(241, 160, 79, 0.32);
+  background: rgba(241, 160, 79, 0.16);
+  color: #ffd39e;
+  transform: translateY(-1px);
+}
+
 .production-tree-metric {
   align-items: center;
   justify-content: flex-start;
