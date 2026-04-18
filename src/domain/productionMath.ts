@@ -22,9 +22,10 @@ export function getRoundedMachinePlan(machineCount: number, lineCount: number, o
     outputBelts && outputBelts > 0
       ? Math.max(0, Math.ceil(machineCount / outputBelts - 1e-9))
       : Math.max(0, Math.ceil(machineCount / lineCount - 1e-9));
+  const roundedLineCount = Math.max(0, Math.ceil(lineCount - 1e-9));
 
   return {
     machinesPerLine,
-    totalMachineCount: lineCount * machinesPerLine,
+    totalMachineCount: roundedLineCount * machinesPerLine,
   };
 }

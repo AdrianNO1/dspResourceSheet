@@ -24,4 +24,11 @@ describe("productionMath", () => {
       totalMachineCount: 12,
     });
   });
+
+  it("uses rounded-up line counts when computing total machines", () => {
+    expect(getRoundedMachinePlan(10.2, 3.2)).toEqual({
+      machinesPerLine: 4,
+      totalMachineCount: 16,
+    });
+  });
 });
