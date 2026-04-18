@@ -1,5 +1,5 @@
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import type { CSSProperties, ChangeEvent, DragEvent as ReactDragEvent, TextareaHTMLAttributes } from "react";
+﻿import { useEffect, useMemo, useRef, useState } from "react";
+import type { CSSProperties } from "react";
 import "../App.css";
 import { ResourceIcon } from "../components/ResourceIcon";
 import { ResourceSelect } from "../components/ResourceSelect";
@@ -43,6 +43,7 @@ import {
   ProjectOverviewScreen,
   RawResourcesScreen,
 } from "./screens/OverviewScreens";
+import { ProjectsScreen, SettingsScreen } from "./screens/ManagementScreens";
 import {
   getItemsPerMinutePerVessel,
   getOilOutputPerSecond,
@@ -252,103 +253,6 @@ function formatCurrentWithPending(current: number, pending: number) {
 
 function MachinePill({ label, variant }: { label: string; variant: "advanced" | "regular" | "pump" | "gas" | "oil" | "logistics" }) {
   return <span className={`machine-pill machine-pill-${variant}`}>{label}</span>;
-}
-
-function AutoGrowTextarea({ onChange, ...props }: TextareaHTMLAttributes<HTMLTextAreaElement>) {
-  const textareaRef = useRef<HTMLTextAreaElement | null>(null);
-
-  useLayoutEffect(() => {
-    const textarea = textareaRef.current;
-    if (!textarea) {
-      return;
-    }
-
-    textarea.style.height = "0px";
-    textarea.style.height = `${textarea.scrollHeight}px`;
-  }, [props.value]);
-
-  function handleChange(event: ChangeEvent<HTMLTextAreaElement>) {
-    event.currentTarget.style.height = "0px";
-    event.currentTarget.style.height = `${event.currentTarget.scrollHeight}px`;
-    onChange?.(event);
-  }
-
-  return <textarea {...props} ref={textareaRef} onChange={handleChange} />;
-}
-
-type FileDropInputProps = {
-  accept: string;
-  description: string;
-  disabled?: boolean;
-  label: string;
-  onSelect: (file: File | undefined) => void;
-};
-
-function FileDropInput({ accept, description, disabled = false, label, onSelect }: FileDropInputProps) {
-  const inputRef = useRef<HTMLInputElement | null>(null);
-  const [isDragging, setIsDragging] = useState(false);
-
-  function handleFiles(fileList: FileList | null) {
-    const file = fileList?.[0];
-    onSelect(file);
-    if (inputRef.current) {
-      inputRef.current.value = "";
-    }
-  }
-
-  function handleDragOver(event: ReactDragEvent<HTMLDivElement>) {
-    event.preventDefault();
-    if (!disabled) {
-      setIsDragging(true);
-    }
-  }
-
-  function handleDragLeave(event: ReactDragEvent<HTMLDivElement>) {
-    event.preventDefault();
-    if (!event.currentTarget.contains(event.relatedTarget as Node | null)) {
-      setIsDragging(false);
-    }
-  }
-
-  function handleDrop(event: ReactDragEvent<HTMLDivElement>) {
-    event.preventDefault();
-    setIsDragging(false);
-    if (disabled) {
-      return;
-    }
-
-    handleFiles(event.dataTransfer.files);
-  }
-
-  return (
-    <div
-      className={`file-drop ${isDragging ? "file-drop-active" : ""} ${disabled ? "file-drop-disabled" : ""}`}
-      onDragOver={handleDragOver}
-      onDragEnter={handleDragOver}
-      onDragLeave={handleDragLeave}
-      onDrop={handleDrop}
-    >
-      <input
-        ref={inputRef}
-        className="visually-hidden"
-        type="file"
-        accept={accept}
-        disabled={disabled}
-        onChange={(event) => handleFiles(event.target.files)}
-      />
-      <button
-        type="button"
-        className="file-drop-surface"
-        onClick={() => inputRef.current?.click()}
-        disabled={disabled}
-      >
-        <span className="file-drop-kicker">{label}</span>
-        <strong className="file-drop-title">Drop a file here</strong>
-        <p className="file-drop-description">{description}</p>
-        <span className="file-drop-action">Browse files</span>
-      </button>
-    </div>
-  );
 }
 
 function Workspace() {
@@ -870,6 +774,22 @@ function Workspace() {
     [loadedData, lookups, showAllLedger],
   );
   const { ledgerGroups } = ledgerView;
+  const projectGoalInputRows = useMemo(
+    () =>
+      loadedData.resources.map((resource) => {
+        const summary = loadedData.summary.resourceSummaries.find((entry) => entry.resourceId === resource.id);
+        return {
+          id: resource.id,
+          name: resource.name,
+          iconUrl: resource.icon_url,
+          colorStart: resource.color_start ?? "#4f8fba",
+          colorEnd: resource.color_end ?? "#6cc8a6",
+          unitLabel: getProjectGoalUnitLabel(resource.type, summary?.goalUnitLabel),
+          step: resource.type === "oil_extractor" || resource.type === "gas_giant_output" ? 0.1 : 1,
+        };
+      }),
+    [loadedData],
+  );
   const quickCalcRoundTripSeconds = getTransportRoundTripSeconds(
     quickCalcDistanceLy,
     loadedData.settings.vesselSpeedLyPerSecond,
@@ -895,6 +815,10 @@ function Workspace() {
     loadedData.settings.vesselSpeedLyPerSecond,
     loadedData.settings.vesselDockingSeconds,
   );
+  const quickCalcRoundTripLabel = quickCalcRoundTripSeconds === null ? "Incomplete" : `${formatFixedValue(quickCalcRoundTripSeconds, 1)} s`;
+  const quickCalcPerVesselLabel = quickCalcItemsPerMinutePerVessel === null ? "Incomplete" : `${formatFixedValue(quickCalcItemsPerMinutePerVessel, 1)} / min`;
+  const quickCalcRequiredIlsLabel = quickCalcRequiredStations === null ? "Incomplete" : formatFixedValue(quickCalcRequiredStations, 1);
+  const quickCalcTargetIlsLabel = quickCalcTargetStationsNeeded === null ? "Incomplete" : formatFixedValue(quickCalcTargetStationsNeeded, 1);
   const productionView = useMemo(
     () => buildProductionView(loadedData, selectedProjectId, selectedProductionItemKey, productionDraft.itemKey),
     [loadedData, selectedProjectId, selectedProductionItemKey, productionDraft.itemKey],
@@ -1120,7 +1044,7 @@ function Workspace() {
             aria-label={canExpand ? `Toggle details for ${node.summary.displayName}` : undefined}
             disabled={!canExpand}
           >
-            ›
+            â€º
           </button>
           <button type="button" className="production-tree-main" onClick={toggleExpanded}>
           <div className="production-tree-title">
@@ -1231,7 +1155,7 @@ function Workspace() {
                     <div className="production-tree-row production-tree-row-leaf">
                       <div className="production-tree-indent" aria-hidden="true" />
                       <span className="production-tree-usage-toggle production-tree-usage-toggle-leaf" aria-hidden="true">
-                        •
+                        â€¢
                       </span>
                       <div className="production-tree-main production-tree-main-leaf">
                         <div className="production-tree-title">
@@ -1301,6 +1225,11 @@ function Workspace() {
       return null;
     }
   })();
+  const clusterAddressHelperText = parsedClusterAddress
+    ? `Seed ${parsedClusterAddress.clusterSeed} · ${parsedClusterAddress.clusterStarCount} stars · ${loadedData.summary.generatedSystemCount} generated systems currently stored.`
+    : clusterAddressDraft.trim()
+      ? "Cluster address format not recognized yet."
+      : "Import a DSP cluster address to generate exact system coordinates and automatic inter-system distances.";
   function getPreferredPlanetIdForSystem(systemId: string | null) {
     if (!systemId) {
       return null;
@@ -2959,7 +2888,7 @@ function Workspace() {
                       <strong>{selectedProductionSummary.plannedLineCount}</strong>
                       <span>
                         {selectedProductionMachinePlan && selectedProductionMachinePlan.machinesPerLine > 0
-                          ? `${formatRoundedUpInteger(selectedProductionMachinePlan.machinesPerLine)} machines/line · `
+                          ? `${formatRoundedUpInteger(selectedProductionMachinePlan.machinesPerLine)} machines/line Â· `
                           : ""}
                         {formatRoundedUpInteger(selectedProductionMachinePlan?.totalMachineCount ?? selectedProductionSummary.plannedMachineCount)} machines total
                       </span>
@@ -3078,7 +3007,7 @@ function Workspace() {
                       </div>
 
                       <p className="helper-text">
-                        {siteView.lineCount} lines · {formatRoundedUpInteger(siteMachinePlan.machinesPerLine)} machines/line · {formatFixedValue(siteView.outputBeltsPerLine, 2)} output belts/line
+                        {siteView.lineCount} lines Â· {formatRoundedUpInteger(siteMachinePlan.machinesPerLine)} machines/line Â· {formatFixedValue(siteView.outputBeltsPerLine, 2)} output belts/line
                       </p>
 
                       <div className="overview-breakdown-list">
@@ -3095,7 +3024,7 @@ function Workspace() {
                                 />
                                 <div>
                                   <strong>{ingredient.dependency.display_name}</strong>
-                                  <p>{formatValue(ingredient.requiredPerMinute)} / min required · {formatValue(ingredient.coveragePerMinute)} covered</p>
+                                  <p>{formatValue(ingredient.requiredPerMinute)} / min required Â· {formatValue(ingredient.coveragePerMinute)} covered</p>
                                 </div>
                               </div>
                               <div className="overview-breakdown-values">
@@ -3105,7 +3034,7 @@ function Workspace() {
                             </div>
                             <p className="helper-text">
                               {ingredient.sourcesLabel}
-                              {ingredient.shortagePerMinute > 0 ? ` · Missing ${formatValue(ingredient.shortagePerMinute)} / min.` : ""}
+                              {ingredient.shortagePerMinute > 0 ? ` Â· Missing ${formatValue(ingredient.shortagePerMinute)} / min.` : ""}
                               {ingredient.hasSourceIlsWarning ? " One or more source exporters need more source ILS than currently configured." : ""}
                             </p>
                           </article>
@@ -3115,7 +3044,7 @@ function Workspace() {
                       <p className="helper-text">
                         Mixed target ILS {siteView.mixedIlsFullStationCount + siteView.mixedIlsBins.length}
                         {siteView.mixedIlsBins.length > 0
-                          ? ` · shared bins: ${siteView.mixedIlsBins.map((bin) => `[${bin.entries.map((item) => `${item.itemName} ${formatFixedValue(item.fraction, 2)}`).join(", ")}]`).join(" | ")}`
+                          ? ` Â· shared bins: ${siteView.mixedIlsBins.map((bin) => `[${bin.entries.map((item) => `${item.itemName} ${formatFixedValue(item.fraction, 2)}`).join(", ")}]`).join(" | ")}`
                           : ""}
                       </p>
                     </article>
@@ -3239,7 +3168,7 @@ function Workspace() {
                               <span>Line plan</span>
                               <strong>{formatFixedValue(roundUpValue(productionDraftExactLineDemand ?? productionDraftPreview.lineCount, 1), 1)} lines</strong>
                               <span>
-                                {formatRoundedUpInteger(productionDraftAverageMachinePlan?.machinesPerLine ?? productionDraftPreview.assemblersPerLine)} machines/line · {formatRoundedUpInteger(productionDraftMachinePlan?.totalMachineCount ?? productionDraftPreview.machineCount)} machines total
+                                {formatRoundedUpInteger(productionDraftAverageMachinePlan?.machinesPerLine ?? productionDraftPreview.assemblersPerLine)} machines/line Â· {formatRoundedUpInteger(productionDraftMachinePlan?.totalMachineCount ?? productionDraftPreview.machineCount)} machines total
                               </span>
                             </div>
                             <div className="production-line-plan-stat">
@@ -3282,7 +3211,7 @@ function Workspace() {
                                     />
                                     <div className="production-line-plan-copy-text">
                                       <strong>{dependency.dependency.display_name}</strong>
-                                      <span>{formatValue(dependency.requiredPerMinute)} / min · {formatFixedValue(dependency.beltsPerLine, 2)} belts/line</span>
+                                      <span>{formatValue(dependency.requiredPerMinute)} / min Â· {formatFixedValue(dependency.beltsPerLine, 2)} belts/line</span>
                                     </div>
                                   </div>
                                   <div className="production-line-plan-values">
@@ -3884,420 +3813,127 @@ function Workspace() {
           )}
 
           {activeView === "settings" && (
-          <section className="panel">
-            <div className="section-heading">
-              <div>
-                <p className="eyebrow">Configuration</p>
-                <h2>Mining speed</h2>
-              </div>
-            </div>
-            <label className="field">
-              <span>Mining speed %</span>
-              <input
-                type="number"
-                min={1}
-                max={500}
-                value={loadedData.settings.miningSpeedPercent}
-                onChange={(event) =>
-                  void updateSettings({
-                    miningSpeedPercent: Number(event.target.value),
-                  })
-                }
-              />
-            </label>
-            <div className="action-row">
-              <button
-                type="button"
-                className="ghost-button"
-                onClick={() =>
-                  void updateSettings({
-                    miningSpeedPercent: loadedData.settings.miningSpeedPercent + 10,
-                  })
-                }
-              >
-                +10%
-              </button>
-              <span className="helper-text">100% is base speed. Applied to ore miners, pumps, and orbital collectors.</span>
-            </div>
-          </section>
+          <SettingsScreen
+            busy={busy}
+            clusterAddressDraft={clusterAddressDraft}
+            clusterHelperText={clusterAddressHelperText}
+            canImportCluster={Boolean(parsedClusterAddress)}
+            onClusterAddressChange={setClusterAddressDraft}
+            onImportCluster={() => void handleImportClusterAddress()}
+            miningSpeedPercent={loadedData.settings.miningSpeedPercent}
+            onMiningSpeedChange={(value) =>
+              void updateSettings({
+                miningSpeedPercent: value,
+              })
+            }
+            onMiningSpeedIncrement={() =>
+              void updateSettings({
+                miningSpeedPercent: loadedData.settings.miningSpeedPercent + 10,
+              })
+            }
+            vesselCapacityItems={loadedData.settings.vesselCapacityItems}
+            onVesselCapacityChange={(value) =>
+              void updateSettings({
+                vesselCapacityItems: value,
+              })
+            }
+            onVesselCapacityIncrement={() =>
+              void updateSettings({
+                vesselCapacityItems: loadedData.settings.vesselCapacityItems + 200,
+              })
+            }
+            ilsStorageItems={loadedData.settings.ilsStorageItems}
+            onIlsStorageChange={(value) =>
+              void updateSettings({
+                ilsStorageItems: value,
+              })
+            }
+            onIlsStorageIncrement={() =>
+              void updateSettings({
+                ilsStorageItems: loadedData.settings.ilsStorageItems + 2000,
+              })
+            }
+            vesselSpeedLyPerSecond={loadedData.settings.vesselSpeedLyPerSecond}
+            onVesselSpeedChange={(value) =>
+              void updateSettings({
+                vesselSpeedLyPerSecond: value,
+              })
+            }
+            vesselCruisingSpeedMetersPerSecond={loadedData.settings.vesselCruisingSpeedMetersPerSecond}
+            onVesselCruisingSpeedChange={(value) =>
+              void updateSettings({
+                vesselCruisingSpeedMetersPerSecond: value,
+              })
+            }
+            vesselDockingSeconds={loadedData.settings.vesselDockingSeconds}
+            onVesselDockingSecondsChange={(value) =>
+              void updateSettings({
+                vesselDockingSeconds: value,
+              })
+            }
+            quickCalcDistanceLy={quickCalcDistanceLy}
+            onQuickCalcDistanceChange={setQuickCalcDistanceLy}
+            quickCalcThroughputPerMinute={quickCalcThroughputPerMinute}
+            onQuickCalcThroughputChange={setQuickCalcThroughputPerMinute}
+            quickCalcRoundTripLabel={quickCalcRoundTripLabel}
+            quickCalcPerVesselLabel={quickCalcPerVesselLabel}
+            quickCalcRequiredIlsLabel={quickCalcRequiredIlsLabel}
+            quickCalcTargetIlsLabel={quickCalcTargetIlsLabel}
+            newResourceName={newResourceName}
+            onNewResourceNameChange={setNewResourceName}
+            newResourceType={newResourceType}
+            onNewResourceTypeChange={setNewResourceType}
+            canCreateResource={newResourceName.trim().length > 0}
+            onCreateResource={() =>
+              void execute(
+                {
+                  type: "resource/create",
+                  name: newResourceName,
+                  resourceType: newResourceType,
+                },
+                () => {
+                  setNewResourceName("");
+                },
+              )
+            }
+            onExport={() => void handleExport()}
+            onImport={(file) => void handleImport(file)}
+          />
           )}
 
-          {activeView === "settings" && (
-          <section className="panel">
-            <div className="section-heading">
-              <div>
-                <p className="eyebrow">Transportation</p>
-                <h2>Vessel settings</h2>
-              </div>
-            </div>
-            <label className="field">
-              <span>Vessel capacity</span>
-              <input
-                type="number"
-                min={1}
-                max={100000}
-                value={data.settings.vesselCapacityItems}
-                onChange={(event) =>
-                  void updateSettings({
-                    vesselCapacityItems: Number(event.target.value),
-                  })
-                }
-              />
-            </label>
-            <div className="action-row">
-              <button
-                type="button"
-                className="ghost-button"
-                onClick={() =>
-                  void updateSettings({
-                    vesselCapacityItems: data.settings.vesselCapacityItems + 200,
-                  })
-                }
-              >
-                +200
-              </button>
-            </div>
-            <label className="field">
-              <span>ILS storage</span>
-              <input
-                type="number"
-                min={1}
-                max={1000000}
-                value={data.settings.ilsStorageItems}
-                onChange={(event) =>
-                  void updateSettings({
-                    ilsStorageItems: Number(event.target.value),
-                  })
-                }
-              />
-            </label>
-            <div className="action-row">
-              <button
-                type="button"
-                className="ghost-button"
-                onClick={() =>
-                  void updateSettings({
-                    ilsStorageItems: data.settings.ilsStorageItems + 2000,
-                  })
-                }
-              >
-                +2000
-              </button>
-            </div>
-            <label className="field">
-              <span>Vessel speed (ly / sec)</span>
-              <input
-                type="number"
-                min={0.001}
-                step="any"
-                value={data.settings.vesselSpeedLyPerSecond}
-                onChange={(event) =>
-                  void updateSettings({
-                    vesselSpeedLyPerSecond: Number(event.target.value),
-                  })
-                }
-              />
-            </label>
-            <label className="field">
-              <span>Cruising speed (m / sec)</span>
-              <input
-                type="number"
-                min={1}
-                step="any"
-                value={data.settings.vesselCruisingSpeedMetersPerSecond}
-                onChange={(event) =>
-                  void updateSettings({
-                    vesselCruisingSpeedMetersPerSecond: Number(event.target.value),
-                  })
-                }
-              />
-            </label>
-            <label className="field">
-              <span>Dock / undock seconds per leg</span>
-              <input
-                type="number"
-                min={0}
-                step="any"
-                value={data.settings.vesselDockingSeconds}
-                onChange={(event) =>
-                  void updateSettings({
-                    vesselDockingSeconds: Number(event.target.value),
-                  })
-                }
-              />
-            </label>
-          </section>
-          )}
-
-          {activeView === "settings" && (
-          <section className="panel">
-            <div className="section-heading">
-              <div>
-                <p className="eyebrow">Transport</p>
-                <h2>Quick calc</h2>
-              </div>
-            </div>
-            <div className="transport-form-grid transport-form-grid-compact">
-              <label className="field">
-                <span>Distance (ly)</span>
-                <input
-                  type="number"
-                  min={0}
-                  step="any"
-                  value={quickCalcDistanceLy}
-                  onChange={(event) => setQuickCalcDistanceLy(Number(event.target.value))}
-                />
-              </label>
-
-              <label className="field">
-                <span>Throughput / min</span>
-                <input
-                  type="number"
-                  min={0}
-                  step="any"
-                  value={quickCalcThroughputPerMinute}
-                  onChange={(event) => setQuickCalcThroughputPerMinute(Number(event.target.value))}
-                />
-              </label>
-            </div>
-            <div className="transport-metric-grid">
-              <div className="entry-stat">
-                <span>Round trip</span>
-                <strong>{quickCalcRoundTripSeconds === null ? "Incomplete" : `${formatFixedValue(quickCalcRoundTripSeconds, 1)} s`}</strong>
-              </div>
-              <div className="entry-stat">
-                <span>Per vessel</span>
-                <strong>{quickCalcItemsPerMinutePerVessel === null ? "Incomplete" : `${formatFixedValue(quickCalcItemsPerMinutePerVessel, 1)} / min`}</strong>
-              </div>
-              <div className="entry-stat">
-                <span>Required ILS</span>
-                <strong>{quickCalcRequiredStations === null ? "Incomplete" : formatFixedValue(quickCalcRequiredStations, 1)}</strong>
-              </div>
-              <div className="entry-stat">
-                <span>Target ILS</span>
-                <strong>{quickCalcTargetStationsNeeded === null ? "Incomplete" : formatFixedValue(quickCalcTargetStationsNeeded, 1)}</strong>
-              </div>
-            </div>
-          </section>
-          )}
 
           {activeView === "projects" && (
-          <section className="panel">
-            <div className="section-heading">
-              <div>
-                <p className="eyebrow">Projects</p>
-                <h2>Demand editor</h2>
-              </div>
-            </div>
-
-            <div className="project-pills">
-              {data.projects.map((project: Project) => (
-                <button
-                  key={project.id}
-                  type="button"
-                  className={`project-pill ${project.id === selectedProjectId ? "project-pill-active" : ""}`}
-                  onClick={() => setSelectedProjectId(project.id)}
-                >
-                  {project.name}
-                  <span>{project.is_active === 1 ? "Active" : "Archived"}</span>
-                </button>
-              ))}
-            </div>
-
-            {selectedProject && (
-              <>
-                <label className="field">
-                  <span>Name</span>
-                  <input value={projectNameDraft} onChange={(event) => setProjectNameDraft(event.target.value)} />
-                </label>
-                <label className="field">
-                  <span>Notes</span>
-                  <AutoGrowTextarea value={projectNotesDraft} onChange={(event) => setProjectNotesDraft(event.target.value)} rows={3} />
-                </label>
-                <label className="toggle-field">
-                  <input type="checkbox" checked={projectActiveDraft} onChange={(event) => setProjectActiveDraft(event.target.checked)} />
-                  <span>Counts toward combined demand</span>
-                </label>
-                <div className="goal-list">
-                  {data.resources.map((resource) => {
-                    const summary = data.summary.resourceSummaries.find((item) => item.resourceId === resource.id);
-                    return (
-                      <label key={resource.id} className="goal-row">
-                        <div className="goal-row-title">
-                          <ResourceIcon
-                            name={resource.name}
-                            iconUrl={resource.icon_url}
-                            colorStart={resource.color_start}
-                            colorEnd={resource.color_end}
-                            size="sm"
-                          />
-                          <div>
-                            <strong>{resource.name}</strong>
-                            <span>{getProjectGoalUnitLabel(resource.type, summary?.goalUnitLabel)}</span>
-                          </div>
-                        </div>
-                        <input
-                          type="number"
-                          min={0}
-                          step={resource.type === "oil_extractor" || resource.type === "gas_giant_output" ? 0.1 : 1}
-                          value={goalDrafts[resource.id] ?? 0}
-                          onChange={(event) =>
-                            setGoalDrafts((current) => ({
-                              ...current,
-                              [resource.id]: Number(event.target.value),
-                            }))
-                          }
-                        />
-                      </label>
-                    );
-                  })}
-                </div>
-                <button type="button" className="primary-button full-width" onClick={() => void handleSaveProject()} disabled={busy}>
-                  Save project
-                </button>
-
-                <div className="divider" />
-
-                <div className="section-heading compact-section-heading">
-                  <div>
-                    <p className="eyebrow">Import</p>
-                    <h3>Replace from CSV</h3>
-                  </div>
-                </div>
-                <FileDropInput
-                  accept=".csv,text/csv"
-                  description="Drop a FactorioLab CSV here to replace this project's raw goals and crafted-item production catalog."
-                  disabled={busy}
-                  label="Existing project CSV"
-                  onSelect={(file) => void handleExistingProjectCsvImport(file)}
-                />
-              </>
-            )}
-
-            <div className="divider" />
-
-            <label className="field">
-              <span>New project name</span>
-              <input value={newProjectName} onChange={(event) => setNewProjectName(event.target.value)} placeholder="Mall expansion" />
-            </label>
-            <label className="field">
-              <span>Notes</span>
-              <AutoGrowTextarea value={newProjectNotes} onChange={(event) => setNewProjectNotes(event.target.value)} rows={2} />
-            </label>
-            <button type="button" className="ghost-button full-width" onClick={() => void handleCreateProject()} disabled={busy}>
-              Create project
-            </button>
-
-            <div className="divider" />
-
-            <div className="section-heading compact-section-heading">
-              <div>
-                <p className="eyebrow">Import</p>
-                <h3>New project from CSV</h3>
-              </div>
-            </div>
-            <FileDropInput
-              accept=".csv,text/csv"
-              description="Drop a FactorioLab CSV here to create a project with raw goals and a crafted-item production catalog."
-              disabled={busy}
-              label="Project CSV"
-              onSelect={(file) => void handleProjectCsvImport(file)}
-            />
-          </section>
+          <ProjectsScreen
+            busy={busy}
+            projects={data.projects}
+            selectedProjectId={selectedProjectId}
+            selectedProject={selectedProject}
+            projectNameDraft={projectNameDraft}
+            projectNotesDraft={projectNotesDraft}
+            projectActiveDraft={projectActiveDraft}
+            goalDrafts={goalDrafts}
+            goalInputRows={projectGoalInputRows}
+            newProjectName={newProjectName}
+            newProjectNotes={newProjectNotes}
+            onSelectProject={setSelectedProjectId}
+            onProjectNameChange={setProjectNameDraft}
+            onProjectNotesChange={setProjectNotesDraft}
+            onProjectActiveChange={setProjectActiveDraft}
+            onGoalChange={(resourceId, value) =>
+              setGoalDrafts((current) => ({
+                ...current,
+                [resourceId]: value,
+              }))
+            }
+            onSaveProject={() => void handleSaveProject()}
+            onExistingProjectCsvImport={(file) => void handleExistingProjectCsvImport(file)}
+            onNewProjectNameChange={setNewProjectName}
+            onNewProjectNotesChange={setNewProjectNotes}
+            onCreateProject={() => void handleCreateProject()}
+            onProjectCsvImport={(file) => void handleProjectCsvImport(file)}
+          />
           )}
 
-          {activeView === "settings" && (
-          <section className="panel">
-            <div className="section-heading">
-              <div>
-                <p className="eyebrow">Cluster</p>
-                <h2>Cluster address</h2>
-              </div>
-            </div>
-            <label className="field">
-              <span>Cluster address</span>
-              <input
-                value={clusterAddressDraft}
-                onChange={(event) => setClusterAddressDraft(event.target.value)}
-                placeholder="07198444-64-799-10"
-              />
-            </label>
-            <p className="helper-text">
-              {parsedClusterAddress
-                ? `Seed ${parsedClusterAddress.clusterSeed} · ${parsedClusterAddress.clusterStarCount} stars · ${loadedData.summary.generatedSystemCount} generated systems currently stored.`
-                : clusterAddressDraft.trim()
-                  ? "Cluster address format not recognized yet."
-                  : "Import a DSP cluster address to generate exact system coordinates and automatic inter-system distances."}
-            </p>
-            <button type="button" className="primary-button full-width" onClick={() => void handleImportClusterAddress()} disabled={busy || !parsedClusterAddress}>
-              Import cluster systems
-            </button>
-          </section>
-          )}
-
-          {activeView === "settings" && (
-          <section className="panel">
-            <div className="section-heading">
-              <div>
-                <p className="eyebrow">Catalog</p>
-                <h2>Custom resources</h2>
-              </div>
-            </div>
-            <label className="field">
-              <span>Resource name</span>
-              <input value={newResourceName} onChange={(event) => setNewResourceName(event.target.value)} placeholder="Optical ore" />
-            </label>
-            <label className="field">
-              <span>Type</span>
-              <select value={newResourceType} onChange={(event) => setNewResourceType(event.target.value as ResourceType)}>
-                <option value="ore_vein">Ore vein</option>
-                <option value="liquid_pump">Liquid pump</option>
-                <option value="oil_extractor">Oil extractor</option>
-                <option value="gas_giant_output">Gas giant output</option>
-              </select>
-            </label>
-            <button
-              type="button"
-              className="ghost-button full-width"
-              onClick={() =>
-                void execute(
-                  {
-                    type: "resource/create",
-                    name: newResourceName,
-                    resourceType: newResourceType,
-                  },
-                  () => {
-                    setNewResourceName("");
-                  },
-                )
-              }
-              disabled={busy || !newResourceName.trim()}
-            >
-              Add resource
-            </button>
-          </section>
-          )}
-
-          {activeView === "settings" && (
-          <section className="panel">
-            <div className="section-heading">
-              <div>
-                <p className="eyebrow">Backups</p>
-                <h2>Import / export</h2>
-              </div>
-            </div>
-            <button type="button" className="primary-button full-width" onClick={() => void handleExport()} disabled={busy}>
-              Export JSON snapshot
-            </button>
-            <FileDropInput
-              accept=".json,application/json"
-              description="Drop a snapshot backup here to replace the current local dataset."
-              disabled={busy}
-              label="Snapshot JSON"
-              onSelect={(file) => void handleImport(file)}
-            />
-          </section>
-          )}
         </aside>
         )}
       </section>
@@ -4307,4 +3943,5 @@ function Workspace() {
 
 export { Workspace };
 export default Workspace;
+
 
