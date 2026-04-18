@@ -106,6 +106,7 @@ type OverviewTransportSystemRow = {
   systemName: string;
   planetCount: number;
   supplyPerMinute: number;
+  distanceLy: number | null;
 };
 
 type MapSelection = {
@@ -890,7 +891,19 @@ function formatRoundedUpInteger(value: number) {
   }).format(Math.max(0, Math.ceil(value - 1e-9)));
 }
 
-function getRoundedMachinePlan(machineCount: number, lineCount: number) {
+function roundUpValue(value: number, digits = 1) {
+  const factor = 10 ** digits;
+  return Math.ceil(value * factor - 1e-9) / factor;
+}
+
+function getExactLineDemand(
+  outputBelts: number,
+  dependencies: Array<{ requiredBelts: number }>,
+) {
+  return Math.max(outputBelts, ...dependencies.map((dependency) => dependency.requiredBelts), 0);
+}
+
+function getRoundedMachinePlan(machineCount: number, lineCount: number, outputBelts: number | null = null) {
   if (!(machineCount > 0) || !(lineCount > 0)) {
     return {
       machinesPerLine: 0,
@@ -898,7 +911,11 @@ function getRoundedMachinePlan(machineCount: number, lineCount: number) {
     };
   }
 
-  const machinesPerLine = Math.max(0, Math.ceil(machineCount / lineCount - 1e-9));
+  const machinesPerLine =
+    outputBelts && outputBelts > 0
+      ? Math.max(0, Math.ceil(machineCount / outputBelts - 1e-9))
+      : Math.max(0, Math.ceil(machineCount / lineCount - 1e-9));
+
   return {
     machinesPerLine,
     totalMachineCount: lineCount * machinesPerLine,
@@ -1415,7 +1432,6 @@ function FileDropInput({ accept, description, disabled = false, label, onSelect 
 
 function App() {
   const UNDO_TOAST_DURATION_MS = 6000;
-  const overviewTransportDistanceSaveTimersRef = useRef<Record<string, number>>({});
   const planetExtractionIlsSaveTimersRef = useRef<Record<string, number>>({});
   const planetResourceExtractionIlsSaveTimersRef = useRef<Record<string, number>>({});
   const planetResourceExtractionIlsDraftsRef = useRef<Record<string, string>>({});
@@ -1431,7 +1447,6 @@ function App() {
   const [isOverviewTransportModalOpen, setIsOverviewTransportModalOpen] = useState(false);
   const [overviewTransportTargetSystemId, setOverviewTransportTargetSystemId] = useState("");
   const [overviewTransportThroughputPerMinute, setOverviewTransportThroughputPerMinute] = useState(0);
-  const [overviewTransportDistanceDrafts, setOverviewTransportDistanceDrafts] = useState<Record<string, number>>({});
   const [selectedProjectId, setSelectedProjectId] = useState(() => window.localStorage.getItem("dsp-resource-sheet:selected-project-id") ?? "");
   const [selectedProductionItemKey, setSelectedProductionItemKey] = useState("");
   const [expandedProductionItemKeys, setExpandedProductionItemKeys] = useState<Record<string, boolean>>({});
@@ -1442,6 +1457,7 @@ function App() {
   const [planetExtractionIlsDrafts, setPlanetExtractionIlsDrafts] = useState<Record<string, string>>({});
   const [planetResourceExtractionIlsDrafts, setPlanetResourceExtractionIlsDrafts] = useState<Record<string, string>>({});
   const [isProductionModalOpen, setIsProductionModalOpen] = useState(false);
+  const [editingProductionSiteId, setEditingProductionSiteId] = useState<string | null>(null);
 
   const [newSystemName, setNewSystemName] = useState("");
   const [newPlanetName, setNewPlanetName] = useState("");
@@ -1777,69 +1793,6 @@ function App() {
   }, [data, isOverviewTransportModalOpen, overviewTransportTargetSystemId]);
 
   useEffect(() => {
-    if (!data || !isOverviewTransportModalOpen) {
-      return;
-    }
-
-    const selectedOverviewSummary =
-      data.summary.resourceSummaries.find((summary) => summary.resourceId === selectedOverviewResourceId) ?? null;
-    if (!selectedOverviewSummary) {
-      return;
-    }
-
-    const resourceLookup = new Map(data.resources.map((resource) => [resource.id, resource]));
-    const planetLookup = new Map(data.planets.map((planet) => [planet.id, planet]));
-    const systemLookup = new Map(data.solarSystems.map((solarSystem) => [solarSystem.id, solarSystem]));
-    const oreMinerLookup = data.oreVeinMiners.reduce<Record<string, OreVeinMiner[]>>((acc, miner) => {
-      acc[miner.ore_vein_id] ??= [];
-      acc[miner.ore_vein_id].push(miner);
-      return acc;
-    }, {});
-    const gasOutputLookup = data.gasGiantOutputs.reduce<Record<string, GasGiantOutput[]>>((acc, output) => {
-      acc[output.gas_giant_site_id] ??= [];
-      acc[output.gas_giant_site_id].push(output);
-      return acc;
-    }, {});
-
-    const sources = getResourceOriginTransportSources(
-      data,
-      selectedOverviewSummary,
-      oreMinerLookup,
-      gasOutputLookup,
-      resourceLookup,
-      planetLookup,
-      systemLookup,
-    );
-
-    const uniqueSystemIds = Array.from(new Set(sources.map((source) => source.systemId)));
-    const nextDrafts = uniqueSystemIds.reduce<Record<string, number>>((acc, systemId) => {
-      if (systemId === overviewTransportTargetSystemId) {
-        acc[systemId] = 0;
-        return acc;
-      }
-
-      const existingDistance = getGeneratedSystemDistanceLy(
-        data.solarSystems.find((solarSystem) => solarSystem.id === systemId),
-        data.solarSystems.find((solarSystem) => solarSystem.id === overviewTransportTargetSystemId),
-        data.systemDistances,
-      );
-      acc[systemId] = existingDistance ?? 0;
-      return acc;
-    }, {});
-
-    setOverviewTransportDistanceDrafts(nextDrafts);
-  }, [data, isOverviewTransportModalOpen, overviewTransportTargetSystemId, selectedOverviewResourceId]);
-
-  useEffect(() => {
-    const timers = overviewTransportDistanceSaveTimersRef.current;
-    return () => {
-      Object.values(timers).forEach((timerId) => {
-        window.clearTimeout(timerId);
-      });
-    };
-  }, []);
-
-  useEffect(() => {
     const timers = planetExtractionIlsSaveTimersRef.current;
     return () => {
       Object.values(timers).forEach((timerId) => {
@@ -2114,6 +2067,7 @@ function App() {
         systemLookup,
       )
     : [];
+  const overviewTransportTargetSystem = systemLookup.get(overviewTransportTargetSystemId) ?? null;
   const overviewTransportSystemRows = Array.from(
     selectedOverviewTransportSources.reduce<Map<string, OverviewTransportSystemRow>>((acc, source) => {
       const existing = acc.get(source.systemId);
@@ -2128,24 +2082,28 @@ function App() {
         systemName: source.systemName,
         planetCount: 1,
         supplyPerMinute: source.supplyPerMinute,
+        distanceLy: null,
       });
       return acc;
     }, new Map()).values(),
-  ).sort((left, right) => left.systemName.localeCompare(right.systemName));
+  )
+    .map((row) => ({
+      ...row,
+      distanceLy:
+        row.systemId === overviewTransportTargetSystemId
+          ? 0
+          : getGeneratedSystemDistanceLy(systemLookup.get(row.systemId), overviewTransportTargetSystem),
+    }))
+    .sort((left, right) => left.systemName.localeCompare(right.systemName));
   const overviewTransportPlan = getMultiSourceTransportPlan(
     selectedOverviewTransportSources.map((source) => {
-      const draftDistance = overviewTransportDistanceDrafts[source.systemId] ?? 0;
-      const distanceLy =
-        source.systemId === overviewTransportTargetSystemId
-          ? 0
-          : draftDistance > 0
-            ? draftDistance
-            : null;
-
       return {
         id: source.id,
         supplyPerMinute: source.supplyPerMinute,
-        distanceLy,
+        distanceLy:
+          source.systemId === overviewTransportTargetSystemId
+            ? 0
+            : getGeneratedSystemDistanceLy(systemLookup.get(source.systemId), overviewTransportTargetSystem),
       };
     }),
     overviewTransportThroughputPerMinute,
@@ -2191,7 +2149,7 @@ function App() {
       : 0;
   const overviewTransportIncompleteSystemCount = overviewTransportSystemRows.filter((row) => (
     row.systemId !== overviewTransportTargetSystemId &&
-    (overviewTransportDistanceDrafts[row.systemId] ?? 0) <= 0
+    row.distanceLy === null
   )).length;
   const targetedResourceSummaries = loadedData.summary.resourceSummaries.filter((summary) => summary.goalQuantity > 0);
   const combinedTargetPerMinute = targetedResourceSummaries.reduce(
@@ -2360,6 +2318,9 @@ function App() {
     productionDraft.solarSystemId !== CREATE_NEW_SYSTEM_OPTION &&
     !!productionDraft.planetId &&
     productionDraft.planetId !== CREATE_NEW_PLANET_OPTION;
+  const isEditingProductionSite = editingProductionSiteId !== null;
+  const productionModalEyebrow = isEditingProductionSite ? "Edit production site" : "New production site";
+  const productionModalSubmitLabel = isEditingProductionSite ? "Save production site" : "Add production site";
   const productionDraftPreview = buildProductionDraftPreview(
     loadedData,
     selectedProjectId || null,
@@ -2417,7 +2378,7 @@ function App() {
           selectedProductionSummary.plannedLineCount,
         )
       : null;
-  const productionDraftMachinePlan =
+  const productionDraftAverageMachinePlan =
     productionDraftPreview && selectedProductionTemplate
       ? getRoundedMachinePlan(
           getImportedItemExpectedMachineCount(
@@ -2427,6 +2388,20 @@ function App() {
           productionDraftPreview.lineCount,
         )
       : null;
+  const productionDraftMachinePlan =
+    productionDraftPreview && selectedProductionTemplate
+      ? getRoundedMachinePlan(
+          getImportedItemExpectedMachineCount(
+            selectedProductionTemplate,
+            productionDraftPreview.throughputPerMinute,
+          ) ?? productionDraftPreview.machineCount,
+          productionDraftPreview.lineCount,
+          getExactLineDemand(productionDraftPreview.outputBelts, productionDraftPreview.dependencies),
+        )
+      : null;
+  const productionDraftExactLineDemand = productionDraftPreview
+    ? getExactLineDemand(productionDraftPreview.outputBelts, productionDraftPreview.dependencies)
+    : null;
   const selectedProductionEstimatedPowerWatts =
     productionDraftMachinePlan && selectedProductionTemplate
       ? (selectedProductionMachinePowerWatts ?? 0) *
@@ -3288,18 +3263,41 @@ function App() {
       return;
     }
 
+    setEditingProductionSiteId(null);
     setSelectedProductionItemKey(itemKey);
     setProductionDraft((current) => ({
       ...current,
       itemKey,
       throughputPerMinute: Number(nextTemplate.imported_throughput_per_minute),
+      outboundIlsCount: 0,
       isFinished: false,
       sameSystemWarpItemKeys: {},
     }));
     setIsProductionModalOpen(true);
   }
 
+  function openEditProductionSiteModal(siteId: string) {
+    const site = loadedData.productionSites.find((entry) => entry.id === siteId);
+    if (!site) {
+      return;
+    }
+
+    setEditingProductionSiteId(site.id);
+    setSelectedProductionItemKey(site.item_key);
+    setProductionDraft({
+      itemKey: site.item_key,
+      throughputPerMinute: Number(site.throughput_per_minute),
+      outboundIlsCount: Number(site.outbound_ils_count),
+      isFinished: Number(site.is_finished) === 1,
+      solarSystemId: site.solar_system_id,
+      planetId: site.planet_id,
+      sameSystemWarpItemKeys: Object.fromEntries(site.same_system_warp_item_keys.map((itemKey) => [itemKey, true])),
+    });
+    setIsProductionModalOpen(true);
+  }
+
   function closeProductionSiteModal() {
+    setEditingProductionSiteId(null);
     setIsProductionModalOpen(false);
   }
 
@@ -3442,37 +3440,11 @@ function App() {
         : loadedData.solarSystems[0]?.id ?? "",
     );
     setOverviewTransportThroughputPerMinute(overviewTransportDefaultThroughputPerMinute);
-    setOverviewTransportDistanceDrafts({});
     setIsOverviewTransportModalOpen(true);
   }
 
   function closeOverviewTransportModal() {
     setIsOverviewTransportModalOpen(false);
-  }
-
-  function queueOverviewTransportDistanceSave(sourceSystemId: string, distanceLy: number) {
-    const existingTimerId = overviewTransportDistanceSaveTimersRef.current[sourceSystemId];
-    if (existingTimerId) {
-      window.clearTimeout(existingTimerId);
-    }
-
-    if (!overviewTransportTargetSystemId || sourceSystemId === overviewTransportTargetSystemId || distanceLy <= 0) {
-      delete overviewTransportDistanceSaveTimersRef.current[sourceSystemId];
-      return;
-    }
-
-    overviewTransportDistanceSaveTimersRef.current[sourceSystemId] = window.setTimeout(() => {
-      delete overviewTransportDistanceSaveTimersRef.current[sourceSystemId];
-      void mutate(
-        () =>
-          postBootstrap("/api/system-distances", {
-            systemAId: sourceSystemId,
-            systemBId: overviewTransportTargetSystemId,
-            distanceLy,
-          }),
-        applyBootstrap,
-      );
-    }, 350);
   }
 
   async function handleExport() {
@@ -3557,7 +3529,7 @@ function App() {
     });
   }
 
-  async function handleCreateProductionSite() {
+  async function handleSubmitProductionSite() {
     if (
       !selectedProjectId ||
       !productionDraft.itemKey ||
@@ -3569,19 +3541,36 @@ function App() {
       return;
     }
 
+    const payload = {
+      itemKey: productionDraft.itemKey,
+      throughputPerMinute: Number(productionDraft.throughputPerMinute),
+      outboundIlsCount: Number(productionDraft.outboundIlsCount),
+      isFinished: productionDraft.isFinished,
+      solarSystemId: productionDraft.solarSystemId,
+      planetId: productionDraft.planetId,
+      sameSystemWarpItemKeys: Object.entries(productionDraft.sameSystemWarpItemKeys)
+        .filter(([, isEnabled]) => isEnabled)
+        .map(([itemKey]) => itemKey),
+    };
+
+    if (editingProductionSiteId) {
+      await mutate(
+        () =>
+          patchBootstrap(`/api/production-sites/${editingProductionSiteId}`, payload),
+        (nextData) => {
+          applyBootstrap(nextData);
+          setSelectedProductionItemKey(productionDraft.itemKey);
+          closeProductionSiteModal();
+        },
+      );
+      return;
+    }
+
     await mutate(
       () =>
         postBootstrap("/api/production-sites", {
           projectId: selectedProjectId,
-          itemKey: productionDraft.itemKey,
-          throughputPerMinute: Number(productionDraft.throughputPerMinute),
-          outboundIlsCount: Number(productionDraft.outboundIlsCount),
-          isFinished: productionDraft.isFinished,
-          solarSystemId: productionDraft.solarSystemId,
-          planetId: productionDraft.planetId,
-          sameSystemWarpItemKeys: Object.entries(productionDraft.sameSystemWarpItemKeys)
-            .filter(([, isEnabled]) => isEnabled)
-            .map(([itemKey]) => itemKey),
+          ...payload,
         }),
       (nextData) => {
         applyBootstrap(nextData);
@@ -3589,7 +3578,7 @@ function App() {
           (item) => item.project_id === selectedProjectId && item.item_key === productionDraft.itemKey,
         );
         setSelectedProductionItemKey(productionDraft.itemKey);
-        setIsProductionModalOpen(false);
+        closeProductionSiteModal();
         setProductionDraft((current) => ({
           ...current,
           throughputPerMinute: Number(importedItem?.imported_throughput_per_minute ?? current.throughputPerMinute),
@@ -4645,7 +4634,7 @@ function App() {
                   <div className="entry-stat">
                     <span>Total tracked supply</span>
                     <strong>{formatValue(overviewTransportTotalSupplyPerMinute)}</strong>
-                    <span>{overviewTransportIncompleteSystemCount} systems need distances</span>
+                    <span>{overviewTransportIncompleteSystemCount} systems missing cluster coordinates</span>
                   </div>
                 </div>
 
@@ -4653,8 +4642,8 @@ function App() {
                   <div className="overview-transport-alerts">
                     {overviewTransportIncompleteSystemCount > 0 && (
                       <div className="overview-transport-alert">
-                        <strong>Missing distances</strong>
-                        <span>Enter the missing source-system distances below to include every planet in the calculation.</span>
+                        <strong>Missing coordinates</strong>
+                        <span>Import cluster systems in Settings to include every source system in the calculation.</span>
                       </div>
                     )}
                     {overviewTransportPlan.remainingThroughputPerMinute > 0 && (
@@ -4669,7 +4658,7 @@ function App() {
                 <div className="overview-transport-grid">
                   <section className="overview-breakdown-panel">
                     <div className="overview-breakdown-heading">
-                      <h4>System distances</h4>
+                      <h4>Source systems</h4>
                       <span>{overviewTransportSystemRows.length} source systems</span>
                     </div>
 
@@ -4677,7 +4666,6 @@ function App() {
                       <div className="overview-transport-system-list">
                         {overviewTransportSystemRows.map((row) => {
                           const isTargetSystem = row.systemId === overviewTransportTargetSystemId;
-                          const distanceLy = isTargetSystem ? 0 : Number(overviewTransportDistanceDrafts[row.systemId] ?? 0);
 
                           return (
                             <article key={row.systemId} className="overview-transport-system-row">
@@ -4688,26 +4676,10 @@ function App() {
 
                               {isTargetSystem ? (
                                 <span className="context-chip">Local route (0 ly)</span>
+                              ) : row.distanceLy === null ? (
+                                <span className="context-chip">Cluster import needed</span>
                               ) : (
-                                <div className="overview-transport-system-actions">
-                                  <label className="field compact-field">
-                                    <span>Distance (ly)</span>
-                                    <input
-                                      type="number"
-                                      min={0}
-                                      step="any"
-                                      value={distanceLy}
-                                      onChange={(event) => {
-                                        const nextDistanceLy = Number(event.target.value);
-                                        setOverviewTransportDistanceDrafts((current) => ({
-                                          ...current,
-                                          [row.systemId]: nextDistanceLy,
-                                        }));
-                                        queueOverviewTransportDistanceSave(row.systemId, nextDistanceLy);
-                                      }}
-                                    />
-                                  </label>
-                                </div>
+                                <span className="context-chip">{formatFixedValue(row.distanceLy, 1)} ly</span>
                               )}
                             </article>
                           );
@@ -4757,7 +4729,7 @@ function App() {
                               </div>
                             ) : (
                               <div className="resource-meta overview-transport-row-meta">
-                                <span className="transport-warning">Enter the {row.systemName} distance to include this planet.</span>
+                                <span className="transport-warning">Import cluster systems to include {row.systemName} in this calculation.</span>
                                 <span>{formatValue(row.supplyPerMinute)} / min tracked</span>
                               </div>
                             )}
@@ -4983,6 +4955,14 @@ function App() {
                           <button
                             type="button"
                             className="ghost-button"
+                            onClick={() => openEditProductionSiteModal(siteView.site.id)}
+                            disabled={busy}
+                          >
+                            Edit
+                          </button>
+                          <button
+                            type="button"
+                            className="ghost-button"
                             onClick={() => void confirmAndDelete(`/api/production-sites/${siteView.site.id}`, `${siteView.importedItem.display_name} site`)}
                             disabled={busy}
                           >
@@ -4999,7 +4979,7 @@ function App() {
                       </div>
 
                       <p className="helper-text">
-                        {siteView.lineCount} lines · {formatFixedValue(siteView.assemblersPerLine, 1)} machines/line · {formatFixedValue(siteView.outputBeltsPerLine, 2)} output belts/line
+                        {siteView.lineCount} lines · {formatRoundedUpInteger(siteMachinePlan.machinesPerLine)} machines/line · {formatFixedValue(siteView.outputBeltsPerLine, 2)} output belts/line
                       </p>
 
                       <div className="overview-breakdown-list">
@@ -5067,9 +5047,9 @@ function App() {
                       size="lg"
                     />
                     <div>
-                      <p className="eyebrow">New production site</p>
+                      <p className="eyebrow">{productionModalEyebrow}</p>
                       <h2>{selectedProductionTemplate.display_name}</h2>
-                      <p className="helper-text">Preview line count, inbound belts, and source coverage before placing this build.</p>
+                      <p className="helper-text">Preview line count, inbound belts, and source coverage before saving this build.</p>
                     </div>
                   </div>
                   <button type="button" className="ghost-button" onClick={closeProductionSiteModal}>
@@ -5081,7 +5061,7 @@ function App() {
                   className="production-modal-layout"
                   onSubmit={(event) => {
                     event.preventDefault();
-                    void handleCreateProductionSite();
+                    void handleSubmitProductionSite();
                   }}
                 >
                   <div className="production-modal-main">
@@ -5158,9 +5138,9 @@ function App() {
                           <div className="production-line-plan-header">
                             <div className="production-line-plan-stat">
                               <span>Line plan</span>
-                              <strong>{productionDraftPreview.lineCount} lines</strong>
+                              <strong>{formatFixedValue(roundUpValue(productionDraftExactLineDemand ?? productionDraftPreview.lineCount, 1), 1)} lines</strong>
                               <span>
-                                {formatRoundedUpInteger(productionDraftMachinePlan?.machinesPerLine ?? productionDraftPreview.assemblersPerLine)} machines/line · {formatRoundedUpInteger(productionDraftMachinePlan?.totalMachineCount ?? productionDraftPreview.machineCount)} machines total
+                                {formatRoundedUpInteger(productionDraftAverageMachinePlan?.machinesPerLine ?? productionDraftPreview.assemblersPerLine)} machines/line · {formatRoundedUpInteger(productionDraftMachinePlan?.totalMachineCount ?? productionDraftPreview.machineCount)} machines total
                               </span>
                             </div>
                             <div className="production-line-plan-stat">
@@ -5374,7 +5354,7 @@ function App() {
                     </div>
 
                     <button type="submit" className="primary-button full-width" disabled={!canSubmitProductionSite}>
-                      Add production site
+                      {productionModalSubmitLabel}
                     </button>
                   </div>
                 </form>

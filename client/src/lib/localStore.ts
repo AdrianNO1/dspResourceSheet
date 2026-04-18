@@ -1256,48 +1256,6 @@ export async function mutateStore(url: string, method: string, body?: unknown) {
         rate_per_second: Number(output.ratePerSecond),
       });
     });
-  } else if (url === "/api/system-distances" && method === "POST") {
-    const [systemAId, systemBId] = normalizeSystemPair(String(payload.systemAId ?? ""), String(payload.systemBId ?? ""));
-    ensureSolarSystemExists(snapshot, systemAId);
-    ensureSolarSystemExists(snapshot, systemBId);
-    if (systemAId === systemBId) {
-      throw new Error("Distance pairs must use two different systems.");
-    }
-
-    const existing = snapshot.systemDistances.find(
-      (distance) => distance.system_a_id === systemAId && distance.system_b_id === systemBId,
-    );
-    if (existing) {
-      existing.distance_ly = Number(payload.distanceLy ?? existing.distance_ly);
-    } else {
-      snapshot.systemDistances.push({
-        id: generateId(),
-        system_a_id: systemAId,
-        system_b_id: systemBId,
-        distance_ly: Number(payload.distanceLy ?? 0),
-      });
-    }
-  } else if (matchId(url, /^\/api\/system-distances\/([^/]+)$/) && method === "PATCH") {
-    const distanceId = matchId(url, /^\/api\/system-distances\/([^/]+)$/)!;
-    const [systemAId, systemBId] = normalizeSystemPair(String(payload.systemAId ?? ""), String(payload.systemBId ?? ""));
-    const distance = snapshot.systemDistances.find((item) => item.id === distanceId);
-    if (!distance) {
-      throw new Error("System distance not found.");
-    }
-    ensureSolarSystemExists(snapshot, systemAId);
-    ensureSolarSystemExists(snapshot, systemBId);
-
-    const duplicate = snapshot.systemDistances.find(
-      (item) => item.id !== distanceId && item.system_a_id === systemAId && item.system_b_id === systemBId,
-    );
-    if (duplicate) {
-      duplicate.distance_ly = Number(payload.distanceLy ?? duplicate.distance_ly);
-      snapshot.systemDistances = snapshot.systemDistances.filter((item) => item.id !== distanceId);
-    } else {
-      distance.system_a_id = systemAId;
-      distance.system_b_id = systemBId;
-      distance.distance_ly = Number(payload.distanceLy ?? distance.distance_ly);
-    }
   } else if (url === "/api/transport-routes" && method === "POST") {
     const sourceSystemId = String(payload.sourceSystemId ?? "");
     const destinationSystemId = String(payload.destinationSystemId ?? "");
@@ -1371,8 +1329,6 @@ export async function mutateStore(url: string, method: string, body?: unknown) {
     snapshot.productionSites = snapshot.productionSites.filter(
       (site) => site.id !== matchId(url, /^\/api\/production-sites\/([^/]+)$/)!,
     );
-  } else if (matchId(url, /^\/api\/system-distances\/([^/]+)$/) && method === "DELETE") {
-    snapshot.systemDistances = snapshot.systemDistances.filter((distance) => distance.id !== matchId(url, /^\/api\/system-distances\/([^/]+)$/)!);
   } else if (matchId(url, /^\/api\/transport-routes\/([^/]+)$/) && method === "DELETE") {
     snapshot.transportRoutes = snapshot.transportRoutes.filter((route) => route.id !== matchId(url, /^\/api\/transport-routes\/([^/]+)$/)!);
   } else if (matchId(url, /^\/api\/ore-veins\/([^/]+)\/location$/) && method === "PATCH") {

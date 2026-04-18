@@ -398,7 +398,6 @@ function sortEdges(data: BootstrapData, producers: ProducerNode[], consumers: Co
     distanceLy: getSystemDistanceLy(
       data.solarSystems.find((system) => system.id === producer.solarSystemId),
       data.solarSystems.find((system) => system.id === consumer.solarSystemId),
-      data.systemDistances,
     ),
   }))).sort((left, right) => {
     const leftClass = left.producer.planetId === left.consumer.planetId ? 0 : left.producer.solarSystemId === left.consumer.solarSystemId ? 1 : 2;
@@ -660,6 +659,7 @@ function buildDependencyViews(
     const rows = allocationsByConsumer[`${consumerIdPrefix}:${dependencyIndex}`] ?? [];
     const coveragePerMinute = rows.reduce((sum, row) => sum + row.throughputPerMinute, 0);
     const requiredPerMinute = dependency.imported_demand_per_minute * scale;
+    const hasUnknownTargetIls = rows.some((row) => row.targetStationsNeeded === null);
     const sources = rows.flatMap<ProductionIngredientSource>((row) => {
       const producer = producers.find((entry) => entry.id === row.producerId);
       if (!producer) {
@@ -690,7 +690,7 @@ function buildDependencyViews(
       coveragePerMinute,
       coveragePercent: requiredPerMinute > 0 ? Math.min(100, coveragePerMinute / requiredPerMinute * 100) : 100,
       shortagePerMinute: Math.max(0, requiredPerMinute - coveragePerMinute),
-      targetIlsFraction: rows.reduce((sum, row) => sum + (row.targetStationsNeeded ?? 0), 0),
+      targetIlsFraction: hasUnknownTargetIls ? null : rows.reduce((sum, row) => sum + (row.targetStationsNeeded ?? 0), 0),
       sourcesLabel: sources.length > 0
         ? sources.map((source) => `${source.planetName} (${roundUp(source.throughputPerMinute, 2)}/min)`).join(", ")
         : "No source assigned",

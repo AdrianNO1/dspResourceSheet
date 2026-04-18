@@ -1,4 +1,4 @@
-import type { SolarSystem, SystemDistance } from "./types";
+import type { SolarSystem } from "./types";
 
 export type ParsedClusterAddress = {
   clusterAddress: string;
@@ -307,9 +307,9 @@ function randomGiantStarNameFromRawNames(seed: number) {
 
 export function parseClusterAddress(address: string): ParsedClusterAddress {
   const trimmed = address.trim();
-  const match = /^(\d+)-(\d+)-(\d+)(?:-(\d+))?$/.exec(trimmed);
+  const match = /^(?:cluster\s+)?(\d+)-(\d+)-([a-z0-9]+)(?:-(\d+))?$/i.exec(trimmed);
   if (!match) {
-    throw new Error("Cluster address format must look like 07198444-64-799-10.");
+    throw new Error("Cluster address format must look like 07198444-64-Z99-10.");
   }
 
   const clusterSeed = Number(match[1]);
@@ -319,10 +319,10 @@ export function parseClusterAddress(address: string): ParsedClusterAddress {
   }
 
   return {
-    clusterAddress: trimmed,
+    clusterAddress: `${match[1]}-${match[2]}-${match[3].toUpperCase()}${match[4] ? `-${match[4]}` : ""}`,
     clusterSeed,
     clusterStarCount,
-    clusterResourceCode: match[3] ?? null,
+    clusterResourceCode: match[3]?.toUpperCase() ?? null,
     clusterSuffix: match[4] ?? null,
   };
 }
@@ -398,7 +398,6 @@ export function generateClusterSystems(seedOrParsed: number | ParsedClusterAddre
 export function getSystemDistanceLy(
   left: Pick<SolarSystem, "id" | "generated_x" | "generated_y" | "generated_z"> | null | undefined,
   right: Pick<SolarSystem, "id" | "generated_x" | "generated_y" | "generated_z"> | null | undefined,
-  manualDistances?: SystemDistance[] | Map<string, SystemDistance>,
 ) {
   if (!left || !right) {
     return null;
@@ -419,19 +418,7 @@ export function getSystemDistanceLy(
       { x: right.generated_x, y: right.generated_y, z: right.generated_z },
     );
   }
-  if (!manualDistances) {
-    return null;
-  }
-
-  const key = [left.id, right.id].sort().join("::");
-  if (manualDistances instanceof Map) {
-    return manualDistances.get(key)?.distance_ly ?? null;
-  }
-  const entry = manualDistances.find(
-    (distanceEntry) =>
-      [distanceEntry.system_a_id, distanceEntry.system_b_id].sort().join("::") === key,
-  );
-  return entry?.distance_ly ?? null;
+  return null;
 }
 
 export function getSystemDistanceFromCoordinates(
