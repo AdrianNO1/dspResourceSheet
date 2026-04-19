@@ -1351,12 +1351,14 @@
   padding: 24px;
   background: rgba(5, 10, 18, 0.72);
   backdrop-filter: blur(10px);
+  overscroll-behavior: contain;
 }
 
 .modal-card {
   width: min(1180px, 100%);
   max-height: calc(100vh - 48px);
   overflow: auto;
+  overscroll-behavior: contain;
   padding: 24px;
   border-radius: 24px;
   border: 1px solid rgba(132, 156, 187, 0.22);
@@ -1388,6 +1390,10 @@
 
 .production-modal-layout {
   grid-template-columns: minmax(0, 1.55fr) minmax(280px, 0.8fr);
+}
+
+.production-modal-planet-field {
+  grid-column: span 2;
 }
 
 .production-modal-side {
@@ -2066,13 +2072,19 @@
   z-index: 30;
   top: calc(100% + 8px);
   left: 0;
-  right: 0;
+  right: auto;
+  width: max(100%, 620px);
+  max-width: min(760px, calc(100vw - 64px));
   display: grid;
   gap: 10px;
   padding: 10px;
   border-radius: 18px;
   border: 1px solid rgba(131, 161, 193, 0.2);
-  background: rgba(7, 13, 23, 0.98);
+  overflow: hidden;
+  overscroll-behavior: contain;
+  background:
+    radial-gradient(circle at top left, rgba(68, 165, 184, 0.12), transparent 34%),
+    linear-gradient(180deg, rgba(10, 17, 29, 0.995), rgba(6, 11, 21, 0.995));
   box-shadow: 0 18px 44px rgba(0, 0, 0, 0.3);
 }
 
@@ -2096,6 +2108,7 @@
   display: grid;
   grid-template-columns: minmax(210px, 0.9fr) minmax(250px, 1.1fr);
   gap: 10px;
+  min-width: 0;
 }
 
 .planet-picker-system-list,
@@ -2103,10 +2116,12 @@
   min-height: 250px;
   max-height: 320px;
   overflow: auto;
+  overscroll-behavior: contain;
   padding: 6px;
   border-radius: 16px;
   border: 1px solid rgba(148, 172, 197, 0.12);
-  background: rgba(255, 255, 255, 0.03);
+  background:
+    linear-gradient(180deg, rgba(19, 29, 45, 0.98), rgba(10, 18, 31, 0.98));
 }
 
 .planet-picker-system-list,
@@ -2158,6 +2173,8 @@
   justify-content: space-between;
   gap: 10px;
   padding: 4px 6px 10px;
+  border-bottom: 1px solid rgba(148, 172, 197, 0.12);
+  margin-bottom: 6px;
 }
 
 .planet-picker-planet-panel {
@@ -2179,6 +2196,11 @@
   .planet-picker-planet-panel {
     min-height: 0;
     max-height: 220px;
+  }
+
+  .planet-picker-menu {
+    width: min(100%, calc(100vw - 32px));
+    max-width: calc(100vw - 32px);
   }
 }
 

@@ -2905,7 +2905,7 @@ function Workspace() {
                           onChange={(event) => setProductionDraft((current) => ({ ...current, outboundIlsCount: Number(event.target.value) }))}
                         />
                       </label>
-                      <label className="field">
+                      <label className="field production-modal-planet-field">
                         <span>Planet</span>
                         <PlanetPicker
                           systems={solidPlanetPickerSystems}
