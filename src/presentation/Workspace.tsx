@@ -1351,8 +1351,13 @@ function Workspace() {
     return candidates[0]?.id ?? null;
   }
 
+  function getApiPathParts(path: string): [string, string] {
+    const [, collection = "", id = ""] = path.replace(/^\/api\//, "").split("/");
+    return [collection, id];
+  }
+
   function getDeleteCommand(path: string): StoreCommand {
-    const [, collection = "", id = ""] = path.split("/");
+    const [collection, id] = getApiPathParts(path);
 
     switch (collection) {
       case "ore-veins":
@@ -1377,7 +1382,7 @@ function Workspace() {
   }
 
   function getMoveCommand(path: string, planetId: string): StoreCommand {
-    const [, collection = "", id = ""] = path.replace(/\/location$/, "").split("/");
+    const [collection, id] = getApiPathParts(path.replace(/\/location$/, ""));
 
     switch (collection) {
       case "ore-veins":
