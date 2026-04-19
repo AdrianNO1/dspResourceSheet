@@ -319,6 +319,7 @@ function Workspace() {
   const [planetResourceExtractionIlsDrafts, setPlanetResourceExtractionIlsDrafts] = useState<Record<string, string>>({});
   const [isProductionModalOpen, setIsProductionModalOpen] = useState(false);
   const [editingProductionSiteId, setEditingProductionSiteId] = useState<string | null>(null);
+  const [productionSetupPickerItemKey, setProductionSetupPickerItemKey] = useState("");
 
   const [newSystemName, setNewSystemName] = useState("");
   const [newPlanetName, setNewPlanetName] = useState("");
@@ -849,6 +850,25 @@ function Workspace() {
     selectedProductionProliferatorUsage,
     selectedProductionSiteViews,
   } = productionView;
+  const productionSiteViewsByItemKey = useMemo(() => {
+    const grouped = new Map<string, Array<(typeof selectedProductionSiteViews)[number]>>();
+    for (const siteView of productionView.productionPlanner.siteViews) {
+      const existing = grouped.get(siteView.site.item_key);
+      if (existing) {
+        existing.push(siteView);
+        continue;
+      }
+
+      grouped.set(siteView.site.item_key, [siteView]);
+    }
+    return grouped;
+  }, [productionView.productionPlanner.siteViews]);
+  const productionSetupPickerSiteViews = productionSetupPickerItemKey
+    ? productionSiteViewsByItemKey.get(productionSetupPickerItemKey) ?? []
+    : [];
+  const productionSetupPickerSummary = productionSetupPickerItemKey
+    ? productionItemSummaries.find((item) => item.itemKey === productionSetupPickerItemKey) ?? null
+    : null;
   const productionDraftPlanetOptions = loadedData.planets
     .filter((planet) => planet.solar_system_id === productionDraft.solarSystemId && planet.planet_type === "solid")
     .sort((left, right) => left.name.localeCompare(right.name));
@@ -988,6 +1008,43 @@ function Workspace() {
     return `${activeSiteCount}/${siteCount} setups active`;
   }
 
+  function getProductionSummaryMachinePlan(summary: (typeof productionItemSummaries)[number]) {
+    const summaryTemplate = productionTemplateByKey.get(summary.itemKey) ?? null;
+    return getRoundedMachinePlan(
+      getImportedItemExpectedMachineCount(summaryTemplate, summary.totalPlannedThroughput) ?? summary.plannedMachineCount,
+      summary.plannedLineCount,
+    );
+  }
+
+  function getProductionSiteMachinePlan(siteView: (typeof selectedProductionSiteViews)[number]) {
+    return getRoundedMachinePlan(
+      getImportedItemExpectedMachineCount(
+        siteView.importedItem,
+        Number(siteView.site.throughput_per_minute),
+      ) ?? siteView.machineCount,
+      siteView.lineCount,
+    );
+  }
+
+  function openProductionSetupEditor(itemKey: string) {
+    const relatedSiteViews = productionSiteViewsByItemKey.get(itemKey) ?? [];
+    if (relatedSiteViews.length === 0) {
+      return;
+    }
+
+    setSelectedProductionItemKey(itemKey);
+    if (relatedSiteViews.length === 1) {
+      openEditProductionSiteModal(relatedSiteViews[0].site.id);
+      return;
+    }
+
+    setProductionSetupPickerItemKey(itemKey);
+  }
+
+  function closeProductionSetupPicker() {
+    setProductionSetupPickerItemKey("");
+  }
+
   function toggleExpandAllProductionRows() {
     if (allProductionRowsExpanded) {
       setExpandedProductionItemKeys({});
@@ -1014,11 +1071,7 @@ function Workspace() {
     const canExpand = node.inputs.length > 0 || node.usages.length > 0;
     const referenceInput = options?.referenceInput ?? null;
     const rootItemKey = getProductionTreeRootKey(node.itemKey);
-    const nodeImportedItem = productionTemplateByKey.get(node.itemKey) ?? null;
-    const nodeMachinePlan = getRoundedMachinePlan(
-      getImportedItemExpectedMachineCount(nodeImportedItem, node.summary.totalPlannedThroughput) ?? node.summary.plannedMachineCount,
-      node.summary.plannedLineCount,
-    );
+    const nodeMachinePlan = getProductionSummaryMachinePlan(node.summary);
     const matchingRawResource = resourceByNameLookup.get(node.summary.displayName.toLowerCase()) ?? null;
     const trackedRawSupplyPerMinute = matchingRawResource
       ? loadedData.summary.resourceSummaries.find((summary) => summary.resourceId === matchingRawResource.id)?.supplyPerMinute ?? 0
@@ -1058,56 +1111,63 @@ function Workspace() {
           >
             {'>'}
           </button>
-          <button type="button" className="production-tree-main" onClick={toggleExpanded}>
-          <div className="production-tree-title">
-            <ResourceIcon
-              name={node.summary.displayName}
-              iconUrl={getIconUrlForName(node.summary.displayName)}
-              colorStart={productionIconStart}
-              colorEnd={productionIconEnd}
-              size="md"
-            />
-            <div className="production-tree-copy">
-              <strong>{node.summary.displayName}</strong>
-              <div className="production-tree-reference-meta">
-                <span>{formatRoundedUpInteger(node.summary.totalPlannedThroughput)} / min</span>
-                {referenceInput ? (
-                  <>
-                  {referenceInput.sharePercent < 99.95 ? <span>{formatProjectSupplyShare(referenceInput.sharePercent)}% of project supply</span> : null}
-                  {referenceInput.isSharedCrafted ? (
-                    <span
-                      className="production-tree-reference-badge production-tree-reference-badge-clickable"
-                      onClick={(event) => {
-                        event.preventDefault();
-                        event.stopPropagation();
-                        focusProductionTreeItem(rootItemKey);
-                      }}
-                      title={`Jump to ${productionTree.nodesByKey.get(rootItemKey)?.summary.displayName ?? node.summary.displayName}`}
-                    >
-                      shared input
-                    </span>
-                  ) : null}
-                  </>
-                ) : null}
+          <div className="production-tree-main">
+            <button type="button" className="production-tree-primary-action" onClick={toggleExpanded}>
+              <div className="production-tree-title">
+                <ResourceIcon
+                  name={node.summary.displayName}
+                  iconUrl={getIconUrlForName(node.summary.displayName)}
+                  colorStart={productionIconStart}
+                  colorEnd={productionIconEnd}
+                  size="md"
+                />
+                <div className="production-tree-copy">
+                  <strong>{node.summary.displayName}</strong>
+                  <div className="production-tree-reference-meta">
+                    <span>{formatRoundedUpInteger(node.summary.totalPlannedThroughput)} / min</span>
+                    {referenceInput ? (
+                      <>
+                      {referenceInput.sharePercent < 99.95 ? <span>{formatProjectSupplyShare(referenceInput.sharePercent)}% of project supply</span> : null}
+                      {referenceInput.isSharedCrafted ? (
+                        <span
+                          className="production-tree-reference-badge production-tree-reference-badge-clickable"
+                          onClick={(event) => {
+                            event.preventDefault();
+                            event.stopPropagation();
+                            focusProductionTreeItem(rootItemKey);
+                          }}
+                          title={`Jump to ${productionTree.nodesByKey.get(rootItemKey)?.summary.displayName ?? node.summary.displayName}`}
+                        >
+                          shared input
+                        </span>
+                      ) : null}
+                      </>
+                    ) : null}
+                  </div>
+                </div>
               </div>
-            </div>
-          </div>
-          <div className="production-tree-metrics">
-            {node.summary.siteCount > 0 ? (
+            </button>
+            <div className="production-tree-metrics">
+              {node.summary.siteCount > 0 ? (
+                <button
+                  type="button"
+                  className="production-tree-metric production-tree-metric-button"
+                  onClick={() => openProductionSetupEditor(node.itemKey)}
+                  title={`Edit setup${node.summary.siteCount === 1 ? "" : "s"} for ${node.summary.displayName}`}
+                >
+                  <strong>{getProductionSetupStatusLabel(node.summary.activeSiteCount, node.summary.siteCount)}</strong>
+                </button>
+              ) : null}
               <div className="production-tree-metric">
-                <strong>{getProductionSetupStatusLabel(node.summary.activeSiteCount, node.summary.siteCount)}</strong>
+                <strong>{formatRoundedUpInteger(nodeMachinePlan.totalMachineCount)}</strong>
+                <span className="production-tree-metric-label">machines</span>
               </div>
-            ) : null}
-            <div className="production-tree-metric">
-              <strong>{formatRoundedUpInteger(nodeMachinePlan.totalMachineCount)}</strong>
-              <span className="production-tree-metric-label">machines</span>
-            </div>
-            <div className="production-tree-metric">
-              <strong>{node.summary.plannedLineCount}</strong>
-              <span className="production-tree-metric-label">lines</span>
+              <div className="production-tree-metric">
+                <strong>{node.summary.plannedLineCount}</strong>
+                <span className="production-tree-metric-label">lines</span>
+              </div>
             </div>
           </div>
-          </button>
           <button
             type="button"
             className="production-tree-add-button"
@@ -1159,67 +1219,100 @@ function Workspace() {
 
         {isExpanded && node.inputs.length > 0 ? (
           <div className="production-tree-children" style={{ "--production-depth": depth + 1 } as CSSProperties}>
-            {node.inputs.map((input) => (
-              input.dependencyType === "crafted" && productionTree.nodesByKey.has(input.itemKey) && !input.isSharedCrafted
-                ? renderProductionTreeNode(input.itemKey, depth + 1, { referenceInput: input })
-                : (
-                  <div key={`${node.itemKey}:${input.itemKey}`} className="production-tree-branch" style={{ "--production-depth": depth + 1 } as CSSProperties}>
-                    <div className="production-tree-row production-tree-row-leaf">
-                      <div className="production-tree-indent" aria-hidden="true" />
-                      <span className="production-tree-usage-toggle production-tree-usage-toggle-leaf" aria-hidden="true">
-                        *
-                      </span>
-                      <div className="production-tree-main production-tree-main-leaf">
-                        <div className="production-tree-title">
-                          <ResourceIcon
-                            name={input.displayName}
-                            iconUrl={getIconUrlForName(input.displayName)}
-                            colorStart={productionIconStart}
-                            colorEnd={productionIconEnd}
-                            size="md"
-                          />
-                          <div className="production-tree-copy">
-                            <strong>{input.displayName}</strong>
-                            <div className="production-tree-reference-meta">
-                              <span>{formatValue(input.demandPerMinute)} / min</span>
-                              {input.sharePercent < 99.95 ? <span>{formatProjectSupplyShare(input.sharePercent)}% of project supply</span> : null}
-                              <span
-                                className={`production-tree-reference-badge ${input.isSharedCrafted ? "production-tree-reference-badge-clickable" : ""}`}
-                                onClick={
-                                  input.isSharedCrafted
-                                    ? () => focusProductionTreeItem(rootItemKey)
-                                    : undefined
-                                }
-                                title={
-                                  input.isSharedCrafted
-                                    ? `Jump to ${productionTree.nodesByKey.get(rootItemKey)?.summary.displayName ?? node.summary.displayName}`
-                                    : undefined
-                                }
-                              >
-                                {input.isSharedCrafted ? "shared input" : "raw input"}
-                              </span>
-                            </div>
+            {node.inputs.map((input) => {
+              if (input.dependencyType === "crafted" && productionTree.nodesByKey.has(input.itemKey) && !input.isSharedCrafted) {
+                return renderProductionTreeNode(input.itemKey, depth + 1, { referenceInput: input });
+              }
+
+              const sharedInputRootKey = input.isSharedCrafted ? getProductionTreeRootKey(input.itemKey) : "";
+              const sharedInputSummary = input.isSharedCrafted
+                ? productionTree.nodesByKey.get(sharedInputRootKey)?.summary ?? null
+                : null;
+              const sharedInputMachinePlan = sharedInputSummary
+                ? getProductionSummaryMachinePlan(sharedInputSummary)
+                : null;
+
+              return (
+                <div key={`${node.itemKey}:${input.itemKey}`} className="production-tree-branch" style={{ "--production-depth": depth + 1 } as CSSProperties}>
+                  <div className="production-tree-row production-tree-row-leaf">
+                    <div className="production-tree-indent" aria-hidden="true" />
+                    <span className="production-tree-usage-toggle production-tree-usage-toggle-leaf" aria-hidden="true">
+                      *
+                    </span>
+                    <div className="production-tree-main production-tree-main-leaf">
+                      <div className="production-tree-title">
+                        <ResourceIcon
+                          name={input.displayName}
+                          iconUrl={getIconUrlForName(input.displayName)}
+                          colorStart={productionIconStart}
+                          colorEnd={productionIconEnd}
+                          size="md"
+                        />
+                        <div className="production-tree-copy">
+                          <strong>{input.displayName}</strong>
+                          <div className="production-tree-reference-meta">
+                            <span>{formatValue(input.demandPerMinute)} / min</span>
+                            {input.sharePercent < 99.95 ? <span>{formatProjectSupplyShare(input.sharePercent)}% of project supply</span> : null}
+                            <span
+                              className={`production-tree-reference-badge ${input.isSharedCrafted ? "production-tree-reference-badge-clickable" : ""}`}
+                              onClick={
+                                input.isSharedCrafted
+                                  ? () => focusProductionTreeItem(sharedInputRootKey)
+                                  : undefined
+                              }
+                              title={
+                                input.isSharedCrafted
+                                  ? `Jump to ${productionTree.nodesByKey.get(sharedInputRootKey)?.summary.displayName ?? input.displayName}`
+                                  : undefined
+                              }
+                            >
+                              {input.isSharedCrafted ? "shared input" : "raw input"}
+                            </span>
                           </div>
                         </div>
-                        <div className="production-tree-metrics production-tree-metrics-empty" />
                       </div>
-                      {input.isSharedCrafted && productionItemChoices.some((item) => item.item_key === input.itemKey) ? (
-                        <button
-                          type="button"
-                          className="production-tree-add-button"
-                          onClick={(event) => {
-                            event.stopPropagation();
-                            openProductionSiteModal(input.itemKey);
-                          }}
-                          aria-label={`Add production site for ${input.displayName}`}
-                        >
-                          +
-                        </button>
-                      ) : null}
+                      <div className={`production-tree-metrics ${sharedInputSummary ? "" : "production-tree-metrics-empty"}`}>
+                        {sharedInputSummary?.siteCount ? (
+                          <button
+                            type="button"
+                            className="production-tree-metric production-tree-metric-button"
+                            onClick={() => openProductionSetupEditor(sharedInputSummary.itemKey)}
+                            title={`Edit setup${sharedInputSummary.siteCount === 1 ? "" : "s"} for ${sharedInputSummary.displayName}`}
+                          >
+                            <strong>{getProductionSetupStatusLabel(sharedInputSummary.activeSiteCount, sharedInputSummary.siteCount)}</strong>
+                          </button>
+                        ) : null}
+                        {sharedInputSummary && sharedInputMachinePlan ? (
+                          <>
+                            <div className="production-tree-metric">
+                              <strong>{formatRoundedUpInteger(sharedInputMachinePlan.totalMachineCount)}</strong>
+                              <span className="production-tree-metric-label">machines</span>
+                            </div>
+                            <div className="production-tree-metric">
+                              <strong>{sharedInputSummary.plannedLineCount}</strong>
+                              <span className="production-tree-metric-label">lines</span>
+                            </div>
+                          </>
+                        ) : null}
+                      </div>
                     </div>
+                    {input.isSharedCrafted && productionItemChoices.some((item) => item.item_key === input.itemKey) ? (
+                      <button
+                        type="button"
+                        className="production-tree-add-button"
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          openProductionSiteModal(input.itemKey);
+                        }}
+                        aria-label={`Add production site for ${input.displayName}`}
+                      >
+                        +
+                      </button>
+                    ) : null}
                   </div>
-                )
-            ))}
+                </div>
+              );
+            })}
           </div>
         ) : null}
       </div>
@@ -1748,6 +1841,7 @@ function Workspace() {
       return;
     }
 
+    setProductionSetupPickerItemKey("");
     setEditingProductionSiteId(null);
     setSelectedProductionItemKey(itemKey);
     setProductionDraft((current) => ({
@@ -1767,6 +1861,7 @@ function Workspace() {
       return;
     }
 
+    setProductionSetupPickerItemKey("");
     setEditingProductionSiteId(site.id);
     setSelectedProductionItemKey(site.item_key);
     setProductionDraft({
@@ -2905,11 +3000,23 @@ function Workspace() {
                         {formatRoundedUpInteger(selectedProductionMachinePlan?.totalMachineCount ?? selectedProductionSummary.plannedMachineCount)} machines total
                       </span>
                     </div>
-                  <div className="entry-stat">
-                    <span>Placed sites</span>
-                    <strong>{getProductionSetupStatusLabel(selectedProductionSummary.activeSiteCount, selectedProductionSummary.siteCount)}</strong>
-                    <span>{selectedProductionSummary.activeSiteCount === selectedProductionSummary.siteCount ? "all active" : "mixed active state"}</span>
-                  </div>
+                  {selectedProductionSummary.siteCount > 0 ? (
+                    <button
+                      type="button"
+                      className="entry-stat production-setup-stat-button"
+                      onClick={() => openProductionSetupEditor(selectedProductionSummary.itemKey)}
+                    >
+                      <span>Placed sites</span>
+                      <strong>{getProductionSetupStatusLabel(selectedProductionSummary.activeSiteCount, selectedProductionSummary.siteCount)}</strong>
+                      <span>{selectedProductionSummary.activeSiteCount === selectedProductionSummary.siteCount ? "all active" : "mixed active state"}</span>
+                    </button>
+                  ) : (
+                    <div className="entry-stat">
+                      <span>Placed sites</span>
+                      <strong>No setups</strong>
+                      <span>Use New production site to place one</span>
+                    </div>
+                  )}
                   </div>
 
                   <div className="overview-breakdown-list">
@@ -2948,13 +3055,7 @@ function Workspace() {
                   {selectedProductionSiteViews.length > 0 ? (
                 <div className="transport-ledger">
                   {selectedProductionSiteViews.map((siteView) => {
-                    const siteMachinePlan = getRoundedMachinePlan(
-                      getImportedItemExpectedMachineCount(
-                        siteView.importedItem,
-                        Number(siteView.site.throughput_per_minute),
-                      ) ?? siteView.machineCount,
-                      siteView.lineCount,
-                    );
+                    const siteMachinePlan = getProductionSiteMachinePlan(siteView);
 
                     return (
                     <article key={siteView.site.id} className="transport-row-card production-site-card">
@@ -3401,6 +3502,45 @@ function Workspace() {
               </section>
             </div>
           )}
+          {productionSetupPickerItemKey ? (
+            <div className="modal-backdrop" onClick={closeProductionSetupPicker}>
+              <section className="modal-card production-setup-picker-modal" onClick={(event) => event.stopPropagation()}>
+                <div className="overview-card-header">
+                  <div>
+                    <p className="eyebrow">Choose setup</p>
+                    <h2>{productionSetupPickerSummary?.displayName ?? "Production setups"}</h2>
+                  </div>
+                  <button type="button" className="ghost-button" onClick={closeProductionSetupPicker}>
+                    Close
+                  </button>
+                </div>
+                <p className="helper-text">Select the setup you want to edit.</p>
+                <div className="production-setup-picker-list">
+                  {productionSetupPickerSiteViews.map((siteView) => {
+                    const siteMachinePlan = getProductionSiteMachinePlan(siteView);
+                    return (
+                      <button
+                        key={siteView.site.id}
+                        type="button"
+                        className="production-setup-picker-row"
+                        onClick={() => openEditProductionSiteModal(siteView.site.id)}
+                      >
+                        <div className="production-setup-picker-copy">
+                          <strong>{siteView.solarSystemName} | {siteView.planetName}</strong>
+                          <span>{formatValue(siteView.site.throughput_per_minute)} / min</span>
+                        </div>
+                        <div className="production-setup-picker-stats">
+                          <span>{formatRoundedUpInteger(siteMachinePlan.totalMachineCount)} machines</span>
+                          <span>{siteView.lineCount} lines</span>
+                          <span>{Number(siteView.site.is_finished) === 1 ? "Active" : "Planned"}</span>
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              </section>
+            </div>
+          ) : null}
 
           {activeView === "map" && (
           <section className="panel">
