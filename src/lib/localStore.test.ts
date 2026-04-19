@@ -2,6 +2,36 @@ import { describe, expect, it } from "vitest";
 import { generateClusterCatalog, parseClusterAddress } from "./dspCluster";
 import { buildBootstrap, normalizeSnapshot } from "./localStore";
 
+function romanToInteger(value: string) {
+  const values = new Map<string, number>([
+    ["I", 1],
+    ["V", 5],
+    ["X", 10],
+    ["L", 50],
+    ["C", 100],
+    ["D", 500],
+    ["M", 1000],
+  ]);
+
+  let total = 0;
+  let previous = 0;
+  for (let index = value.length - 1; index >= 0; index -= 1) {
+    const current = values.get(value[index]?.toUpperCase() ?? "");
+    if (!current) {
+      return null;
+    }
+
+    if (current < previous) {
+      total -= current;
+    } else {
+      total += current;
+      previous = current;
+    }
+  }
+
+  return total > 0 ? total : null;
+}
+
 describe("normalizeSnapshot", () => {
   it("preserves backward compatibility by seeding defaults and normalizing missing fields", () => {
     const snapshot = normalizeSnapshot({
@@ -134,6 +164,45 @@ describe("normalizeSnapshot", () => {
 
     const bootstrap = buildBootstrap(snapshot);
 
+    expect(bootstrap.summary.seedValidationError).toBeNull();
+    expect(bootstrap.summary.generatedPlanetCount).toBeGreaterThan(0);
+  });
+
+  it("upgrades old saved planet names into the generated seed catalog on load", () => {
+    const parsed = parseClusterAddress("07198444-64-Z99-10");
+    const catalog = generateClusterCatalog(parsed);
+    const birthSystem = catalog[0]!;
+    const birthPlanet = birthSystem.planets[0]!;
+    const displayedOrdinal = romanToInteger(birthPlanet.name.replace(`${birthSystem.name} `, "")) ?? 1;
+
+    const snapshot = normalizeSnapshot({
+      resources: [],
+      solarSystems: [{ id: "system-1", name: birthSystem.name }],
+      planets: [{
+        id: "planet-1",
+        solar_system_id: "system-1",
+        name: `${birthSystem.name} ${displayedOrdinal}`,
+        planet_type: "solid",
+      }],
+      projects: [],
+      projectGoals: [],
+      projectImportedItems: [],
+      oreVeins: [],
+      oreVeinMiners: [],
+      liquidSites: [],
+      oilExtractors: [],
+      gasGiantSites: [],
+      gasGiantOutputs: [],
+      productionSites: [],
+      transportRoutes: [],
+      settings: {
+        clusterAddress: parsed.clusterAddress,
+      },
+    });
+
+    const bootstrap = buildBootstrap(snapshot);
+
+    expect(bootstrap.planets.some((planet) => planet.name === birthPlanet.name)).toBe(true);
     expect(bootstrap.summary.seedValidationError).toBeNull();
     expect(bootstrap.summary.generatedPlanetCount).toBeGreaterThan(0);
   });

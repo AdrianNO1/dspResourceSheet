@@ -323,6 +323,96 @@ function migrateLiquidGoalsToItemsPerMinute(snapshot: Snapshot) {
   snapshot.settings.liquidGoalsMigratedToItemsPerMinute = "1";
 }
 
+function romanToInteger(value: string) {
+  const normalized = value.trim().toUpperCase();
+  if (!normalized) {
+    return null;
+  }
+
+  const values = new Map<string, number>([
+    ["I", 1],
+    ["V", 5],
+    ["X", 10],
+    ["L", 50],
+    ["C", 100],
+    ["D", 500],
+    ["M", 1000],
+  ]);
+
+  let total = 0;
+  let previous = 0;
+  for (let index = normalized.length - 1; index >= 0; index -= 1) {
+    const current = values.get(normalized[index]);
+    if (!current) {
+      return null;
+    }
+
+    if (current < previous) {
+      total -= current;
+    } else {
+      total += current;
+      previous = current;
+    }
+  }
+
+  return total > 0 ? total : null;
+}
+
+function getPlanetOrbitNumber(name: string, systemName: string) {
+  const trimmedName = name.trim();
+  const trimmedSystemName = systemName.trim();
+  if (!trimmedName || !trimmedSystemName) {
+    return null;
+  }
+
+  const suffix = trimmedName.toLowerCase().startsWith(trimmedSystemName.toLowerCase())
+    ? trimmedName.slice(trimmedSystemName.length).trim()
+    : trimmedName;
+  if (!suffix) {
+    return null;
+  }
+
+  if (/^\d+$/.test(suffix)) {
+    const numericValue = Number(suffix);
+    return Number.isInteger(numericValue) && numericValue > 0 ? numericValue : null;
+  }
+
+  return romanToInteger(suffix);
+}
+
+function planetHasDependencies(snapshot: Snapshot, planetId: string) {
+  return (
+    snapshot.oreVeins.some((vein) => vein.planet_id === planetId) ||
+    snapshot.liquidSites.some((site) => site.planet_id === planetId) ||
+    snapshot.oilExtractors.some((extractor) => extractor.planet_id === planetId) ||
+    snapshot.gasGiantSites.some((site) => site.planet_id === planetId) ||
+    snapshot.productionSites.some((site) => site.planet_id === planetId) ||
+    snapshot.settings.currentPlanetId === planetId
+  );
+}
+
+function solarSystemHasDependencies(snapshot: Snapshot, solarSystemId: string) {
+  return (
+    snapshot.planets.some((planet) => planet.solar_system_id === solarSystemId) ||
+    snapshot.productionSites.some((site) => site.solar_system_id === solarSystemId) ||
+    snapshot.transportRoutes.some((route) => route.source_system_id === solarSystemId || route.destination_system_id === solarSystemId) ||
+    snapshot.settings.currentSolarSystemId === solarSystemId
+  );
+}
+
+function reconcileSnapshotWithImportedCluster(snapshot: Snapshot) {
+  const clusterAddress = snapshot.settings.clusterAddress?.trim() ?? "";
+  if (!clusterAddress) {
+    return;
+  }
+
+  try {
+    importClusterAddress(snapshot, clusterAddress);
+  } catch {
+    // Leave invalid or partially-entered cluster addresses untouched during normalization.
+  }
+}
+
 export function normalizeSnapshot(input: unknown): StoredSnapshot {
   const source = input && typeof input === "object" ? (input as Partial<Snapshot>) : {};
   const snapshot = createEmptySnapshot();
@@ -494,6 +584,7 @@ export function normalizeSnapshot(input: unknown): StoredSnapshot {
   ensureSettingsDefaults(snapshot.settings);
   seedStarterProject(snapshot);
   migrateLiquidGoalsToItemsPerMinute(snapshot);
+  reconcileSnapshotWithImportedCluster(snapshot);
 
   return snapshot;
 }
@@ -502,7 +593,8 @@ async function loadSnapshot() {
   const db = await openDatabase();
   const existing = await readRecord<Snapshot>(db, snapshotKey);
   const snapshot = normalizeSnapshot(existing);
-  if (!existing) {
+  const shouldPersistNormalizedSnapshot = !existing || JSON.stringify(existing) !== JSON.stringify(snapshot);
+  if (shouldPersistNormalizedSnapshot) {
     await writeRecord(db, snapshotKey, snapshot);
   }
   db.close();
@@ -787,14 +879,30 @@ function importClusterAddress(snapshot: Snapshot, clusterAddressValue: string) {
       return;
     }
 
+    const usedPlanetIds = new Set<string>();
     generatedSystem.planets.forEach((generatedPlanet) => {
-      const existingPlanet = snapshot.planets.find(
+      const exactPlanet = snapshot.planets.find(
         (planet) =>
           planet.solar_system_id === systemId &&
           planet.name.trim().toLowerCase() === generatedPlanet.name.trim().toLowerCase() &&
           planet.planet_type === generatedPlanet.planetType,
       );
-      if (existingPlanet) {
+      if (exactPlanet) {
+        usedPlanetIds.add(exactPlanet.id);
+        return;
+      }
+
+      const aliasPlanet = snapshot.planets.find(
+        (planet) =>
+          !usedPlanetIds.has(planet.id) &&
+          planet.solar_system_id === systemId &&
+          getPlanetOrbitNumber(planet.name, generatedSystem.name) ===
+            getPlanetOrbitNumber(generatedPlanet.name, generatedSystem.name),
+      );
+      if (aliasPlanet) {
+        aliasPlanet.name = generatedPlanet.name;
+        aliasPlanet.planet_type = generatedPlanet.planetType;
+        usedPlanetIds.add(aliasPlanet.id);
         return;
       }
 
@@ -807,7 +915,30 @@ function importClusterAddress(snapshot: Snapshot, clusterAddressValue: string) {
         extraction_outbound_ils_overrides: [],
       });
     });
+
+    snapshot.planets
+      .filter(
+        (planet) =>
+          planet.solar_system_id === systemId &&
+          !usedPlanetIds.has(planet.id) &&
+          !generatedSystem.planets.some(
+            (generatedPlanet) =>
+              generatedPlanet.name.trim().toLowerCase() === planet.name.trim().toLowerCase() &&
+              generatedPlanet.planetType === planet.planet_type,
+          ) &&
+          !planetHasDependencies(snapshot, planet.id),
+      )
+      .forEach((planet) => deletePlanet(snapshot, planet.id));
   });
+
+  snapshot.solarSystems
+    .filter(
+      (system) =>
+        !generatedNameSet.has(system.name) &&
+        !system.generated_from_cluster &&
+        !solarSystemHasDependencies(snapshot, system.id),
+    )
+    .forEach((system) => deleteSolarSystem(snapshot, system.id));
 
   const birthSystemId = systemIdByName.get(generatedCatalog[0]?.name ?? "") ?? "";
   const birthPlanetName =
