@@ -1,4 +1,5 @@
 import { ResourceIcon } from "../../components/ResourceIcon";
+import { SearchableSelect, type SearchableSelectOption } from "../../components/SearchableSelect";
 import type {
   OverviewViewModel,
   ProjectGoalRow,
@@ -400,6 +401,11 @@ export function OverviewTransportModal({
     return null;
   }
 
+  const targetSystemOptions: SearchableSelectOption[] = solarSystems.map((solarSystem) => ({
+    value: solarSystem.id,
+    label: solarSystem.name,
+  }));
+
   const {
     overviewTransportUsesDefault,
     overviewTransportSystemRows,
@@ -433,17 +439,14 @@ export function OverviewTransportModal({
         <div className="overview-transport-controls">
           <label className="field">
             <span>Target system</span>
-            <select
+            <SearchableSelect
+              options={targetSystemOptions}
               value={overviewTransportTargetSystemId}
-              onChange={(event) => setOverviewTransportTargetSystemId(event.target.value)}
-            >
-              <option value="">Select system</option>
-              {solarSystems.map((solarSystem) => (
-                <option key={solarSystem.id} value={solarSystem.id}>
-                  {solarSystem.name}
-                </option>
-              ))}
-            </select>
+              onChange={setOverviewTransportTargetSystemId}
+              placeholder="Select system"
+              searchPlaceholder="Search systems"
+              emptyText="No systems match your search."
+            />
           </label>
 
           <label className="field">

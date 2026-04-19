@@ -99,13 +99,17 @@ const AppContext = createContext<AppContextValue | null>(null);
 export function AppProvider({ children }: { children: ReactNode }) {
   const [state, dispatch] = useReducer(appReducer, initialState);
 
+  function getBootstrapError(data: BootstrapData | null) {
+    return data?.summary.seedValidationError ?? "";
+  }
+
   async function refreshBootstrap() {
     dispatch({ type: "loading/set", loading: true });
 
     try {
       const nextData = await appClient.loadBootstrap();
       dispatch({ type: "data/set", data: nextData });
-      dispatch({ type: "error/set", error: "" });
+      dispatch({ type: "error/set", error: getBootstrapError(nextData) });
     } catch (requestError) {
       dispatch({
         type: "error/set",
@@ -131,6 +135,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     try {
       const payload = await appClient.execute(command);
       dispatch({ type: "data/set", data: payload });
+      dispatch({ type: "error/set", error: getBootstrapError(payload) });
       onSuccess?.(payload);
     } catch (requestError) {
       dispatch({
@@ -169,6 +174,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       const previousSnapshot = (await appClient.exportSnapshot()).snapshot;
       const payload = await appClient.execute(command);
       dispatch({ type: "data/set", data: payload });
+      dispatch({ type: "error/set", error: getBootstrapError(payload) });
       onSuccess?.(payload);
       showUndoToast(undoTitle, previousSnapshot, undoDescription);
     } catch (requestError) {
@@ -189,6 +195,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     try {
       const payload = await appClient.importSnapshot(snapshot);
       dispatch({ type: "data/set", data: payload });
+      dispatch({ type: "error/set", error: getBootstrapError(payload) });
     } catch (requestError) {
       dispatch({
         type: "error/set",

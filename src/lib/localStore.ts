@@ -5,7 +5,7 @@ import {
   getPumpOutputPerMinute,
   getRegularMinerOutputPerMinute,
 } from "./dspMath";
-import { generateClusterSystems, parseClusterAddress } from "./dspCluster";
+import { generateClusterCatalog, generateClusterSystems, parseClusterAddress } from "./dspCluster";
 import { getCanonicalImportedItemDependencies } from "./factoriolabCatalog";
 import type {
   BootstrapData,
@@ -629,9 +629,117 @@ function replaceProjectImportedItems(
   });
 }
 
+function normalizeSeedLookupValue(value: string) {
+  return value.trim().toLowerCase();
+}
+
+function buildSeedSystemKey(systemName: string) {
+  return normalizeSeedLookupValue(systemName);
+}
+
+function buildSeedPlanetKey(systemName: string, planetName: string, planetType: PlanetType) {
+  return `${buildSeedSystemKey(systemName)}::${normalizeSeedLookupValue(planetName)}::${planetType}`;
+}
+
+function summarizeSeedMismatchEntries(values: string[]) {
+  if (values.length === 0) {
+    return "";
+  }
+
+  const preview = values.slice(0, 3).join(", ");
+  return values.length > 3 ? `${preview} (+${values.length - 3} more)` : preview;
+}
+
+function getSeedValidationError(snapshot: Snapshot) {
+  const clusterAddress = snapshot.settings.clusterAddress?.trim() ?? "";
+  if (!clusterAddress) {
+    return { error: null, generatedSystemCount: 0, generatedPlanetCount: 0 };
+  }
+
+  let generatedCatalog: ReturnType<typeof generateClusterCatalog>;
+  try {
+    generatedCatalog = generateClusterCatalog(parseClusterAddress(clusterAddress));
+  } catch (error) {
+    return {
+      error: error instanceof Error ? error.message : "Unable to validate the imported seed.",
+      generatedSystemCount: 0,
+      generatedPlanetCount: 0,
+    };
+  }
+
+  const generatedSystemNames = new Set(generatedCatalog.map((system) => buildSeedSystemKey(system.name)));
+  const missingSystems = generatedCatalog
+    .filter((system) => !snapshot.solarSystems.some((entry) => buildSeedSystemKey(entry.name) === buildSeedSystemKey(system.name)))
+    .map((system) => system.name);
+  const extraSystems = snapshot.solarSystems
+    .filter((system) => !generatedSystemNames.has(buildSeedSystemKey(system.name)))
+    .map((system) => system.name);
+
+  const systemNameById = new Map(snapshot.solarSystems.map((system) => [system.id, system.name]));
+  const generatedPlanetKeys = new Set(
+    generatedCatalog.flatMap((system) => system.planets.map((planet) => buildSeedPlanetKey(system.name, planet.name, planet.planetType))),
+  );
+  const actualPlanetEntries = snapshot.planets
+    .map((planet) => {
+      const systemName = systemNameById.get(planet.solar_system_id);
+      if (!systemName) {
+        return null;
+      }
+
+      return {
+        label: `${systemName} / ${planet.name}`,
+        key: buildSeedPlanetKey(systemName, planet.name, planet.planet_type),
+      };
+    })
+    .filter((entry): entry is { label: string; key: string } => entry !== null);
+
+  const missingPlanets = generatedCatalog
+    .flatMap((system) =>
+      system.planets
+        .filter(
+          (planet) =>
+            !actualPlanetEntries.some((entry) => entry.key === buildSeedPlanetKey(system.name, planet.name, planet.planetType)),
+        )
+        .map((planet) => `${system.name} / ${planet.name}`),
+    );
+  const extraPlanets = actualPlanetEntries
+    .filter((entry) => !generatedPlanetKeys.has(entry.key))
+    .map((entry) => entry.label);
+
+  if (missingSystems.length === 0 && extraSystems.length === 0 && missingPlanets.length === 0 && extraPlanets.length === 0) {
+    return {
+      error: null,
+      generatedSystemCount: generatedCatalog.length,
+      generatedPlanetCount: generatedCatalog.reduce((sum, system) => sum + system.planets.length, 0),
+    };
+  }
+
+  const parts = [
+    extraSystems.length > 0
+      ? `${extraSystems.length} system entries are not part of the imported seed: ${summarizeSeedMismatchEntries(extraSystems)}.`
+      : "",
+    missingSystems.length > 0
+      ? `${missingSystems.length} seed systems are missing locally: ${summarizeSeedMismatchEntries(missingSystems)}.`
+      : "",
+    extraPlanets.length > 0
+      ? `${extraPlanets.length} planet entries are not part of the imported seed: ${summarizeSeedMismatchEntries(extraPlanets)}.`
+      : "",
+    missingPlanets.length > 0
+      ? `${missingPlanets.length} seed planets are missing locally: ${summarizeSeedMismatchEntries(missingPlanets)}.`
+      : "",
+  ].filter(Boolean);
+
+  return {
+    error: `Imported seed ${clusterAddress} does not match the saved systems and planets. ${parts.join(" ")}`.trim(),
+    generatedSystemCount: generatedCatalog.length,
+    generatedPlanetCount: generatedCatalog.reduce((sum, system) => sum + system.planets.length, 0),
+  };
+}
+
 function importClusterAddress(snapshot: Snapshot, clusterAddressValue: string) {
   const parsedCluster = parseClusterAddress(clusterAddressValue);
   const generatedSystems = generateClusterSystems(parsedCluster);
+  const generatedCatalog = generateClusterCatalog(parsedCluster);
   const generatedNameSet = new Set(generatedSystems.map((system) => system.name));
 
   snapshot.settings.clusterAddress = parsedCluster.clusterAddress;
@@ -671,6 +779,54 @@ function importClusterAddress(snapshot: Snapshot, clusterAddressValue: string) {
       generated_from_cluster: 1,
     });
   }
+
+  const systemIdByName = new Map(snapshot.solarSystems.map((system) => [system.name, system.id]));
+  generatedCatalog.forEach((generatedSystem) => {
+    const systemId = systemIdByName.get(generatedSystem.name);
+    if (!systemId) {
+      return;
+    }
+
+    generatedSystem.planets.forEach((generatedPlanet) => {
+      const existingPlanet = snapshot.planets.find(
+        (planet) =>
+          planet.solar_system_id === systemId &&
+          planet.name.trim().toLowerCase() === generatedPlanet.name.trim().toLowerCase() &&
+          planet.planet_type === generatedPlanet.planetType,
+      );
+      if (existingPlanet) {
+        return;
+      }
+
+      snapshot.planets.push({
+        id: generateId(),
+        solar_system_id: systemId,
+        name: generatedPlanet.name,
+        planet_type: generatedPlanet.planetType,
+        extraction_outbound_ils_count: null,
+        extraction_outbound_ils_overrides: [],
+      });
+    });
+  });
+
+  const birthSystemId = systemIdByName.get(generatedCatalog[0]?.name ?? "") ?? "";
+  const birthPlanetName =
+    generatedCatalog[0]?.planets.find((planet) => planet.planetType === "solid")?.name ??
+    generatedCatalog[0]?.planets[0]?.name ??
+    "";
+  const birthPlanetId =
+    snapshot.planets.find(
+      (planet) =>
+        planet.solar_system_id === birthSystemId &&
+        planet.name.trim().toLowerCase() === birthPlanetName.trim().toLowerCase(),
+    )?.id ?? "";
+
+  if (!snapshot.settings.currentSolarSystemId || !getSolarSystemById(snapshot, snapshot.settings.currentSolarSystemId)) {
+    snapshot.settings.currentSolarSystemId = birthSystemId;
+  }
+  if (!snapshot.settings.currentPlanetId || !getPlanetById(snapshot, snapshot.settings.currentPlanetId)) {
+    snapshot.settings.currentPlanetId = birthPlanetId;
+  }
 }
 
 function resourceGoalUnit(type: ResourceType) {
@@ -686,11 +842,12 @@ function resourceGoalUnit(type: ResourceType) {
   }
 }
 
-function buildBootstrap(snapshot: Snapshot): BootstrapData {
+export function buildBootstrap(snapshot: Snapshot): BootstrapData {
   const miningSpeedPercent = Number(snapshot.settings.miningSpeedPercent ?? "100");
   const oreVeinById = new Map(snapshot.oreVeins.map((item) => [item.id, item]));
   const gasSiteById = new Map(snapshot.gasGiantSites.map((item) => [item.id, item]));
   const resourceById = new Map(snapshot.resources.map((resource) => [resource.id, resource]));
+  const seedValidation = getSeedValidationError(snapshot);
   const activeProjectIds = new Set(snapshot.projects.filter((project) => Number(project.is_active) === 1).map((project) => project.id));
   const goalTotals = new Map<string, number>();
   const aggregates = new Map(
@@ -852,6 +1009,8 @@ function buildBootstrap(snapshot: Snapshot): BootstrapData {
       solarSystemCount: snapshot.solarSystems.length,
       planetCount: snapshot.planets.length,
       generatedSystemCount: snapshot.solarSystems.filter((system) => system.generated_from_cluster === 1).length,
+      generatedPlanetCount: seedValidation.generatedPlanetCount,
+      seedValidationError: seedValidation.error,
       resourceSummaries,
       productionByProjectId: {},
     },

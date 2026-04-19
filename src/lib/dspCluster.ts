@@ -16,6 +16,18 @@ export type GeneratedClusterSystem = {
   z: number;
 };
 
+export type GeneratedClusterPlanet = {
+  index: number;
+  name: string;
+  planetType: "solid" | "gas_giant";
+  orbitAroundIndex: number | null;
+  orbitIndex: number;
+};
+
+export type GeneratedClusterSystemCatalog = GeneratedClusterSystem & {
+  planets: GeneratedClusterPlanet[];
+};
+
 type Vector3 = {
   x: number;
   y: number;
@@ -23,6 +35,7 @@ type Vector3 = {
 };
 
 type StarType = "main" | "giant" | "white_dwarf" | "neutron" | "black_hole";
+type SpectrType = "M" | "K" | "G" | "F" | "A" | "B" | "O" | "X";
 
 const INT_MAX = 2147483647;
 
@@ -327,7 +340,7 @@ export function parseClusterAddress(address: string): ParsedClusterAddress {
   };
 }
 
-export function generateClusterSystems(seedOrParsed: number | ParsedClusterAddress, starCountArg?: number) {
+function getClusterGenerationInput(seedOrParsed: number | ParsedClusterAddress, starCountArg?: number) {
   const clusterSeed = typeof seedOrParsed === "number" ? seedOrParsed : seedOrParsed.clusterSeed;
   const clusterStarCount =
     typeof seedOrParsed === "number"
@@ -338,6 +351,325 @@ export function generateClusterSystems(seedOrParsed: number | ParsedClusterAddre
     throw new Error("A valid cluster seed and star count are required.");
   }
 
+  return { clusterSeed, clusterStarCount };
+}
+
+type ClusterInternalSystem = GeneratedClusterSystem & {
+  seed: number;
+  starType: StarType;
+  spectr: SpectrType;
+};
+
+function roundHalfAwayFromZero(value: number) {
+  return value < 0 ? -Math.floor(Math.abs(value) + 0.5) : Math.floor(value + 0.5);
+}
+
+function logBase(value: number, base: number) {
+  return Math.log(value) / Math.log(base);
+}
+
+function randNormal(averageValue: number, standardDeviation: number, r1: number, r2: number) {
+  return averageValue + standardDeviation * Math.sqrt(-2 * Math.log(1 - r1)) * Math.sin(2 * Math.PI * r2);
+}
+
+function getSpectrFactor(spectr: SpectrType | null) {
+  switch (spectr) {
+    case "M":
+      return -3;
+    case "O":
+      return 4.65;
+    default:
+      return 0;
+  }
+}
+
+function getSpectrFromRoundedClassFactor(classFactor: number): SpectrType {
+  switch (roundHalfAwayFromZero(classFactor)) {
+    case -4:
+      return "M";
+    case -3:
+      return "K";
+    case -2:
+      return "G";
+    case -1:
+      return "F";
+    case 0:
+      return "A";
+    case 1:
+      return "B";
+    case 2:
+      return "O";
+    default:
+      return "X";
+  }
+}
+
+function deriveSpectrFromStar(seed: number, index: number, starCount: number, starType: StarType, forcedSpectr: SpectrType | null) {
+  if (starType === "white_dwarf" || starType === "neutron" || starType === "black_hole") {
+    return "X" as const;
+  }
+
+  const rand1 = new DspRandom(seed);
+  rand1.nextSeed();
+  const rand2 = new DspRandom(rand1.nextSeed());
+  rand1.nextF64();
+  rand1.nextSeed();
+  const r1 = rand2.nextF64();
+  const r2 = rand2.nextF64();
+  const ageFactor = rand2.nextF64();
+  rand2.nextF64();
+  rand2.nextF64();
+  const massFactor = index === 0 ? 0 : rand2.nextF64();
+  rand2.nextF64();
+  const y = rand2.nextF64() * 0.4 - 0.2;
+  const level = starCount > 1 ? index / (starCount - 1) : 0;
+  const forcedSpectrFactor = getSpectrFactor(forcedSpectr);
+
+  const getUnmodifiedMass = () => {
+    if (index === 0) {
+      return 2 ** Math.max(-0.2, Math.min(0.2, randNormal(0, 0.08, r1, r2)));
+    }
+
+    const classSeed =
+      forcedSpectrFactor !== 0
+        ? forcedSpectrFactor
+        : (() => {
+            const levelFactor = -0.98 + (0.88 + 0.98) * Math.min(1, Math.max(0, level));
+            const averageValue =
+              starType === "giant"
+                ? y > -0.08 ? -1.5 : 1.6
+                : levelFactor >= 0 ? levelFactor + 0.65 : levelFactor - 0.65;
+            const standardDeviation = starType === "giant" ? 0.3 : 0.33;
+            const value = randNormal(averageValue, standardDeviation, r1, r2);
+            return Math.max(-2.4, Math.min(4.65, value <= 0 ? value : value * 2));
+          })();
+    return 2 ** (classSeed + (massFactor - 0.5) * 0.2 + 1);
+  };
+
+  const getAge = () => {
+    if (index === 0) {
+      return ageFactor * 0.4 + 0.3;
+    }
+    if (starType === "giant") {
+      return ageFactor * 0.04 + 0.96;
+    }
+
+    const unmodifiedMass = getUnmodifiedMass();
+    if (unmodifiedMass >= 0.8) {
+      return ageFactor * 0.7 + 0.2;
+    }
+    if (unmodifiedMass >= 0.5) {
+      return ageFactor * 0.4 + 0.1;
+    }
+    return ageFactor * 0.12 + 0.02;
+  };
+
+  const temperatureFactor = (1 - Math.pow(Math.min(1, Math.max(0, getAge())), 20) * 0.5) * getUnmodifiedMass();
+  const temperature = Math.pow(temperatureFactor, 0.56 + 0.14 / logBase(temperatureFactor + 4, 5)) * 4450 + 1300;
+  let classFactor = logBase((temperature - 1300) / 4500, 2.6) - 0.5;
+  if (classFactor < 0) {
+    classFactor *= 4;
+  }
+
+  return getSpectrFromRoundedClassFactor(Math.max(-4, Math.min(2, classFactor)));
+}
+
+function generatePlanetsForSystem(system: ClusterInternalSystem): GeneratedClusterPlanet[] {
+  const romanNumerals = ["I", "II", "III", "IV", "V", "VI", "VII", "VIII"];
+  const random = new DspRandom(system.seed);
+  random.nextSeed();
+  random.nextSeed();
+  random.nextF64();
+  const planetsSeed = random.nextSeed();
+  const rand2 = new DspRandom(planetsSeed);
+  const num1 = rand2.nextF64();
+  const num2 = rand2.nextF64();
+  const num3 = rand2.nextF64() > 0.5 ? 1 : 0;
+  rand2.nextF64();
+  rand2.nextF64();
+  rand2.nextF64();
+  rand2.nextF64();
+
+  const planets: GeneratedClusterPlanet[] = [];
+  const pushPlanet = (planetIndex: number, orbitIndex: number, gasGiant: boolean, orbitAroundIndex: number | null = null) => {
+    rand2.nextSeed();
+    rand2.nextSeed();
+    planets.push({
+      index: planetIndex,
+      name: `${system.name} ${romanNumerals[planetIndex] ?? String(planetIndex + 1)}`,
+      planetType: gasGiant ? "gas_giant" : "solid",
+      orbitAroundIndex,
+      orbitIndex,
+    });
+  };
+
+  if (system.starType === "black_hole" || system.starType === "neutron") {
+    pushPlanet(0, 3, false);
+    return planets;
+  }
+
+  if (system.starType === "white_dwarf") {
+    if (num1 < 0.7) {
+      pushPlanet(0, 3, false);
+    } else if (num2 < 0.3) {
+      pushPlanet(0, 3, false);
+      pushPlanet(1, 4, false);
+    } else {
+      pushPlanet(0, 4, true);
+      pushPlanet(1, 1, false, 0);
+    }
+    return planets;
+  }
+
+  if (system.starType === "giant") {
+    if (num1 < 0.3) {
+      pushPlanet(0, 2 + num3, false);
+    } else if (num1 < 0.8) {
+      if (num2 < 0.25) {
+        pushPlanet(0, 2 + num3, false);
+        pushPlanet(1, 3 + num3, false);
+      } else {
+        pushPlanet(0, 3, true);
+        pushPlanet(1, 1, false, 0);
+      }
+    } else if (num2 < 0.15) {
+      pushPlanet(0, 2 + num3, false);
+      pushPlanet(1, 3 + num3, false);
+      pushPlanet(2, 4 + num3, false);
+    } else if (num2 < 0.75) {
+      pushPlanet(0, 2 + num3, false);
+      pushPlanet(1, 4, true);
+      pushPlanet(2, 1, false, 1);
+    } else {
+      pushPlanet(0, 3 + num3, true);
+      pushPlanet(1, 1, false, 0);
+      pushPlanet(2, 2, false, 0);
+    }
+    return planets;
+  }
+
+  const pGasesByKey: Record<string, [number, number, number, number, number, number]> = {
+    birth: [0, 0, 0, 0, 0, 0],
+    mSmall: [0.2, 0.2, 0, 0, 0, 0],
+    mLarge: [0, 0.2, 0.3, 0, 0, 0],
+    kgSmall: [0.18, 0.18, 0, 0, 0, 0],
+    kLarge: [0, 0.18, 0.28, 0.28, 0, 0],
+    gLarge: [0, 0.2, 0.3, 0.3, 0, 0],
+    fLarge: [0, 0.22, 0.31, 0.31, 0, 0],
+    aLarge: [0.1, 0.28, 0.3, 0.35, 0, 0],
+    bLarge: [0.1, 0.22, 0.28, 0.35, 0.35, 0],
+    oLarge: [0.1, 0.2, 0.25, 0.3, 0.32, 0.35],
+  };
+
+  let planetCount = 1;
+  let pGas = pGasesByKey.birth;
+  if (system.index === 0) {
+    planetCount = 4;
+    pGas = pGasesByKey.birth;
+  } else {
+    switch (system.spectr) {
+      case "M":
+        planetCount = num1 >= 0.8 ? 4 : num1 >= 0.3 ? 3 : num1 >= 0.1 ? 2 : 1;
+        pGas = planetCount <= 3 ? pGasesByKey.mSmall : pGasesByKey.mLarge;
+        break;
+      case "K":
+        planetCount = num1 >= 0.95 ? 5 : num1 >= 0.7 ? 4 : num1 >= 0.2 ? 3 : num1 >= 0.1 ? 2 : 1;
+        pGas = planetCount <= 3 ? pGasesByKey.kgSmall : pGasesByKey.kLarge;
+        break;
+      case "G":
+        planetCount = num1 >= 0.9 ? 5 : num1 >= 0.4 ? 4 : 3;
+        pGas = planetCount <= 3 ? pGasesByKey.kgSmall : pGasesByKey.gLarge;
+        break;
+      case "F":
+        planetCount = num1 >= 0.8 ? 5 : num1 >= 0.35 ? 4 : 3;
+        pGas = planetCount <= 3 ? pGasesByKey.mSmall : pGasesByKey.fLarge;
+        break;
+      case "A":
+        planetCount = num1 >= 0.75 ? 5 : num1 >= 0.3 ? 4 : 3;
+        pGas = planetCount <= 3 ? pGasesByKey.mSmall : pGasesByKey.aLarge;
+        break;
+      case "B":
+        planetCount = num1 >= 0.75 ? 6 : num1 >= 0.3 ? 5 : 4;
+        pGas = planetCount <= 3 ? pGasesByKey.mSmall : pGasesByKey.bLarge;
+        break;
+      case "O":
+        planetCount = num1 >= 0.5 ? 6 : 5;
+        pGas = pGasesByKey.oLarge;
+        break;
+      default:
+        planetCount = 1;
+        pGas = pGasesByKey.birth;
+    }
+  }
+
+  let satelliteCount = 0;
+  let orbitAroundIndex: number | null = null;
+  let nextOrbitIndex = 1;
+
+  for (let planetIndex = 0; planetIndex < planetCount; planetIndex += 1) {
+    rand2.nextSeed();
+    rand2.nextSeed();
+    const gasRoll = rand2.nextF64();
+    const orbitRoll = rand2.nextF64();
+    let gasGiant = false;
+
+    if (orbitAroundIndex === null) {
+      if (planetIndex < planetCount - 1 && gasRoll < pGas[planetIndex]) {
+        gasGiant = true;
+        if (nextOrbitIndex < 3) {
+          nextOrbitIndex = 3;
+        }
+      }
+
+      let brokeFromLoop = false;
+      while (system.index !== 0 || nextOrbitIndex !== 3) {
+        const remainingPlanets = planetCount - planetIndex;
+        const remainingOrbits = 9 - nextOrbitIndex;
+        if (remainingOrbits > remainingPlanets) {
+          const ratio = remainingPlanets / remainingOrbits;
+          const bias = nextOrbitIndex <= 3 ? 0.15 : 0.45;
+          const threshold = ratio + (1 - ratio) * bias + 0.01;
+          if (rand2.nextF64() < threshold) {
+            brokeFromLoop = true;
+            break;
+          }
+        } else {
+          brokeFromLoop = true;
+          break;
+        }
+        nextOrbitIndex += 1;
+      }
+
+      if (!brokeFromLoop) {
+        gasGiant = true;
+      }
+    } else {
+      satelliteCount += 1;
+    }
+
+    pushPlanet(
+      planetIndex,
+      orbitAroundIndex === null ? nextOrbitIndex : satelliteCount,
+      gasGiant,
+      orbitAroundIndex,
+    );
+
+    nextOrbitIndex += 1;
+    if (gasGiant) {
+      orbitAroundIndex = planetIndex;
+      satelliteCount = 0;
+    }
+    if (satelliteCount >= 1 && orbitRoll < 0.8) {
+      orbitAroundIndex = null;
+      satelliteCount = 0;
+    }
+  }
+
+  return planets;
+}
+
+function generateClusterSystemsInternal(seedOrParsed: number | ParsedClusterAddress, starCountArg?: number) {
+  const { clusterSeed, clusterStarCount } = getClusterGenerationInput(seedOrParsed, starCountArg);
   const galaxyRandom = new DspRandom(clusterSeed);
   const poses = generateTempPoses(galaxyRandom.nextSeed(), clusterStarCount, 4, 2, 2.3, 3.5, 0.18);
   const starCount = poses.length;
@@ -356,7 +688,7 @@ export function generateClusterSystems(seedOrParsed: number | ParsedClusterAddre
   const num12 = Math.floor((num11 - 1) / num8);
   const num13 = Math.floor(num12 / 2);
 
-  const systems: Array<GeneratedClusterSystem & { starType: StarType; nameSeed: number }> = [];
+  const systems: ClusterInternalSystem[] = [];
   const usedNames: string[] = [];
 
   for (let index = 0; index < poses.length; index += 1) {
@@ -364,6 +696,8 @@ export function generateClusterSystems(seedOrParsed: number | ParsedClusterAddre
     const seed = galaxyRandom.nextSeed();
     const starRandom = new DspRandom(seed);
     const nameSeed = starRandom.nextSeed();
+    const forcedSpectr: SpectrType | null =
+      index === 3 ? "M" : index === num11 - 1 ? "O" : null;
 
     let starType: StarType = "main";
     if (index === 0) {
@@ -387,12 +721,34 @@ export function generateClusterSystems(seedOrParsed: number | ParsedClusterAddre
       x: position.x,
       y: position.y,
       z: position.z,
+      seed,
       starType,
-      nameSeed,
+      spectr: deriveSpectrFromStar(seed, index, starCount, starType, forcedSpectr),
     });
   }
 
-  return systems.map(({ starType: _starType, nameSeed: _nameSeed, ...system }) => system);
+  return systems;
+}
+
+export function generateClusterSystems(seedOrParsed: number | ParsedClusterAddress, starCountArg?: number) {
+  return generateClusterSystemsInternal(seedOrParsed, starCountArg).map((system) => ({
+    index: system.index,
+    name: system.name,
+    x: system.x,
+    y: system.y,
+    z: system.z,
+  }));
+}
+
+export function generateClusterCatalog(seedOrParsed: number | ParsedClusterAddress, starCountArg?: number): GeneratedClusterSystemCatalog[] {
+  return generateClusterSystemsInternal(seedOrParsed, starCountArg).map((system) => ({
+    index: system.index,
+    name: system.name,
+    x: system.x,
+    y: system.y,
+    z: system.z,
+    planets: generatePlanetsForSystem(system),
+  }));
 }
 
 export function getSystemDistanceLy(

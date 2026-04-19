@@ -3,6 +3,7 @@ import type { CSSProperties } from "react";
 import "../App.css";
 import { ResourceIcon } from "../components/ResourceIcon";
 import { ResourceSelect } from "../components/ResourceSelect";
+import { SearchableSelect, type SearchableSelectOption } from "../components/SearchableSelect";
 import { useAppContext } from "../application/AppProvider";
 import { parseApiEntityPath } from "../application/apiPaths";
 import { viewTabs } from "../application/appTypes";
@@ -65,7 +66,6 @@ import type {
   ResourceDefinition,
   ResourceSummary,
   ResourceType,
-  SolarSystem,
 } from "../lib/types";
 
 type MinerDraft = {
@@ -78,9 +78,6 @@ type GasOutputDraft = {
   resourceId: string;
   ratePerSecond: number;
 };
-
-const CREATE_NEW_SYSTEM_OPTION = "__create-new-system__";
-const CREATE_NEW_PLANET_OPTION = "__create-new-planet__";
 
 type RecipeEntry = {
   itemKey: string;
@@ -209,14 +206,6 @@ function describePlanet(planet: Planet) {
   return planet.planet_type === "gas_giant" ? `${planet.name} | Gas giant` : planet.name;
 }
 
-function buildPlanetNamePrefix(systemName: string) {
-  return `${systemName} `.replace(/\s{2,}/g, " ");
-}
-
-function normalizePlanetName(name: string) {
-  return name.replace(/\s{2,}/g, " ").trim();
-}
-
 function getProgressPercent(summary: ResourceSummary) {
   const targetPerMinute = getSummaryTargetPerMinute(summary);
   if (targetPerMinute <= 0) {
@@ -321,12 +310,6 @@ function Workspace() {
   const [isProductionModalOpen, setIsProductionModalOpen] = useState(false);
   const [editingProductionSiteId, setEditingProductionSiteId] = useState<string | null>(null);
   const [productionSetupPickerItemKey, setProductionSetupPickerItemKey] = useState("");
-
-  const [newSystemName, setNewSystemName] = useState("");
-  const [newPlanetName, setNewPlanetName] = useState("");
-  const [newPlanetType, setNewPlanetType] = useState<"solid" | "gas_giant">("solid");
-  const [systemNameDrafts, setSystemNameDrafts] = useState<Record<string, string>>({});
-  const [planetNameDrafts, setPlanetNameDrafts] = useState<Record<string, string>>({});
   const [newResourceName, setNewResourceName] = useState("");
   const [newResourceType, setNewResourceType] = useState<ResourceType>("ore_vein");
   const [projectNameDraft, setProjectNameDraft] = useState("");
@@ -583,29 +566,6 @@ function Workspace() {
       });
     };
   }, []);
-
-  useEffect(() => {
-    if (!data || newPlanetName) {
-      return;
-    }
-
-    const currentSystemName =
-      data.solarSystems.find((solarSystem) => solarSystem.id === data.settings.currentSolarSystemId)?.name ?? "";
-    if (currentSystemName) {
-      setNewPlanetName(buildPlanetNamePrefix(currentSystemName));
-    }
-  }, [data, newPlanetName]);
-
-  useEffect(() => {
-    if (!data) {
-      return;
-    }
-
-    setSystemNameDrafts(
-      Object.fromEntries(data.solarSystems.map((solarSystem) => [solarSystem.id, solarSystem.name])),
-    );
-    setPlanetNameDrafts(Object.fromEntries(data.planets.map((planet) => [planet.id, planet.name])));
-  }, [data]);
 
   useEffect(() => {
     if (!data) {
@@ -870,16 +830,27 @@ function Workspace() {
   const productionSetupPickerSummary = productionSetupPickerItemKey
     ? productionItemSummaries.find((item) => item.itemKey === productionSetupPickerItemKey) ?? null
     : null;
+  const solarSystemSelectOptions: SearchableSelectOption[] = loadedData.solarSystems.map((solarSystem) => ({
+    value: solarSystem.id,
+    label: solarSystem.name,
+  }));
+  const currentPlanetSelectOptions: SearchableSelectOption[] = planetsInSystem.map((planet) => ({
+    value: planet.id,
+    label: describePlanet(planet),
+    searchText: `${planet.name} ${planet.planet_type === "gas_giant" ? "gas giant" : "solid"}`,
+  }));
   const productionDraftPlanetOptions = loadedData.planets
     .filter((planet) => planet.solar_system_id === productionDraft.solarSystemId && planet.planet_type === "solid")
     .sort((left, right) => left.name.localeCompare(right.name));
+  const productionDraftPlanetSelectOptions: SearchableSelectOption[] = productionDraftPlanetOptions.map((planet) => ({
+    value: planet.id,
+    label: planet.name,
+  }));
   const canSubmitProductionSite =
     !busy &&
     !!productionDraft.itemKey &&
     !!productionDraft.solarSystemId &&
-    productionDraft.solarSystemId !== CREATE_NEW_SYSTEM_OPTION &&
-    !!productionDraft.planetId &&
-    productionDraft.planetId !== CREATE_NEW_PLANET_OPTION;
+    !!productionDraft.planetId;
   const isEditingProductionSite = editingProductionSiteId !== null;
   const productionModalEyebrow = isEditingProductionSite ? "Edit production site" : "New production site";
   const productionModalSubmitLabel = isEditingProductionSite ? "Save production site" : "Add production site";
@@ -1332,10 +1303,10 @@ function Workspace() {
     }
   })();
   const clusterAddressHelperText = parsedClusterAddress
-    ? `Seed ${parsedClusterAddress.clusterSeed} | ${parsedClusterAddress.clusterStarCount} stars | ${loadedData.summary.generatedSystemCount} generated systems currently stored.`
+    ? `Seed ${parsedClusterAddress.clusterSeed} | ${parsedClusterAddress.clusterStarCount} stars | ${loadedData.summary.generatedSystemCount} systems and ${loadedData.summary.generatedPlanetCount ?? loadedData.summary.planetCount} planets currently generated.`
     : clusterAddressDraft.trim()
       ? "Cluster address format not recognized yet."
-      : "Import a DSP cluster address to generate exact system coordinates and automatic inter-system distances.";
+      : "Import a DSP cluster address to generate the system and planet catalog with automatic inter-system distances.";
   function getPreferredPlanetIdForSystem(systemId: string | null) {
     if (!systemId) {
       return null;
@@ -1457,47 +1428,49 @@ function Workspace() {
     }
 
     const assignablePlanets = getAssignablePlanets(entryLocationDraft.systemId, planetType);
+    const systemOptions: SearchableSelectOption[] = loadedData.solarSystems.map((solarSystem) => ({
+      value: solarSystem.id,
+      label: solarSystem.name,
+    }));
+    const planetOptions: SearchableSelectOption[] = assignablePlanets.map((planet) => ({
+      value: planet.id,
+      label: describePlanet(planet),
+      searchText: `${planet.name} ${planet.planet_type === "gas_giant" ? "gas giant" : "solid"}`,
+    }));
 
     return (
       <div className="location-editor">
         <label className="field compact-field">
           <span>System</span>
-          <select
+          <SearchableSelect
+            options={systemOptions}
             value={entryLocationDraft.systemId}
-            onChange={(event) => {
-              const nextSystemId = event.target.value;
+            onChange={(nextSystemId) => {
               const nextPlanetId = getAssignablePlanets(nextSystemId, planetType)[0]?.id ?? "";
               setEntryLocationDraft({ systemId: nextSystemId, planetId: nextPlanetId });
             }}
-          >
-            <option value="">Select system</option>
-            {loadedData.solarSystems.map((solarSystem) => (
-              <option key={solarSystem.id} value={solarSystem.id}>
-                {solarSystem.name}
-              </option>
-            ))}
-          </select>
+            placeholder="Select system"
+            searchPlaceholder="Search systems"
+            emptyText="No systems match your search."
+          />
         </label>
 
         <label className="field">
           <span>Planet</span>
-          <select
+          <SearchableSelect
+            options={planetOptions}
             value={entryLocationDraft.planetId}
-            onChange={(event) =>
+            onChange={(value) =>
               setEntryLocationDraft((current) => ({
                 ...current,
-                planetId: event.target.value,
+                planetId: value,
               }))
             }
             disabled={!entryLocationDraft.systemId}
-          >
-            <option value="">Select planet</option>
-            {assignablePlanets.map((planet) => (
-              <option key={planet.id} value={planet.id}>
-                {describePlanet(planet)}
-              </option>
-            ))}
-          </select>
+            placeholder="Select planet"
+            searchPlaceholder="Search planets"
+            emptyText="No planets match your search."
+          />
         </label>
 
         <div className="location-editor-actions">
@@ -1516,14 +1489,6 @@ function Workspace() {
     await execute({ type: "settings/update", settings: payload });
   }
 
-  function getFirstPlanetIdForSystem(systemId: string) {
-    return (
-      loadedData.planets
-        .filter((planet) => planet.solar_system_id === systemId)
-        .sort((left, right) => left.name.localeCompare(right.name))[0]?.id ?? ""
-    );
-  }
-
   function getFirstSolidPlanetIdForSystem(systemId: string) {
     return (
       loadedData.planets
@@ -1532,185 +1497,16 @@ function Workspace() {
     );
   }
 
-  async function handleProductionSystemChange(nextSystemId: string) {
-    if (nextSystemId !== CREATE_NEW_SYSTEM_OPTION) {
-      setProductionDraft((current) => ({
-        ...current,
-        solarSystemId: nextSystemId,
-        planetId: getFirstSolidPlanetIdForSystem(nextSystemId) || "",
-      }));
-      return;
-    }
-
-    const promptedName = window.prompt("New system name", "");
-    if (promptedName === null) {
-      return;
-    }
-
-    const nextSystemName = promptedName.trim();
-    if (!nextSystemName) {
-      return;
-    }
-
-    const existingSystem = loadedData.solarSystems.find(
-      (solarSystem) => solarSystem.name.trim().toLowerCase() === nextSystemName.toLowerCase(),
-    );
-    if (existingSystem) {
-      setProductionDraft((current) => ({
-        ...current,
-        solarSystemId: existingSystem.id,
-        planetId: getFirstSolidPlanetIdForSystem(existingSystem.id) || "",
-      }));
-      return;
-    }
-
-    await execute(
-      { type: "system/create", name: nextSystemName },
-      (nextData) => {
-        const createdSystem =
-          nextData.solarSystems.find((solarSystem) => solarSystem.name.trim().toLowerCase() === nextSystemName.toLowerCase()) ?? null;
-        setProductionDraft((current) => ({
-          ...current,
-          solarSystemId: createdSystem?.id ?? nextData.settings.currentSolarSystemId ?? "",
-          planetId: "",
-        }));
-      },
-    );
+  function handleProductionSystemChange(nextSystemId: string) {
+    setProductionDraft((current) => ({
+      ...current,
+      solarSystemId: nextSystemId,
+      planetId: getFirstSolidPlanetIdForSystem(nextSystemId) || "",
+    }));
   }
 
-  async function handleProductionPlanetChange(nextPlanetId: string) {
-    if (nextPlanetId !== CREATE_NEW_PLANET_OPTION) {
-      setProductionDraft((current) => ({ ...current, planetId: nextPlanetId }));
-      return;
-    }
-
-    if (!productionDraft.solarSystemId || productionDraft.solarSystemId === CREATE_NEW_SYSTEM_OPTION) {
-      return;
-    }
-
-    const selectedSystem = loadedData.solarSystems.find((solarSystem) => solarSystem.id === productionDraft.solarSystemId) ?? null;
-    const promptedName = window.prompt("New planet name", buildPlanetNamePrefix(selectedSystem?.name ?? ""));
-    if (promptedName === null) {
-      return;
-    }
-
-    const nextPlanetName = normalizePlanetName(promptedName);
-    if (!nextPlanetName) {
-      return;
-    }
-
-    const existingPlanet = loadedData.planets.find(
-      (planet) =>
-        planet.solar_system_id === productionDraft.solarSystemId &&
-        planet.planet_type === "solid" &&
-        planet.name.trim().toLowerCase() === nextPlanetName.toLowerCase(),
-    );
-    if (existingPlanet) {
-      setProductionDraft((current) => ({ ...current, planetId: existingPlanet.id }));
-      return;
-    }
-
-    await execute(
-      {
-        type: "planet/create",
-        solarSystemId: productionDraft.solarSystemId,
-        name: nextPlanetName,
-        planetType: "solid",
-      },
-      (nextData) => {
-        const createdPlanet =
-          nextData.planets.find(
-            (planet) =>
-              planet.solar_system_id === productionDraft.solarSystemId &&
-              planet.planet_type === "solid" &&
-              planet.name.trim().toLowerCase() === nextPlanetName.toLowerCase(),
-          ) ?? null;
-        setProductionDraft((current) => ({
-          ...current,
-          planetId: createdPlanet?.id ?? nextData.settings.currentPlanetId ?? "",
-        }));
-      },
-    );
-  }
-
-  async function focusExistingSystem(system: SolarSystem) {
-    const currentPlanetInSystem = loadedData.planets.find(
-      (planet) => planet.id === loadedData.settings.currentPlanetId && planet.solar_system_id === system.id,
-    );
-    const nextPlanetId = currentPlanetInSystem?.id ?? getFirstPlanetIdForSystem(system.id);
-
-    await execute(
-      {
-        type: "settings/update",
-        settings: {
-          currentSolarSystemId: system.id,
-          currentPlanetId: nextPlanetId || null,
-        },
-      },
-      () => {
-        setSelectedMapSelection({ scope: "system", id: system.id });
-        setNewSystemName("");
-        setNewPlanetName(buildPlanetNamePrefix(system.name));
-      },
-    );
-  }
-
-  async function focusExistingPlanet(planet: Planet) {
-    await execute(
-      {
-        type: "settings/update",
-        settings: {
-          currentSolarSystemId: planet.solar_system_id,
-          currentPlanetId: planet.id,
-        },
-      },
-      (nextData) => {
-        setSelectedMapSelection({ scope: "planet", id: planet.id });
-        const currentSystemName =
-          nextData.solarSystems.find((solarSystem) => solarSystem.id === planet.solar_system_id)?.name ?? "";
-        setNewPlanetName(currentSystemName ? buildPlanetNamePrefix(currentSystemName) : "");
-      },
-    );
-  }
-
-  async function handleRenameSystem(systemId: string) {
-    const nextName = systemNameDrafts[systemId]?.trim() ?? "";
-    const currentName = loadedData.solarSystems.find((system) => system.id === systemId)?.name.trim() ?? "";
-    if (!nextName) {
-      return;
-    }
-    if (nextName === currentName) {
-      return;
-    }
-
-    await executeUndoable(
-      { type: "system/update", systemId, name: nextName },
-      `Renamed system to ${nextName}.`,
-      (nextData) => {
-        if (nextData.settings.currentSolarSystemId === systemId && !newPlanetName.trim()) {
-          setNewPlanetName(buildPlanetNamePrefix(nextName));
-        }
-      },
-      "Undo rename is available for a few seconds.",
-    );
-  }
-
-  async function handleRenamePlanet(planetId: string) {
-    const nextName = normalizePlanetName(planetNameDrafts[planetId] ?? "");
-    const currentName = normalizePlanetName(loadedData.planets.find((planet) => planet.id === planetId)?.name ?? "");
-    if (!nextName) {
-      return;
-    }
-    if (nextName === currentName) {
-      return;
-    }
-
-    await executeUndoable(
-      { type: "planet/update", planetId, name: nextName },
-      `Renamed planet to ${nextName}.`,
-      undefined,
-      "Undo rename is available for a few seconds.",
-    );
+  function handleProductionPlanetChange(nextPlanetId: string) {
+    setProductionDraft((current) => ({ ...current, planetId: nextPlanetId }));
   }
 
   async function savePlanetExtractionIls(planetId: string, rawValue: string) {
@@ -2103,9 +1899,7 @@ function Workspace() {
       !selectedProjectId ||
       !productionDraft.itemKey ||
       !productionDraft.solarSystemId ||
-      !productionDraft.planetId ||
-      productionDraft.solarSystemId === CREATE_NEW_SYSTEM_OPTION ||
-      productionDraft.planetId === CREATE_NEW_PLANET_OPTION
+      !productionDraft.planetId
     ) {
       return;
     }
@@ -2303,154 +2097,42 @@ function Workspace() {
             <div className="two-column">
               <label className="field">
                 <span>Current solar system</span>
-                <select
+                <SearchableSelect
+                  options={solarSystemSelectOptions}
                   value={data.settings.currentSolarSystemId ?? ""}
-                  onChange={(event) => {
-                    const nextSystemId = event.target.value || null;
-                    const nextSystemName =
-                      data.solarSystems.find((solarSystem) => solarSystem.id === nextSystemId)?.name ?? "";
-                    setNewPlanetName(nextSystemName ? buildPlanetNamePrefix(nextSystemName) : "");
+                  onChange={(value) => {
+                    const nextSystemId = value || null;
                     void updateSettings({
                       currentSolarSystemId: nextSystemId,
                       currentPlanetId: getPreferredPlanetIdForSystem(nextSystemId),
                     });
                   }}
                   disabled={busy}
-                >
-                  <option value="">Select a system</option>
-                  {data.solarSystems.map((solarSystem) => (
-                    <option key={solarSystem.id} value={solarSystem.id}>
-                      {solarSystem.name}
-                    </option>
-                  ))}
-                </select>
+                  placeholder="Select a system"
+                  searchPlaceholder="Search systems"
+                  emptyText="No systems match your search."
+                />
               </label>
 
               <label className="field">
                 <span>Current planet</span>
-                <select
+                <SearchableSelect
+                  options={currentPlanetSelectOptions}
                   value={data.settings.currentPlanetId ?? ""}
-                  onChange={(event) => {
-                    void updateSettings({ currentPlanetId: event.target.value || null });
+                  onChange={(value) => {
+                    void updateSettings({ currentPlanetId: value || null });
                   }}
                   disabled={busy || !data.settings.currentSolarSystemId}
-                >
-                  <option value="">Select a planet</option>
-                  {planetsInSystem.map((planet) => (
-                    <option key={planet.id} value={planet.id}>
-                      {describePlanet(planet)}
-                    </option>
-                  ))}
-                </select>
+                  placeholder="Select a planet"
+                  searchPlaceholder="Search planets"
+                  emptyText="No planets match your search."
+                />
               </label>
             </div>
 
-            <div className="two-column">
-              <form
-                className="inline-form"
-                onSubmit={(event) => {
-                  event.preventDefault();
-                  const nextSystemName = newSystemName.trim();
-                  if (!nextSystemName) {
-                    return;
-                  }
-
-                  const existingSystem = loadedData.solarSystems.find(
-                    (solarSystem) => solarSystem.name.trim().toLowerCase() === nextSystemName.toLowerCase(),
-                  );
-                  if (existingSystem) {
-                    void focusExistingSystem(existingSystem);
-                    return;
-                  }
-
-                  void execute(
-                    { type: "system/create", name: nextSystemName },
-                    (nextData) => {
-                      const selectedSystemId = nextData.settings.currentSolarSystemId || "";
-                      if (selectedSystemId) {
-                        setSelectedMapSelection({ scope: "system", id: selectedSystemId });
-                      }
-                      setNewPlanetName(buildPlanetNamePrefix(nextSystemName));
-                      setNewSystemName("");
-                    },
-                  );
-                }}
-              >
-                <label className="field">
-                  <span>Add solar system</span>
-                  <input value={newSystemName} onChange={(event) => setNewSystemName(event.target.value)} placeholder="Alpha Velorum" />
-                </label>
-                <button type="submit" className="primary-button" disabled={busy}>
-                  Add system
-                </button>
-              </form>
-
-              <form
-                className="inline-form"
-                onSubmit={(event) => {
-                  event.preventDefault();
-                  const currentSolarSystemId = data.settings.currentSolarSystemId;
-                  const normalizedPlanetName = normalizePlanetName(newPlanetName);
-                  if (!currentSolarSystemId || !normalizedPlanetName) {
-                    return;
-                  }
-
-                  const existingPlanet = loadedData.planets.find(
-                    (planet) =>
-                      planet.solar_system_id === currentSolarSystemId &&
-                      planet.name.trim().toLowerCase() === normalizedPlanetName.toLowerCase(),
-                  );
-                  if (existingPlanet) {
-                    void focusExistingPlanet(existingPlanet);
-                    return;
-                  }
-
-                  void execute(
-                    {
-                      type: "planet/create",
-                      solarSystemId: currentSolarSystemId,
-                      name: normalizedPlanetName,
-                      planetType: newPlanetType,
-                    },
-                    (nextData) => {
-                      if (nextData.settings.currentPlanetId) {
-                        setSelectedMapSelection({ scope: "planet", id: nextData.settings.currentPlanetId });
-                      }
-                      const currentSystemName =
-                        nextData.solarSystems.find((solarSystem) => solarSystem.id === nextData.settings.currentSolarSystemId)?.name ?? "";
-                      setNewPlanetName(currentSystemName ? buildPlanetNamePrefix(currentSystemName) : "");
-                    },
-                  );
-                }}
-              >
-                <label className="field">
-                  <span>Add planet</span>
-                  <input value={newPlanetName} onChange={(event) => setNewPlanetName(event.target.value.replace(/\s{2,}/g, " "))} placeholder="Arden II" />
-                </label>
-                <label className="field compact-field">
-                  <span>Type</span>
-                  <div className="segmented-control">
-                    <button
-                      type="button"
-                      className={`segmented-button ${newPlanetType === "solid" ? "segmented-button-active" : ""}`}
-                      onClick={() => setNewPlanetType("solid")}
-                    >
-                      Solid
-                    </button>
-                    <button
-                      type="button"
-                      className={`segmented-button ${newPlanetType === "gas_giant" ? "segmented-button-active" : ""}`}
-                      onClick={() => setNewPlanetType("gas_giant")}
-                    >
-                      Gas giant
-                    </button>
-                  </div>
-                </label>
-                <button type="submit" className="primary-button" disabled={busy || !data.settings.currentSolarSystemId}>
-                  Add planet
-                </button>
-              </form>
-            </div>
+            <p className="helper-text">
+              Systems and planets now come from the imported cluster seed. Use the searchable selectors above, and import or re-import your seed from Settings when the catalog changes.
+            </p>
           </section>
           )}
 
@@ -2466,7 +2148,7 @@ function Workspace() {
               </div>
             </div>
 
-            {!currentPlanet && <p className="empty-state">Select or create a planet above before logging extraction sites.</p>}
+            {!currentPlanet && <p className="empty-state">Select a planet above before logging extraction sites.</p>}
 
             {currentPlanet && (
               <section className="entry-card entry-card-wide">
@@ -3230,38 +2912,26 @@ function Workspace() {
                       </label>
                       <label className="field">
                         <span>System</span>
-                        <select
+                        <SearchableSelect
+                          options={solarSystemSelectOptions}
                           value={productionDraft.solarSystemId}
-                          onChange={(event) => {
-                            void handleProductionSystemChange(event.target.value);
-                          }}
-                        >
-                          <option value="">Select system</option>
-                          {loadedData.solarSystems.map((solarSystem) => (
-                            <option key={solarSystem.id} value={solarSystem.id}>
-                              {solarSystem.name}
-                            </option>
-                          ))}
-                          <option value={CREATE_NEW_SYSTEM_OPTION}>Add new system...</option>
-                        </select>
+                          onChange={handleProductionSystemChange}
+                          placeholder="Select system"
+                          searchPlaceholder="Search systems"
+                          emptyText="No systems match your search."
+                        />
                       </label>
                       <label className="field">
                         <span>Planet</span>
-                        <select
+                        <SearchableSelect
+                          options={productionDraftPlanetSelectOptions}
                           value={productionDraft.planetId}
-                          onChange={(event) => {
-                            void handleProductionPlanetChange(event.target.value);
-                          }}
+                          onChange={handleProductionPlanetChange}
                           disabled={!productionDraft.solarSystemId}
-                        >
-                          <option value="">Select planet</option>
-                          {productionDraftPlanetOptions.map((planet) => (
-                            <option key={planet.id} value={planet.id}>
-                              {planet.name}
-                            </option>
-                          ))}
-                          {productionDraft.solarSystemId ? <option value={CREATE_NEW_PLANET_OPTION}>Add new planet...</option> : null}
-                        </select>
+                          placeholder="Select planet"
+                          searchPlaceholder="Search planets"
+                          emptyText="No planets match your search."
+                        />
                       </label>
                     </div>
 
@@ -3550,7 +3220,7 @@ function Workspace() {
                 <p className="eyebrow">Star Map</p>
                 <h2>Systems and planets</h2>
               </div>
-              <span className="helper-text">Select a system or planet to inspect extraction and manage its name.</span>
+              <span className="helper-text">Select a seed-generated system or planet to inspect extraction coverage.</span>
             </div>
 
             {mapSystemCards.length > 0 ? (
@@ -3616,7 +3286,7 @@ function Workspace() {
                 })}
               </div>
             ) : (
-              <p className="empty-state">Add a solar system from the logging tab to start building your map.</p>
+              <p className="empty-state">Import a cluster seed from Settings to generate your star map.</p>
             )}
           </section>
           )}
@@ -3814,75 +3484,16 @@ function Workspace() {
                   <div className="divider" />
 
                   {selectedMapSystem && (
-                    <>
-                      <label className="field">
-                        <span>System name</span>
-                        <input
-                          value={systemNameDrafts[selectedMapSystem.id] ?? selectedMapSystem.name}
-                          onChange={(event) =>
-                            setSystemNameDrafts((current) => ({
-                              ...current,
-                              [selectedMapSystem.id]: event.target.value,
-                            }))
-                          }
-                          disabled={busy || selectedMapSystem.generated_name_locked === 1}
-                        />
-                      </label>
-                      {selectedMapSystem.generated_name_locked === 1 && (
-                        <p className="helper-text">Cluster-imported system names are locked to the generated star catalog.</p>
-                      )}
-                      <div className="admin-actions">
-                        <button
-                          type="button"
-                          className="primary-button"
-                          onClick={() => void handleRenameSystem(selectedMapSystem.id)}
-                          disabled={busy || selectedMapSystem.generated_name_locked === 1 || !(systemNameDrafts[selectedMapSystem.id] ?? selectedMapSystem.name).trim()}
-                        >
-                          Save system name
-                        </button>
-                        <button
-                          type="button"
-                          className="ghost-button"
-                          onClick={() => void confirmAndDelete(`/api/systems/${selectedMapSystem.id}`, `solar system ${selectedMapSystem.name}`)}
-                        >
-                          Delete system
-                        </button>
-                      </div>
-                    </>
+                    <p className="helper-text">
+                      System names are locked to the imported seed. Re-import the cluster address in Settings if the catalog needs to be refreshed.
+                    </p>
                   )}
 
                   {selectedMapPlanet && (
                     <>
-                      <label className="field">
-                        <span>Planet name</span>
-                        <input
-                          value={planetNameDrafts[selectedMapPlanet.id] ?? selectedMapPlanet.name}
-                          onChange={(event) =>
-                            setPlanetNameDrafts((current) => ({
-                              ...current,
-                              [selectedMapPlanet.id]: event.target.value.replace(/\s{2,}/g, " "),
-                            }))
-                          }
-                          disabled={busy}
-                        />
-                      </label>
-                      <div className="admin-actions">
-                        <button
-                          type="button"
-                          className="primary-button"
-                          onClick={() => void handleRenamePlanet(selectedMapPlanet.id)}
-                          disabled={busy || !normalizePlanetName(planetNameDrafts[selectedMapPlanet.id] ?? selectedMapPlanet.name)}
-                        >
-                          Save planet name
-                        </button>
-                        <button
-                          type="button"
-                          className="ghost-button"
-                          onClick={() => void confirmAndDelete(`/api/planets/${selectedMapPlanet.id}`, `planet ${selectedMapPlanet.name}`)}
-                        >
-                          Delete planet
-                        </button>
-                      </div>
+                      <p className="helper-text">
+                        Planet names and types come from the imported seed. Re-import the cluster address in Settings if the generated catalog looks out of date.
+                      </p>
 
                       <div className="divider" />
 

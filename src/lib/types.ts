@@ -216,6 +216,8 @@ export type BootstrapData = {
     solarSystemCount: number;
     planetCount: number;
     generatedSystemCount?: number;
+    generatedPlanetCount?: number;
+    seedValidationError?: string | null;
     resourceSummaries: ResourceSummary[];
     productionByProjectId?: Record<string, unknown>;
   };
