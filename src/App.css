@@ -763,12 +763,15 @@
 }
 
 .production-tree-metric-button {
+  appearance: none;
+  -webkit-appearance: none;
   padding: 8px 12px;
   border: 1px solid rgba(122, 219, 216, 0.26);
   border-radius: 999px;
   background: rgba(68, 165, 184, 0.12);
   color: inherit;
   font: inherit;
+  box-shadow: none;
   cursor: pointer;
   transition: border-color 140ms ease, background 140ms ease, transform 140ms ease;
 }
