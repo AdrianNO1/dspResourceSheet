@@ -4,6 +4,7 @@ import "../App.css";
 import { ResourceIcon } from "../components/ResourceIcon";
 import { ResourceSelect } from "../components/ResourceSelect";
 import { useAppContext } from "../application/AppProvider";
+import { parseApiEntityPath } from "../application/apiPaths";
 import { viewTabs } from "../application/appTypes";
 import {
   buildMapView,
@@ -1351,13 +1352,8 @@ function Workspace() {
     return candidates[0]?.id ?? null;
   }
 
-  function getApiPathParts(path: string): [string, string] {
-    const [, collection = "", id = ""] = path.replace(/^\/api\//, "").split("/");
-    return [collection, id];
-  }
-
   function getDeleteCommand(path: string): StoreCommand {
-    const [collection, id] = getApiPathParts(path);
+    const { collection, id } = parseApiEntityPath(path);
 
     switch (collection) {
       case "ore-veins":
@@ -1382,7 +1378,7 @@ function Workspace() {
   }
 
   function getMoveCommand(path: string, planetId: string): StoreCommand {
-    const [collection, id] = getApiPathParts(path.replace(/\/location$/, ""));
+    const { collection, id } = parseApiEntityPath(path);
 
     switch (collection) {
       case "ore-veins":
