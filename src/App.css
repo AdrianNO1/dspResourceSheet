@@ -1849,24 +1849,31 @@
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  padding: 11px 14px;
-  border: 1px solid rgba(148, 172, 197, 0.18);
-  border-radius: 16px;
-  background: rgba(8, 17, 29, 0.74);
+  padding: 12px 14px;
+  border: 1px solid rgba(131, 161, 193, 0.22);
+  border-radius: 14px;
+  background: rgba(7, 13, 23, 0.72);
   color: #edf5ff;
   cursor: pointer;
-  transition: border-color 160ms ease, background 160ms ease;
+  transition: border-color 160ms ease, background 160ms ease, box-shadow 160ms ease;
 }
 
 .searchable-select-trigger:hover:not(:disabled),
 .searchable-select-open .searchable-select-trigger {
-  border-color: rgba(122, 219, 216, 0.32);
-  background: rgba(12, 24, 39, 0.9);
+  border-color: rgba(122, 219, 216, 0.4);
+  background: rgba(11, 20, 34, 0.92);
+  box-shadow: 0 0 0 1px rgba(122, 219, 216, 0.16);
+}
+
+.searchable-select-trigger:focus-visible {
+  outline: none;
+  border-color: rgba(122, 219, 216, 0.46);
+  box-shadow: 0 0 0 3px rgba(122, 219, 216, 0.18);
 }
 
 .searchable-select-trigger:disabled {
   cursor: not-allowed;
-  opacity: 0.6;
+  opacity: 0.72;
 }
 
 .resource-select-value,
@@ -1887,15 +1894,10 @@
   text-align: left;
 }
 
-.resource-select-placeholder,
-.resource-select-caret {
-  color: rgba(211, 223, 235, 0.7);
-}
-
 .searchable-select-placeholder,
 .searchable-select-caret,
 .searchable-select-empty {
-  color: rgba(211, 223, 235, 0.7);
+  color: rgba(228, 238, 248, 0.82);
 }
 
 .resource-select-menu {
@@ -1930,11 +1932,18 @@
 
 .searchable-select-search {
   width: 100%;
+  box-sizing: border-box;
   padding: 10px 12px;
   border: 1px solid rgba(148, 172, 197, 0.16);
   border-radius: 14px;
   background: rgba(255, 255, 255, 0.04);
   color: #edf5ff;
+}
+
+.searchable-select-search:focus-visible {
+  outline: none;
+  border-color: rgba(122, 219, 216, 0.42);
+  box-shadow: 0 0 0 2px rgba(122, 219, 216, 0.16);
 }
 
 .searchable-select-options {
@@ -1971,12 +1980,206 @@
 
 .searchable-select-option:hover,
 .searchable-select-option-selected {
-  background: rgba(255, 255, 255, 0.07);
+  background: rgba(255, 255, 255, 0.08);
 }
 
 .searchable-select-empty {
   margin: 0;
   padding: 10px 12px;
+}
+
+.planet-picker {
+  position: relative;
+}
+
+.planet-picker-trigger {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 12px 14px;
+  border: 1px solid rgba(131, 161, 193, 0.22);
+  border-radius: 14px;
+  background: rgba(7, 13, 23, 0.72);
+  color: #edf5ff;
+  cursor: pointer;
+  transition: border-color 160ms ease, background 160ms ease, box-shadow 160ms ease;
+}
+
+.planet-picker-trigger:hover:not(:disabled),
+.planet-picker-open .planet-picker-trigger {
+  border-color: rgba(122, 219, 216, 0.4);
+  background: rgba(11, 20, 34, 0.92);
+  box-shadow: 0 0 0 1px rgba(122, 219, 216, 0.16);
+}
+
+.planet-picker-trigger:focus-visible {
+  outline: none;
+  border-color: rgba(122, 219, 216, 0.46);
+  box-shadow: 0 0 0 3px rgba(122, 219, 216, 0.18);
+}
+
+.planet-picker-trigger:disabled {
+  cursor: not-allowed;
+  opacity: 0.72;
+}
+
+.planet-picker-trigger-copy,
+.planet-picker-system-copy,
+.planet-picker-planet-copy {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+  text-align: left;
+}
+
+.planet-picker-trigger-copy {
+  flex: 1;
+}
+
+.planet-picker-trigger-primary,
+.planet-picker-system-name,
+.planet-picker-panel-heading strong,
+.planet-picker-planet-name {
+  color: #edf5ff;
+  font-weight: 600;
+}
+
+.planet-picker-trigger-secondary,
+.planet-picker-system-meta,
+.planet-picker-panel-heading span,
+.planet-picker-planet-meta,
+.planet-picker-placeholder,
+.planet-picker-caret,
+.planet-picker-empty {
+  color: rgba(228, 238, 248, 0.82);
+  font-size: 0.9rem;
+}
+
+.planet-picker-caret {
+  flex-shrink: 0;
+}
+
+.planet-picker-menu {
+  position: absolute;
+  z-index: 30;
+  top: calc(100% + 8px);
+  left: 0;
+  right: 0;
+  display: grid;
+  gap: 10px;
+  padding: 10px;
+  border-radius: 18px;
+  border: 1px solid rgba(131, 161, 193, 0.2);
+  background: rgba(7, 13, 23, 0.98);
+  box-shadow: 0 18px 44px rgba(0, 0, 0, 0.3);
+}
+
+.planet-picker-search {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 10px 12px;
+  border: 1px solid rgba(148, 172, 197, 0.16);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.04);
+  color: #edf5ff;
+}
+
+.planet-picker-search:focus-visible {
+  outline: none;
+  border-color: rgba(122, 219, 216, 0.42);
+  box-shadow: 0 0 0 2px rgba(122, 219, 216, 0.16);
+}
+
+.planet-picker-body {
+  display: grid;
+  grid-template-columns: minmax(210px, 0.9fr) minmax(250px, 1.1fr);
+  gap: 10px;
+}
+
+.planet-picker-system-list,
+.planet-picker-planet-panel {
+  min-height: 250px;
+  max-height: 320px;
+  overflow: auto;
+  padding: 6px;
+  border-radius: 16px;
+  border: 1px solid rgba(148, 172, 197, 0.12);
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.planet-picker-system-list,
+.planet-picker-planet-list {
+  display: grid;
+  gap: 4px;
+}
+
+.planet-picker-system-row,
+.planet-picker-planet-row {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 11px 12px;
+  border: none;
+  border-radius: 14px;
+  background: transparent;
+  color: #edf5ff;
+  cursor: pointer;
+  text-align: left;
+}
+
+.planet-picker-system-row:hover,
+.planet-picker-system-row:focus-visible,
+.planet-picker-system-row-active,
+.planet-picker-system-row-selected,
+.planet-picker-planet-row:hover,
+.planet-picker-planet-row:focus-visible,
+.planet-picker-planet-row-selected {
+  outline: none;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.planet-picker-system-row-active,
+.planet-picker-planet-row-selected {
+  box-shadow: inset 0 0 0 1px rgba(122, 219, 216, 0.16);
+}
+
+.planet-picker-system-chevron {
+  color: rgba(228, 238, 248, 0.62);
+  flex-shrink: 0;
+}
+
+.planet-picker-panel-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 4px 6px 10px;
+}
+
+.planet-picker-planet-panel {
+  display: grid;
+  align-content: start;
+}
+
+.planet-picker-empty {
+  margin: 0;
+  padding: 12px 8px;
+}
+
+@media (max-width: 720px) {
+  .planet-picker-body {
+    grid-template-columns: 1fr;
+  }
+
+  .planet-picker-system-list,
+  .planet-picker-planet-panel {
+    min-height: 0;
+    max-height: 220px;
+  }
 }
 
 .admin-stack {

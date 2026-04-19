@@ -1,9 +1,9 @@
 ﻿import { useEffect, useMemo, useRef, useState } from "react";
 import type { CSSProperties } from "react";
 import "../App.css";
+import { PlanetPicker, type PlanetPickerSystemOption } from "../components/PlanetPicker";
 import { ResourceIcon } from "../components/ResourceIcon";
 import { ResourceSelect } from "../components/ResourceSelect";
-import { SearchableSelect, type SearchableSelectOption } from "../components/SearchableSelect";
 import { useAppContext } from "../application/AppProvider";
 import { parseApiEntityPath } from "../application/apiPaths";
 import { viewTabs } from "../application/appTypes";
@@ -66,6 +66,7 @@ import type {
   ResourceDefinition,
   ResourceSummary,
   ResourceType,
+  SolarSystem,
 } from "../lib/types";
 
 type MinerDraft = {
@@ -84,6 +85,81 @@ type RecipeEntry = {
   displayName: string;
   quantity: number;
 };
+
+function romanToInteger(value: string) {
+  const normalized = value.trim().toUpperCase();
+  if (!normalized) {
+    return null;
+  }
+
+  const numerals = new Map<string, number>([
+    ["I", 1],
+    ["V", 5],
+    ["X", 10],
+    ["L", 50],
+    ["C", 100],
+    ["D", 500],
+    ["M", 1000],
+  ]);
+
+  let total = 0;
+  let previous = 0;
+  for (let index = normalized.length - 1; index >= 0; index -= 1) {
+    const current = numerals.get(normalized[index]);
+    if (!current) {
+      return null;
+    }
+
+    if (current < previous) {
+      total -= current;
+    } else {
+      total += current;
+      previous = current;
+    }
+  }
+
+  return total > 0 ? total : null;
+}
+
+function getPlanetDisplayOrder(planetName: string, systemName: string) {
+  const trimmedPlanetName = planetName.trim();
+  const trimmedSystemName = systemName.trim();
+  if (!trimmedPlanetName || !trimmedSystemName) {
+    return Number.MAX_SAFE_INTEGER;
+  }
+
+  const suffix = trimmedPlanetName.toLowerCase().startsWith(trimmedSystemName.toLowerCase())
+    ? trimmedPlanetName.slice(trimmedSystemName.length).trim()
+    : trimmedPlanetName;
+  if (!suffix) {
+    return Number.MAX_SAFE_INTEGER;
+  }
+
+  if (/^\d+$/.test(suffix)) {
+    const numericValue = Number(suffix);
+    return Number.isInteger(numericValue) && numericValue > 0 ? numericValue : Number.MAX_SAFE_INTEGER;
+  }
+
+  return romanToInteger(suffix) ?? Number.MAX_SAFE_INTEGER;
+}
+
+function buildPlanetPickerSystems(solarSystems: SolarSystem[], planets: Planet[]) {
+  return solarSystems
+    .map<PlanetPickerSystemOption>((solarSystem) => ({
+      value: solarSystem.id,
+      label: solarSystem.name,
+      planets: planets
+        .filter((planet) => planet.solar_system_id === solarSystem.id)
+        .map((planet) => ({
+          value: planet.id,
+          label: planet.name,
+          supportingText: planet.planet_type === "gas_giant" ? "Gas giant" : "Solid planet",
+          searchText: `${planet.name} ${solarSystem.name} ${planet.planet_type === "gas_giant" ? "gas giant" : "solid planet"}`,
+          sortOrder: getPlanetDisplayOrder(planet.name, solarSystem.name),
+        })),
+    }))
+    .filter((solarSystem) => solarSystem.planets.length > 0);
+}
 
 function describeExtractionRollup(row: ExtractionRollupRow) {
   if (row.type === "ore_vein") {
@@ -629,7 +705,6 @@ function Workspace() {
   );
   const {
     currentPlanet,
-    planetsInSystem,
     selectedProject,
     oreResources,
     liquidResources,
@@ -640,7 +715,6 @@ function Workspace() {
     resourceLookup,
     resourceByNameLookup,
     planetLookup,
-    latestPlanetActivity,
     extractionSiteCountByPlanetId,
     currentPlanetExtraction,
   } = lookups;
@@ -830,22 +904,24 @@ function Workspace() {
   const productionSetupPickerSummary = productionSetupPickerItemKey
     ? productionItemSummaries.find((item) => item.itemKey === productionSetupPickerItemKey) ?? null
     : null;
-  const solarSystemSelectOptions: SearchableSelectOption[] = loadedData.solarSystems.map((solarSystem) => ({
-    value: solarSystem.id,
-    label: solarSystem.name,
-  }));
-  const currentPlanetSelectOptions: SearchableSelectOption[] = planetsInSystem.map((planet) => ({
-    value: planet.id,
-    label: describePlanet(planet),
-    searchText: `${planet.name} ${planet.planet_type === "gas_giant" ? "gas giant" : "solid"}`,
-  }));
-  const productionDraftPlanetOptions = loadedData.planets
-    .filter((planet) => planet.solar_system_id === productionDraft.solarSystemId && planet.planet_type === "solid")
-    .sort((left, right) => left.name.localeCompare(right.name));
-  const productionDraftPlanetSelectOptions: SearchableSelectOption[] = productionDraftPlanetOptions.map((planet) => ({
-    value: planet.id,
-    label: planet.name,
-  }));
+  const allPlanetPickerSystems = useMemo(
+    () => buildPlanetPickerSystems(loadedData.solarSystems, loadedData.planets),
+    [loadedData.planets, loadedData.solarSystems],
+  );
+  const solidPlanetPickerSystems = useMemo(
+    () => buildPlanetPickerSystems(
+      loadedData.solarSystems,
+      loadedData.planets.filter((planet) => planet.planet_type === "solid"),
+    ),
+    [loadedData.planets, loadedData.solarSystems],
+  );
+  const gasPlanetPickerSystems = useMemo(
+    () => buildPlanetPickerSystems(
+      loadedData.solarSystems,
+      loadedData.planets.filter((planet) => planet.planet_type === "gas_giant"),
+    ),
+    [loadedData.planets, loadedData.solarSystems],
+  );
   const canSubmitProductionSite =
     !busy &&
     !!productionDraft.itemKey &&
@@ -1307,21 +1383,6 @@ function Workspace() {
     : clusterAddressDraft.trim()
       ? "Cluster address format not recognized yet."
       : "Import a DSP cluster address to generate the system and planet catalog with automatic inter-system distances.";
-  function getPreferredPlanetIdForSystem(systemId: string | null) {
-    if (!systemId) {
-      return null;
-    }
-
-    const candidates = loadedData.planets
-      .filter((planet) => planet.solar_system_id === systemId)
-      .sort((left, right) => {
-        const rightTime = latestPlanetActivity.get(right.id) ?? 0;
-        const leftTime = latestPlanetActivity.get(left.id) ?? 0;
-        return rightTime - leftTime || left.name.localeCompare(right.name);
-      });
-
-    return candidates[0]?.id ?? null;
-  }
 
   function getDeleteCommand(path: string): StoreCommand {
     const { collection, id } = parseApiEntityPath(path);
@@ -1416,59 +1477,23 @@ function Workspace() {
     });
   }
 
-  function getAssignablePlanets(systemId: string, planetType: "solid" | "gas_giant") {
-    return loadedData.planets
-      .filter((planet) => planet.solar_system_id === systemId && planet.planet_type === planetType)
-      .sort((left, right) => left.name.localeCompare(right.name));
-  }
-
   function renderLocationEditor(entryKey: string, path: string, planetType: "solid" | "gas_giant") {
     if (editingEntryKey !== entryKey) {
       return null;
     }
 
-    const assignablePlanets = getAssignablePlanets(entryLocationDraft.systemId, planetType);
-    const systemOptions: SearchableSelectOption[] = loadedData.solarSystems.map((solarSystem) => ({
-      value: solarSystem.id,
-      label: solarSystem.name,
-    }));
-    const planetOptions: SearchableSelectOption[] = assignablePlanets.map((planet) => ({
-      value: planet.id,
-      label: describePlanet(planet),
-      searchText: `${planet.name} ${planet.planet_type === "gas_giant" ? "gas giant" : "solid"}`,
-    }));
+    const pickerSystems = planetType === "gas_giant" ? gasPlanetPickerSystems : solidPlanetPickerSystems;
 
     return (
       <div className="location-editor">
-        <label className="field compact-field">
-          <span>System</span>
-          <SearchableSelect
-            options={systemOptions}
-            value={entryLocationDraft.systemId}
-            onChange={(nextSystemId) => {
-              const nextPlanetId = getAssignablePlanets(nextSystemId, planetType)[0]?.id ?? "";
-              setEntryLocationDraft({ systemId: nextSystemId, planetId: nextPlanetId });
-            }}
-            placeholder="Select system"
-            searchPlaceholder="Search systems"
-            emptyText="No systems match your search."
-          />
-        </label>
-
         <label className="field">
           <span>Planet</span>
-          <SearchableSelect
-            options={planetOptions}
+          <PlanetPicker
+            systems={pickerSystems}
             value={entryLocationDraft.planetId}
-            onChange={(value) =>
-              setEntryLocationDraft((current) => ({
-                ...current,
-                planetId: value,
-              }))
-            }
-            disabled={!entryLocationDraft.systemId}
+            onChange={({ planetId, systemId }) => setEntryLocationDraft({ systemId, planetId })}
             placeholder="Select planet"
-            searchPlaceholder="Search planets"
+            searchPlaceholder="Search planets or systems"
             emptyText="No planets match your search."
           />
         </label>
@@ -1489,24 +1514,12 @@ function Workspace() {
     await execute({ type: "settings/update", settings: payload });
   }
 
-  function getFirstSolidPlanetIdForSystem(systemId: string) {
-    return (
-      loadedData.planets
-        .filter((planet) => planet.solar_system_id === systemId && planet.planet_type === "solid")
-        .sort((left, right) => left.name.localeCompare(right.name))[0]?.id ?? ""
-    );
-  }
-
-  function handleProductionSystemChange(nextSystemId: string) {
+  function handleProductionPlanetChange({ planetId, systemId }: { planetId: string; systemId: string }) {
     setProductionDraft((current) => ({
       ...current,
-      solarSystemId: nextSystemId,
-      planetId: getFirstSolidPlanetIdForSystem(nextSystemId) || "",
+      planetId,
+      solarSystemId: systemId,
     }));
-  }
-
-  function handleProductionPlanetChange(nextPlanetId: string) {
-    setProductionDraft((current) => ({ ...current, planetId: nextPlanetId }));
   }
 
   async function savePlanetExtractionIls(planetId: string, rawValue: string) {
@@ -2094,44 +2107,26 @@ function Workspace() {
               </div>
             </div>
 
-            <div className="two-column">
-              <label className="field">
-                <span>Current solar system</span>
-                <SearchableSelect
-                  options={solarSystemSelectOptions}
-                  value={data.settings.currentSolarSystemId ?? ""}
-                  onChange={(value) => {
-                    const nextSystemId = value || null;
-                    void updateSettings({
-                      currentSolarSystemId: nextSystemId,
-                      currentPlanetId: getPreferredPlanetIdForSystem(nextSystemId),
-                    });
-                  }}
-                  disabled={busy}
-                  placeholder="Select a system"
-                  searchPlaceholder="Search systems"
-                  emptyText="No systems match your search."
-                />
-              </label>
-
-              <label className="field">
-                <span>Current planet</span>
-                <SearchableSelect
-                  options={currentPlanetSelectOptions}
-                  value={data.settings.currentPlanetId ?? ""}
-                  onChange={(value) => {
-                    void updateSettings({ currentPlanetId: value || null });
-                  }}
-                  disabled={busy || !data.settings.currentSolarSystemId}
-                  placeholder="Select a planet"
-                  searchPlaceholder="Search planets"
-                  emptyText="No planets match your search."
-                />
-              </label>
-            </div>
+            <label className="field">
+              <span>Current planet</span>
+              <PlanetPicker
+                systems={allPlanetPickerSystems}
+                value={data.settings.currentPlanetId ?? ""}
+                onChange={({ planetId, systemId }) => {
+                  void updateSettings({
+                    currentSolarSystemId: systemId,
+                    currentPlanetId: planetId,
+                  });
+                }}
+                disabled={busy || allPlanetPickerSystems.length === 0}
+                placeholder="Select a planet"
+                searchPlaceholder="Search planets or systems"
+                emptyText="No planets match your search."
+              />
+            </label>
 
             <p className="helper-text">
-              Systems and planets now come from the imported cluster seed. Use the searchable selectors above, and import or re-import your seed from Settings when the catalog changes.
+              Systems and planets now come from the imported cluster seed. Choose a planet directly here and the system will follow automatically. Re-import your seed from Settings when the catalog changes.
             </p>
           </section>
           )}
@@ -2911,25 +2906,14 @@ function Workspace() {
                         />
                       </label>
                       <label className="field">
-                        <span>System</span>
-                        <SearchableSelect
-                          options={solarSystemSelectOptions}
-                          value={productionDraft.solarSystemId}
-                          onChange={handleProductionSystemChange}
-                          placeholder="Select system"
-                          searchPlaceholder="Search systems"
-                          emptyText="No systems match your search."
-                        />
-                      </label>
-                      <label className="field">
                         <span>Planet</span>
-                        <SearchableSelect
-                          options={productionDraftPlanetSelectOptions}
+                        <PlanetPicker
+                          systems={solidPlanetPickerSystems}
                           value={productionDraft.planetId}
                           onChange={handleProductionPlanetChange}
-                          disabled={!productionDraft.solarSystemId}
+                          disabled={solidPlanetPickerSystems.length === 0}
                           placeholder="Select planet"
-                          searchPlaceholder="Search planets"
+                          searchPlaceholder="Search planets or systems"
                           emptyText="No planets match your search."
                         />
                       </label>
