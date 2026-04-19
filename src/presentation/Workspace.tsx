@@ -937,7 +937,6 @@ function Workspace() {
             productionDraftPreview.throughputPerMinute,
           ) ?? productionDraftPreview.machineCount,
           productionDraftPreview.lineCount,
-          getExactLineDemand(productionDraftPreview.outputBelts, productionDraftPreview.dependencies),
         )
       : null;
   const productionDraftExactLineDemand = productionDraftPreview
