@@ -377,6 +377,7 @@ type OverviewTransportModalProps = {
   solarSystems: SolarSystem[];
   overviewTransportTargetSystemId: string;
   setOverviewTransportTargetSystemId: (systemId: string) => void;
+  recentSolarSystemId: string | null;
   overviewTransportThroughputPerMinute: number;
   setOverviewTransportThroughputPerMinute: (throughput: number) => void;
   closeOverviewTransportModal: () => void;
@@ -391,6 +392,7 @@ export function OverviewTransportModal({
   solarSystems,
   overviewTransportTargetSystemId,
   setOverviewTransportTargetSystemId,
+  recentSolarSystemId,
   overviewTransportThroughputPerMinute,
   setOverviewTransportThroughputPerMinute,
   closeOverviewTransportModal,
@@ -443,6 +445,7 @@ export function OverviewTransportModal({
               options={targetSystemOptions}
               value={overviewTransportTargetSystemId}
               onChange={setOverviewTransportTargetSystemId}
+              recentValue={recentSolarSystemId}
               placeholder="Select system"
               searchPlaceholder="Search systems"
               emptyText="No systems match your search."

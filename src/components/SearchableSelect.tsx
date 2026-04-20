@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { sortByRecentId } from "../lib/recentSort";
 
 export type SearchableSelectOption = {
   value: string;
@@ -14,6 +15,7 @@ type SearchableSelectProps = {
   placeholder?: string;
   searchPlaceholder?: string;
   emptyText?: string;
+  recentValue?: string | null;
 };
 
 function normalizeSearchText(value: string) {
@@ -28,6 +30,7 @@ export function SearchableSelect({
   placeholder = "Select option",
   searchPlaceholder = "Search options",
   emptyText = "No matches found.",
+  recentValue = null,
 }: SearchableSelectProps) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
@@ -66,15 +69,20 @@ export function SearchableSelect({
 
   const filteredOptions = useMemo(() => {
     const normalizedQuery = normalizeSearchText(query);
-    if (!normalizedQuery) {
-      return options;
-    }
+    const matchingOptions = !normalizedQuery
+      ? options
+      : options.filter((option) => {
+          const haystack = normalizeSearchText(`${option.label} ${option.searchText ?? ""}`);
+          return haystack.includes(normalizedQuery);
+        });
 
-    return options.filter((option) => {
-      const haystack = normalizeSearchText(`${option.label} ${option.searchText ?? ""}`);
-      return haystack.includes(normalizedQuery);
-    });
-  }, [options, query]);
+    return sortByRecentId(
+      matchingOptions,
+      recentValue,
+      (option) => option.value,
+      (left, right) => left.label.localeCompare(right.label),
+    );
+  }, [options, query, recentValue]);
 
   return (
     <div ref={rootRef} className={`searchable-select ${open ? "searchable-select-open" : ""}`}>

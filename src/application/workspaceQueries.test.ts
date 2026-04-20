@@ -102,9 +102,27 @@ function createBootstrap(): BootstrapData {
         extraction_outbound_ils_overrides: [],
       },
     ],
-    projects: [],
+    projects: [{ id: "project-1", name: "Factory", notes: "", is_active: 1, sort_order: 1 }],
     projectGoals: [],
-    projectImportedItems: [],
+    projectImportedItems: [
+      {
+        id: "iron-ingot-template",
+        project_id: "project-1",
+        item_key: "iron-ingot",
+        display_name: "Iron Ingot",
+        imported_throughput_per_minute: 60,
+        category: "crafted",
+        machine_count: 1,
+        machine_label: "arc-smelter",
+        belt_label: "Conveyor Belt Mk.I",
+        belt_speed_per_minute: 360,
+        output_belts: 1,
+        recipe: "iron-ingot",
+        outputs: "Iron Ingot 1",
+        dependencies: [],
+        sort_order: 1,
+      },
+    ],
     oreVeins: [
       { id: "vein-alpha", planet_id: "alpha-1", resource_id: "iron", label: "Alpha iron", created_at: "2026-01-01T00:00:00.000Z" },
       { id: "vein-beta", planet_id: "beta-1", resource_id: "iron", label: "Beta iron", created_at: "2026-01-02T00:00:00.000Z" },
@@ -123,11 +141,26 @@ function createBootstrap(): BootstrapData {
     ],
     gasGiantSites: [],
     gasGiantOutputs: [],
-    productionSites: [],
+    productionSites: [
+      {
+        id: "site-alpha",
+        project_id: "project-1",
+        item_key: "iron-ingot",
+        throughput_per_minute: 60,
+        solar_system_id: "alpha",
+        planet_id: "alpha-1",
+        outbound_ils_count: 0,
+        same_system_warp_item_keys: [],
+        is_finished: 1,
+        created_at: "2026-01-06T00:00:00.000Z",
+      },
+    ],
     transportRoutes: [],
     settings: {
       currentSolarSystemId: "alpha",
       currentPlanetId: "alpha-1",
+      recentSolarSystemId: "beta",
+      recentPlanetId: "alpha-1",
       miningSpeedPercent: 100,
       vesselCapacityItems: 1000,
       vesselSpeedLyPerSecond: 1,
@@ -189,14 +222,15 @@ describe("workspaceQueries", () => {
 
     const view = buildMapView(data, lookups, { scope: "system", id: "alpha" });
 
+    expect(view.mapSystemCards[0]?.solarSystem.id).toBe("beta");
     expect(view.mapSystemCards.find((card) => card.solarSystem.id === "alpha")).toMatchObject({
       extractionSiteCount: 3,
       activePlanetCount: 1,
     });
     expect(view.selectedMapExtractionSiteCount).toBe(3);
     expect(view.selectedMapExtraction.resourceRows).toHaveLength(3);
-    expect(view.selectedMapPowerDemandMw).toBeCloseTo(
-      REGULAR_MINER_POWER_MW + (2 * PUMP_POWER_MW) + OIL_EXTRACTOR_POWER_MW,
+    expect(view.selectedMapTotalPowerDemandMw).toBeCloseTo(
+      REGULAR_MINER_POWER_MW + (2 * PUMP_POWER_MW) + OIL_EXTRACTOR_POWER_MW + 0.36,
       6,
     );
   });

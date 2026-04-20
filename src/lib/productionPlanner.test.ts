@@ -43,6 +43,8 @@ function createBaseData(): BootstrapData {
     settings: {
       currentSolarSystemId: "system-1",
       currentPlanetId: "planet-1",
+      recentSolarSystemId: "system-1",
+      recentPlanetId: "planet-1",
       miningSpeedPercent: 100,
       vesselCapacityItems: 1000,
       vesselSpeedLyPerSecond: 0.25,

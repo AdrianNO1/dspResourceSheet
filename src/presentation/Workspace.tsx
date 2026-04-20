@@ -35,6 +35,7 @@ import type { StoreCommand } from "../application/storeCommands";
 import { getExactLineDemand, getRoundedMachinePlan, roundUpValue } from "../domain/productionMath";
 import { parseClusterAddress } from "../lib/dspCluster";
 import {
+  getImportedItemExpectedPowerWatts,
   getImportedItemExpectedMachineCount,
 } from "../lib/factoriolabCatalog";
 import { buildProductionDraftPreview } from "../lib/productionPlanner";
@@ -159,6 +160,16 @@ function buildPlanetPickerSystems(solarSystems: SolarSystem[], planets: Planet[]
         })),
     }))
     .filter((solarSystem) => solarSystem.planets.length > 0);
+}
+
+function getRecentSelectionSettings(
+  settings: Pick<BootstrapData["settings"], "recentSolarSystemId" | "recentPlanetId">,
+  selection: { systemId?: string | null; planetId?: string | null },
+) {
+  return {
+    recentSolarSystemId: selection.systemId ?? settings.recentSolarSystemId ?? null,
+    recentPlanetId: selection.planetId ?? settings.recentPlanetId ?? null,
+  };
 }
 
 function describeExtractionRollup(row: ExtractionRollupRow) {
@@ -659,8 +670,21 @@ function Workspace() {
       return;
     }
 
+    if (data.settings.recentPlanetId && data.planets.some((planet) => planet.id === data.settings.recentPlanetId)) {
+      setSelectedMapSelection({ scope: "planet", id: data.settings.recentPlanetId });
+      return;
+    }
+
     if (data.settings.currentPlanetId && data.planets.some((planet) => planet.id === data.settings.currentPlanetId)) {
       setSelectedMapSelection({ scope: "planet", id: data.settings.currentPlanetId });
+      return;
+    }
+
+    if (
+      data.settings.recentSolarSystemId &&
+      data.solarSystems.some((solarSystem) => solarSystem.id === data.settings.recentSolarSystemId)
+    ) {
+      setSelectedMapSelection({ scope: "system", id: data.settings.recentSolarSystemId });
       return;
     }
 
@@ -675,7 +699,7 @@ function Workspace() {
     if (data.solarSystems[0]) {
       setSelectedMapSelection({ scope: "system", id: data.solarSystems[0].id });
     }
-  }, [data, selectedMapSelection.id, selectedMapSelection.scope]);
+  }, [data, selectedMapSelection.id, selectedMapSelection.scope, setSelectedMapSelection]);
 
   async function handleUndoToast() {
     if (!undoToast) {
@@ -811,7 +835,7 @@ function Workspace() {
     selectedMapPlanetIds,
     selectedMapExtraction,
     selectedMapExtractionSiteCount,
-    selectedMapPowerDemandMw,
+    selectedMapTotalPowerDemandMw,
   } = mapView;
   const projectsView = useMemo(
     () => buildProjectsView(loadedData, lookups, selectedProjectId),
@@ -976,7 +1000,6 @@ function Workspace() {
         : selectedProductionProliferatorUsage?.mode === "unknown"
           ? `P${selectedProductionProliferatorUsage.level} mode uncertain`
           : "No proliferator";
-  const selectedProductionMachinePowerWatts = selectedProductionReference?.machinePowerWatts ?? null;
   const selectedProductionMachinePlan =
     selectedProductionSummary && selectedProductionTemplate
       ? getRoundedMachinePlan(
@@ -1012,9 +1035,7 @@ function Workspace() {
     : null;
   const selectedProductionEstimatedPowerWatts =
     productionDraftMachinePlan && selectedProductionTemplate
-      ? (selectedProductionMachinePowerWatts ?? 0) *
-        productionDraftMachinePlan.totalMachineCount *
-        selectedProductionEnergyMultiplier
+      ? getImportedItemExpectedPowerWatts(selectedProductionTemplate, productionDraftPreview?.throughputPerMinute)
       : 0;
   const allExpandableProductionKeys = Array.from(productionTree.nodesByKey.values())
     .filter((node) => node.inputs.length > 0 || node.usages.length > 0)
@@ -1491,7 +1512,12 @@ function Workspace() {
           <PlanetPicker
             systems={pickerSystems}
             value={entryLocationDraft.planetId}
-            onChange={({ planetId, systemId }) => setEntryLocationDraft({ systemId, planetId })}
+            onChange={({ planetId, systemId }) => {
+              setEntryLocationDraft({ systemId, planetId });
+              void updateSettings(getRecentSelectionSettings(loadedData.settings, { systemId, planetId }));
+            }}
+            recentSystemId={data.settings.recentSolarSystemId}
+            recentPlanetId={data.settings.recentPlanetId}
             placeholder="Select planet"
             searchPlaceholder="Search planets or systems"
             emptyText="No planets match your search."
@@ -1520,6 +1546,7 @@ function Workspace() {
       planetId,
       solarSystemId: systemId,
     }));
+    void updateSettings(getRecentSelectionSettings(loadedData.settings, { systemId, planetId }));
   }
 
   async function savePlanetExtractionIls(planetId: string, rawValue: string) {
@@ -2116,9 +2143,13 @@ function Workspace() {
                   void updateSettings({
                     currentSolarSystemId: systemId,
                     currentPlanetId: planetId,
+                    recentSolarSystemId: systemId,
+                    recentPlanetId: planetId,
                   });
                 }}
                 disabled={busy || allPlanetPickerSystems.length === 0}
+                recentSystemId={data.settings.recentSolarSystemId}
+                recentPlanetId={data.settings.recentPlanetId}
                 placeholder="Select a planet"
                 searchPlaceholder="Search planets or systems"
                 emptyText="No planets match your search."
@@ -2550,7 +2581,11 @@ function Workspace() {
             overviewView={overviewView}
             solarSystems={loadedData.solarSystems}
             overviewTransportTargetSystemId={overviewTransportTargetSystemId}
-            setOverviewTransportTargetSystemId={setOverviewTransportTargetSystemId}
+            setOverviewTransportTargetSystemId={(systemId) => {
+              setOverviewTransportTargetSystemId(systemId);
+              void updateSettings(getRecentSelectionSettings(loadedData.settings, { systemId }));
+            }}
+            recentSolarSystemId={loadedData.settings.recentSolarSystemId}
             overviewTransportThroughputPerMinute={overviewTransportThroughputPerMinute}
             setOverviewTransportThroughputPerMinute={setOverviewTransportThroughputPerMinute}
             closeOverviewTransportModal={closeOverviewTransportModal}
@@ -2912,6 +2947,8 @@ function Workspace() {
                           value={productionDraft.planetId}
                           onChange={handleProductionPlanetChange}
                           disabled={solidPlanetPickerSystems.length === 0}
+                          recentSystemId={data.settings.recentSolarSystemId}
+                          recentPlanetId={data.settings.recentPlanetId}
                           placeholder="Select planet"
                           searchPlaceholder="Search planets or systems"
                           emptyText="No planets match your search."
@@ -3221,7 +3258,10 @@ function Workspace() {
                       <button
                         type="button"
                         className="map-system-button"
-                        onClick={() => setSelectedMapSelection({ scope: "system", id: solarSystem.id })}
+                        onClick={() => {
+                          setSelectedMapSelection({ scope: "system", id: solarSystem.id });
+                          void updateSettings(getRecentSelectionSettings(loadedData.settings, { systemId: solarSystem.id }));
+                        }}
                       >
                         <div>
                           <p className="ledger-system-name">Solar system</p>
@@ -3249,7 +3289,15 @@ function Workspace() {
                                 key={planet.id}
                                 type="button"
                                 className={`map-planet-button ${isPlanetSelected ? "map-planet-button-active" : ""}`}
-                                onClick={() => setSelectedMapSelection({ scope: "planet", id: planet.id })}
+                                onClick={() => {
+                                  setSelectedMapSelection({ scope: "planet", id: planet.id });
+                                  void updateSettings(
+                                    getRecentSelectionSettings(loadedData.settings, {
+                                      systemId: planet.solar_system_id,
+                                      planetId: planet.id,
+                                    }),
+                                  );
+                                }}
                               >
                                 <div className="map-planet-copy">
                                   <strong>{planet.name}</strong>
@@ -3460,8 +3508,8 @@ function Workspace() {
                       <strong>{selectedMapExtraction.resourceRows.length}</strong>
                     </article>
                     <article className="map-stat-card">
-                      <span>Extraction power demand</span>
-                      <strong>{formatValue(selectedMapPowerDemandMw, 2)} MW</strong>
+                      <span>Total power demand</span>
+                      <strong>{formatValue(selectedMapTotalPowerDemandMw, 2)} MW</strong>
                     </article>
                   </div>
 

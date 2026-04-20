@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen, within } from "@testing-library/react";
 import { PlanetPicker, type PlanetPickerSystemOption } from "./PlanetPicker";
-import { sortPlanetPickerPlanets } from "./planetPickerUtils";
+import { sortPlanetPickerPlanets, sortPlanetPickerSystems } from "./planetPickerUtils";
 
 const systems: PlanetPickerSystemOption[] = [
   {
@@ -29,6 +29,18 @@ describe("PlanetPicker", () => {
       "Haris I",
       "Haris II",
       "Haris III",
+    ]);
+  });
+
+  it("floats the most recently used system and planet to the top", () => {
+    expect(sortPlanetPickerSystems(systems, "haris").map((system) => system.label)).toEqual([
+      "Haris",
+      "Chertan",
+    ]);
+    expect(sortPlanetPickerPlanets(systems[0].planets, "haris-3").map((planet) => planet.label)).toEqual([
+      "Haris III",
+      "Haris I",
+      "Haris II",
     ]);
   });
 
@@ -60,7 +72,7 @@ describe("PlanetPicker", () => {
     );
 
     fireEvent.click(screen.getByRole("button", { name: /select planet/i }));
-    fireEvent.mouseEnter(screen.getByRole("button", { name: /chertan/i }));
+    fireEvent.mouseEnter(screen.getAllByRole("button", { name: /chertan/i })[0]!);
 
     const panel = screen.getByLabelText("Chertan planets");
     expect(within(panel).getAllByRole("button")).toHaveLength(2);

@@ -92,6 +92,8 @@ const seededResources: ResourceSeed[] = [
 const settingsDefaults = new Map<string, string>([
   ["currentSolarSystemId", ""],
   ["currentPlanetId", ""],
+  ["recentSolarSystemId", ""],
+  ["recentPlanetId", ""],
   ["miningSpeedPercent", "100"],
   ["vesselCapacityItems", "1000"],
   ["vesselSpeedLyPerSecond", "0.25"],
@@ -648,6 +650,9 @@ function deletePlanet(snapshot: Snapshot, planetId: string) {
   if (snapshot.settings.currentPlanetId === planetId) {
     snapshot.settings.currentPlanetId = "";
   }
+  if (snapshot.settings.recentPlanetId === planetId) {
+    snapshot.settings.recentPlanetId = "";
+  }
 }
 
 function deleteSolarSystem(snapshot: Snapshot, solarSystemId: string) {
@@ -666,6 +671,15 @@ function deleteSolarSystem(snapshot: Snapshot, solarSystemId: string) {
   if (snapshot.settings.currentSolarSystemId === solarSystemId) {
     snapshot.settings.currentSolarSystemId = "";
     snapshot.settings.currentPlanetId = "";
+  }
+  if (snapshot.settings.recentSolarSystemId === solarSystemId) {
+    snapshot.settings.recentSolarSystemId = "";
+  }
+  if (snapshot.settings.recentPlanetId) {
+    const recentPlanet = getPlanetById(snapshot, snapshot.settings.recentPlanetId);
+    if (!recentPlanet || recentPlanet.solar_system_id === solarSystemId) {
+      snapshot.settings.recentPlanetId = "";
+    }
   }
 }
 
@@ -958,6 +972,12 @@ function importClusterAddress(snapshot: Snapshot, clusterAddressValue: string) {
   if (!snapshot.settings.currentPlanetId || !getPlanetById(snapshot, snapshot.settings.currentPlanetId)) {
     snapshot.settings.currentPlanetId = birthPlanetId;
   }
+  if (!snapshot.settings.recentSolarSystemId || !getSolarSystemById(snapshot, snapshot.settings.recentSolarSystemId)) {
+    snapshot.settings.recentSolarSystemId = snapshot.settings.currentSolarSystemId;
+  }
+  if (!snapshot.settings.recentPlanetId || !getPlanetById(snapshot, snapshot.settings.recentPlanetId)) {
+    snapshot.settings.recentPlanetId = snapshot.settings.currentPlanetId;
+  }
 }
 
 function resourceGoalUnit(type: ResourceType) {
@@ -1122,6 +1142,8 @@ export function buildBootstrap(snapshot: Snapshot): BootstrapData {
     settings: {
       currentSolarSystemId: snapshot.settings.currentSolarSystemId || null,
       currentPlanetId: snapshot.settings.currentPlanetId || null,
+      recentSolarSystemId: snapshot.settings.recentSolarSystemId || null,
+      recentPlanetId: snapshot.settings.recentPlanetId || null,
       miningSpeedPercent,
       vesselCapacityItems: Number(snapshot.settings.vesselCapacityItems ?? "1000"),
       vesselSpeedLyPerSecond: Number(snapshot.settings.vesselSpeedLyPerSecond ?? "0.25"),
@@ -1250,6 +1272,7 @@ export async function mutateStore(url: string, method: string, body?: unknown) {
       generated_from_cluster: 0,
     });
     snapshot.settings.currentSolarSystemId = id;
+    snapshot.settings.recentSolarSystemId = id;
   } else if (url === "/api/planets" && method === "POST") {
     const solarSystemId = String(payload.solarSystemId ?? "");
     const name = String(payload.name ?? "").trim();
@@ -1277,6 +1300,8 @@ export async function mutateStore(url: string, method: string, body?: unknown) {
     });
     snapshot.settings.currentSolarSystemId = solarSystemId;
     snapshot.settings.currentPlanetId = id;
+    snapshot.settings.recentSolarSystemId = solarSystemId;
+    snapshot.settings.recentPlanetId = id;
   } else if (matchId(url, /^\/api\/systems\/([^/]+)$/) && method === "PATCH") {
     const solarSystemId = matchId(url, /^\/api\/systems\/([^/]+)$/)!;
     const solarSystem = snapshot.solarSystems.find((item) => item.id === solarSystemId);

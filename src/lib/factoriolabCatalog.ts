@@ -305,6 +305,27 @@ export function getImportedItemExpectedMachineCount(
   return baselineMachineCount * (effectiveThroughputPerMinute / baselineThroughputPerMinute);
 }
 
+export function getImportedItemExpectedPowerWatts(
+  importedItem: ProjectImportedItem | null,
+  throughputPerMinute?: number | null,
+) {
+  if (!importedItem) {
+    return 0;
+  }
+
+  const machinePowerWatts = Number(getFactorioLabReference(importedItem)?.machinePowerWatts ?? 0);
+  if (!(machinePowerWatts > 0)) {
+    return 0;
+  }
+
+  const expectedMachineCount = getImportedItemExpectedMachineCount(importedItem, throughputPerMinute);
+  if (!(expectedMachineCount && expectedMachineCount > 0)) {
+    return 0;
+  }
+
+  return machinePowerWatts * expectedMachineCount * (inferImportedItemProliferatorUsage(importedItem)?.energyMultiplier ?? 1);
+}
+
 export function getImportedItemDependencyDemandPerMinute(
   importedItem: ProjectImportedItem | null,
   dependencyItemKey: string,

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { sortPlanetPickerPlanets } from "./planetPickerUtils";
+import { sortPlanetPickerPlanets, sortPlanetPickerSystems } from "./planetPickerUtils";
 
 export type PlanetPickerPlanetOption = {
   value: string;
@@ -24,6 +24,8 @@ type PlanetPickerProps = {
   placeholder?: string;
   searchPlaceholder?: string;
   emptyText?: string;
+  recentSystemId?: string | null;
+  recentPlanetId?: string | null;
 };
 
 function normalizeSearchText(value: string) {
@@ -49,6 +51,8 @@ export function PlanetPicker({
   placeholder = "Select planet",
   searchPlaceholder = "Search planets or systems",
   emptyText = "No planets match your search.",
+  recentSystemId = null,
+  recentPlanetId = null,
 }: PlanetPickerProps) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
@@ -57,11 +61,14 @@ export function PlanetPicker({
   const searchInputRef = useRef<HTMLInputElement | null>(null);
   const sortedSystems = useMemo(
     () =>
-      systems.map((system) => ({
-        ...system,
-        planets: sortPlanetPickerPlanets(system.planets),
-      })),
-    [systems],
+      sortPlanetPickerSystems(
+        systems.map((system) => ({
+          ...system,
+          planets: sortPlanetPickerPlanets(system.planets, recentPlanetId),
+        })),
+        recentSystemId,
+      ),
+    [recentPlanetId, recentSystemId, systems],
   );
   const selected = useMemo(() => findSelectedPlanet(sortedSystems, value), [sortedSystems, value]);
 

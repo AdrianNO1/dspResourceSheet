@@ -1,9 +1,11 @@
 import { getPlanetExtractionOutboundIlsCount } from "../domain/planetLogistics";
 import {
   getFactorioLabReference,
+  getImportedItemExpectedPowerWatts,
   inferImportedItemProliferatorUsage,
 } from "../lib/factoriolabCatalog";
 import { getSystemDistanceLy as getGeneratedSystemDistanceLy } from "../lib/dspCluster";
+import { sortByRecentId } from "../lib/recentSort";
 import {
   buildProductionPlanner,
   type ProductionItemSummary,
@@ -208,7 +210,7 @@ export type MapViewModel = {
   selectedMapPlanetIds: string[];
   selectedMapExtraction: ExtractionView;
   selectedMapExtractionSiteCount: number;
-  selectedMapPowerDemandMw: number;
+  selectedMapTotalPowerDemandMw: number;
 };
 
 export type ProductionTree = {
@@ -676,23 +678,28 @@ export function buildMapView(
   lookups: WorkspaceLookups,
   selectedMapSelection: MapSelection,
 ): MapViewModel {
-  const mapSystemCards = data.solarSystems.map((solarSystem) => {
-    const planets = data.planets
-      .filter((planet) => planet.solar_system_id === solarSystem.id)
-      .sort((left, right) => left.name.localeCompare(right.name));
-    const extractionSiteCount = planets.reduce(
-      (sum, planet) => sum + (lookups.extractionSiteCountByPlanetId.get(planet.id) ?? 0),
-      0,
-    );
-    const activePlanetCount = planets.filter((planet) => (lookups.extractionSiteCountByPlanetId.get(planet.id) ?? 0) > 0).length;
+  const mapSystemCards = sortByRecentId(
+    data.solarSystems.map((solarSystem) => {
+      const planets = data.planets
+        .filter((planet) => planet.solar_system_id === solarSystem.id)
+        .sort((left, right) => left.name.localeCompare(right.name));
+      const extractionSiteCount = planets.reduce(
+        (sum, planet) => sum + (lookups.extractionSiteCountByPlanetId.get(planet.id) ?? 0),
+        0,
+      );
+      const activePlanetCount = planets.filter((planet) => (lookups.extractionSiteCountByPlanetId.get(planet.id) ?? 0) > 0).length;
 
-    return {
-      solarSystem,
-      planets,
-      extractionSiteCount,
-      activePlanetCount,
-    };
-  });
+      return {
+        solarSystem,
+        planets,
+        extractionSiteCount,
+        activePlanetCount,
+      };
+    }),
+    data.settings.recentSolarSystemId,
+    (card) => card.solarSystem.id,
+    (left, right) => left.solarSystem.name.localeCompare(right.solarSystem.name),
+  );
 
   const selectedMapSystem =
     selectedMapSelection.scope === "system"
@@ -726,7 +733,7 @@ export function buildMapView(
     (sum, planetId) => sum + (lookups.extractionSiteCountByPlanetId.get(planetId) ?? 0),
     0,
   );
-  const selectedMapPowerDemandMw =
+  const selectedMapExtractionPowerDemandMw =
     data.oreVeins
       .filter((vein) => selectedMapPlanetIdSet.has(vein.planet_id))
       .reduce((sum, vein) => {
@@ -748,6 +755,14 @@ export function buildMapView(
     data.oilExtractors
       .filter((site) => selectedMapPlanetIdSet.has(site.planet_id))
       .length * OIL_EXTRACTOR_POWER_MW;
+  const selectedMapProductionPowerDemandMw =
+    data.productionSites
+      .filter((site) => selectedMapPlanetIdSet.has(site.planet_id))
+      .reduce((sum, site) => {
+        const importedItem =
+          data.projectImportedItems.find((item) => item.project_id === site.project_id && item.item_key === site.item_key) ?? null;
+        return sum + (getImportedItemExpectedPowerWatts(importedItem, Number(site.throughput_per_minute)) / 1_000_000);
+      }, 0);
 
   return {
     mapSystemCards,
@@ -757,7 +772,7 @@ export function buildMapView(
     selectedMapPlanetIds,
     selectedMapExtraction,
     selectedMapExtractionSiteCount,
-    selectedMapPowerDemandMw,
+    selectedMapTotalPowerDemandMw: selectedMapExtractionPowerDemandMw + selectedMapProductionPowerDemandMw,
   };
 }
 
