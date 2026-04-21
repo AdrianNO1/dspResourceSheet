@@ -11,24 +11,24 @@ describe("productionMath", () => {
     expect(getExactLineDemand(3, [{ requiredBelts: 1.2 }, { requiredBelts: 4.1 }])).toBe(4.1);
   });
 
-  it("builds rounded machine plans by line count", () => {
+  it("rounds machines per line while keeping the actual total machine count", () => {
     expect(getRoundedMachinePlan(10.2, 3)).toEqual({
       machinesPerLine: 4,
-      totalMachineCount: 12,
+      totalMachineCount: 10.2,
     });
   });
 
   it("can round machine plans against output belts", () => {
     expect(getRoundedMachinePlan(7.1, 3, 2.1)).toEqual({
       machinesPerLine: 4,
-      totalMachineCount: 12,
+      totalMachineCount: 7.1,
     });
   });
 
-  it("uses rounded-up line counts when computing total machines", () => {
+  it("does not inflate total machines for fractional line counts", () => {
     expect(getRoundedMachinePlan(10.2, 3.2)).toEqual({
       machinesPerLine: 4,
-      totalMachineCount: 16,
+      totalMachineCount: 10.2,
     });
   });
 });

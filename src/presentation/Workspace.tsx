@@ -1,4 +1,4 @@
-﻿import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { CSSProperties } from "react";
 import "../App.css";
 import { PlanetPicker, type PlanetPickerSystemOption } from "../components/PlanetPicker";
