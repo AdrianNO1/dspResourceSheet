@@ -257,6 +257,11 @@ function formatRoundedUpInteger(value: number) {
   }).format(Math.max(0, Math.ceil(value - 1e-9)));
 }
 
+function formatArtificialStarsNeeded(powerDemandMw: number) {
+  const artificialStarCount = Math.ceil(Math.max(0, powerDemandMw) / 144);
+  return `${formatRoundedUpInteger(artificialStarCount)} artificial ${artificialStarCount === 1 ? "star" : "stars"}`;
+}
+
 function parseRecipeEntries(value: string) {
   return value
     .split(",")
@@ -3509,7 +3514,9 @@ function Workspace() {
                     </article>
                     <article className="map-stat-card">
                       <span>Total power demand</span>
-                      <strong>{formatValue(selectedMapTotalPowerDemandMw, 2)} MW</strong>
+                      <strong>
+                        {formatFixedValue(selectedMapTotalPowerDemandMw / 1_000, 2)} GW · {formatArtificialStarsNeeded(selectedMapTotalPowerDemandMw)}
+                      </strong>
                     </article>
                   </div>
 
@@ -3739,5 +3746,4 @@ function Workspace() {
 
 export { Workspace, WorkspaceShell };
 export default WorkspaceShell;
-
 
