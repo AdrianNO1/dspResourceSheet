@@ -971,6 +971,23 @@ function Workspace() {
   const selectedProductionFallbackRecipeOutputs = selectedProductionTemplate ? parseRecipeEntries(selectedProductionTemplate.outputs || "") : [];
   const selectedProductionRecipeOutputs = selectedProductionReference?.outputs ?? selectedProductionFallbackRecipeOutputs;
   const selectedProductionPrimaryOutputQuantity = selectedProductionReference?.primaryOutputQuantity ?? selectedProductionRecipeOutputs[0]?.quantity ?? 1;
+  const selectedProductionPrimaryOutputIndex = selectedProductionTemplate
+    ? selectedProductionRecipeOutputs.findIndex((entry) => entry.itemKey === selectedProductionTemplate.item_key)
+    : -1;
+  const selectedProductionAdditionalOutputs =
+    productionDraftPreview && selectedProductionPrimaryOutputQuantity > 0
+      ? selectedProductionRecipeOutputs
+          .filter((_, index) => index !== (selectedProductionPrimaryOutputIndex >= 0 ? selectedProductionPrimaryOutputIndex : 0))
+          .map((entry) => {
+            const outputRatio = entry.quantity / selectedProductionPrimaryOutputQuantity;
+            return {
+              ...entry,
+              throughputPerMinute: productionDraftPreview.throughputPerMinute * outputRatio,
+              beltsPerLine: productionDraftPreview.outputBeltsPerLine * outputRatio,
+            };
+          })
+          .filter((entry) => entry.throughputPerMinute > 0)
+      : [];
   const selectedProductionRecipeInputs = selectedProductionTemplate
     ? selectedProductionReference?.inputs ?? selectedProductionTemplate.dependencies.map<RecipeEntry>((dependency) => ({
         itemKey: dependency.item_key,
@@ -3008,6 +3025,28 @@ function Workspace() {
                               <span>{formatValue(productionDraftPreview.throughputPerMinute)} / min</span>
                               <span>Output</span>
                             </div>
+                            {selectedProductionAdditionalOutputs.map((output) => (
+                              <div
+                                key={`line-output:${output.itemKey}`}
+                                className="production-line-plan-row production-line-plan-row-output production-line-plan-row-output-secondary"
+                              >
+                                <div className="production-line-plan-copy">
+                                  <ResourceIcon
+                                    name={output.displayName}
+                                    iconUrl={getIconUrlForName(output.displayName)}
+                                    colorStart={productionIconStart}
+                                    colorEnd={productionIconEnd}
+                                    size="sm"
+                                  />
+                                  <div className="production-line-plan-copy-text">
+                                    <strong>{output.displayName}</strong>
+                                    <span>{formatFixedValue(output.beltsPerLine, 2)} belts/line</span>
+                                  </div>
+                                </div>
+                                <span>{formatValue(output.throughputPerMinute)} / min</span>
+                                <span>Byproduct</span>
+                              </div>
+                            ))}
                             {productionDraftPreview.dependencies.map((dependency) => (
                               <details key={`line:${dependency.dependency.item_key}`} className="production-line-plan-detail">
                                 <summary className="production-line-plan-row production-line-plan-row-detail">
@@ -3746,4 +3785,3 @@ function Workspace() {
 
 export { Workspace, WorkspaceShell };
 export default WorkspaceShell;
-

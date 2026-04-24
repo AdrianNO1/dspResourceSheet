@@ -1037,6 +1037,10 @@
   color: #edf5ff;
 }
 
+.production-line-plan-row-output-secondary {
+  color: rgba(237, 245, 255, 0.88);
+}
+
 .production-line-plan-copy {
   display: flex;
   align-items: center;
