@@ -22,6 +22,7 @@ export type SaveProductionSitePayload = {
   itemKey: string;
   throughputPerMinute: number;
   outboundIlsCount: number;
+  lineDivisibleBy: number | null;
   isFinished: boolean;
   solarSystemId: string;
   planetId: string;

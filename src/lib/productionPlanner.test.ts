@@ -102,6 +102,7 @@ describe("buildProductionPlanner", () => {
         solar_system_id: "system-1",
         planet_id: "planet-1",
         outbound_ils_count: 0,
+        line_divisible_by: null,
         same_system_warp_item_keys: [],
         is_finished: 0,
         created_at: "2026-04-18T08:00:00.000Z",
@@ -114,6 +115,7 @@ describe("buildProductionPlanner", () => {
         solar_system_id: "system-1",
         planet_id: "planet-1",
         outbound_ils_count: 0,
+        line_divisible_by: null,
         same_system_warp_item_keys: [],
         is_finished: 1,
         created_at: "2026-04-18T08:01:00.000Z",
@@ -124,5 +126,48 @@ describe("buildProductionPlanner", () => {
     const siteB = planner.siteViews.find((siteView) => siteView.site.id === "site-b");
     expect(siteB?.dependencies[0]?.coveragePerMinute).toBe(0);
     expect(siteB?.dependencies[0]?.shortagePerMinute).toBe(60);
+  });
+
+  it("applies per-site line divisibility without changing item summary totals", () => {
+    const itemA = createImportedItem({
+      item_key: "item-a",
+      display_name: "Item A",
+      imported_throughput_per_minute: 60,
+      machine_count: 82.2,
+      output_belts: 27.4,
+      dependencies: [{
+        item_key: "input-a",
+        display_name: "Input A",
+        dependency_type: "crafted",
+        per_unit_ratio: 27.4,
+        imported_demand_per_minute: 1644,
+      }],
+    });
+
+    const data = createBaseData();
+    data.projectImportedItems = [itemA];
+    data.productionSites = [{
+      id: "site-a",
+      project_id: "project-1",
+      item_key: "item-a",
+      throughput_per_minute: 60,
+      solar_system_id: "system-1",
+      planet_id: "planet-1",
+      outbound_ils_count: 0,
+      line_divisible_by: 5,
+      same_system_warp_item_keys: [],
+      is_finished: 1,
+      created_at: "2026-04-18T08:00:00.000Z",
+    }];
+
+    const planner = buildProductionPlanner(data, "project-1");
+    const siteA = planner.siteViews.find((siteView) => siteView.site.id === "site-a");
+    const summaryA = planner.itemSummaries.find((summary) => summary.itemKey === "item-a");
+
+    expect(siteA?.lineCount).toBe(30);
+    expect(siteA?.assemblersPerLine).toBeCloseTo(2.74, 6);
+    expect(siteA?.outputBeltsPerLine).toBe(0.92);
+    expect(siteA?.dependencies[0]?.beltsPerLine).toBe(0.92);
+    expect(summaryA?.plannedLineCount).toBe(28);
   });
 });

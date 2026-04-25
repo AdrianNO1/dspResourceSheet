@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { getExactLineDemand, getRoundedMachinePlan, roundUpValue } from "./productionMath";
+import {
+  getAdjustedLineCount,
+  getExactLineDemand,
+  getRoundedMachinePlan,
+  normalizeLineDivisibleBy,
+  roundUpValue,
+} from "./productionMath";
 
 describe("productionMath", () => {
   it("rounds values upward with decimal precision", () => {
@@ -9,6 +15,20 @@ describe("productionMath", () => {
 
   it("uses the highest belt demand as exact line demand", () => {
     expect(getExactLineDemand(3, [{ requiredBelts: 1.2 }, { requiredBelts: 4.1 }])).toBe(4.1);
+  });
+
+  it("normalizes optional line divisibility inputs", () => {
+    expect(normalizeLineDivisibleBy("")).toBeNull();
+    expect(normalizeLineDivisibleBy("abc")).toBeNull();
+    expect(normalizeLineDivisibleBy(1)).toBeNull();
+    expect(normalizeLineDivisibleBy(5)).toBe(5);
+  });
+
+  it("rounds line counts up to the next requested multiple", () => {
+    expect(getAdjustedLineCount(27.4, null)).toBe(28);
+    expect(getAdjustedLineCount(28, 4)).toBe(28);
+    expect(getAdjustedLineCount(27.4, 5)).toBe(30);
+    expect(getAdjustedLineCount(27.4, 1)).toBe(28);
   });
 
   it("rounds machines per line while keeping the actual total machine count", () => {

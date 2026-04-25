@@ -1003,6 +1003,10 @@
   gap: 4px;
 }
 
+.production-line-plan-divisor-field {
+  margin-top: 8px;
+}
+
 .production-line-plan-stat span {
   color: rgba(211, 223, 235, 0.72);
   font-size: 0.88rem;

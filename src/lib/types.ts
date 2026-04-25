@@ -100,6 +100,7 @@ export type ProductionSite = {
   solar_system_id: string;
   planet_id: string;
   outbound_ils_count: number;
+  line_divisible_by: number | null;
   same_system_warp_item_keys: string[];
   is_finished: number;
   created_at: string;

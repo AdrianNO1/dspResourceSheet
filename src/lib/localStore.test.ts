@@ -92,6 +92,68 @@ describe("normalizeSnapshot", () => {
     ]);
   });
 
+  it("normalizes persisted production site line divisibility", () => {
+    const snapshot = normalizeSnapshot({
+      resources: [],
+      solarSystems: [{ id: "system-1", name: "Alpha" }],
+      planets: [{ id: "planet-1", solar_system_id: "system-1", name: "Alpha I", planet_type: "solid" }],
+      projects: [{ id: "project-1", name: "Main", notes: "", is_active: 1, sort_order: 1 }],
+      projectGoals: [],
+      projectImportedItems: [],
+      oreVeins: [],
+      oreVeinMiners: [],
+      liquidSites: [],
+      oilExtractors: [],
+      gasGiantSites: [],
+      gasGiantOutputs: [],
+      productionSites: [
+        {
+          id: "site-a",
+          project_id: "project-1",
+          item_key: "item-a",
+          throughput_per_minute: 60,
+          solar_system_id: "system-1",
+          planet_id: "planet-1",
+          outbound_ils_count: 0,
+          same_system_warp_item_keys: [],
+          is_finished: 1,
+          created_at: "2026-04-18T08:00:00.000Z",
+        },
+        {
+          id: "site-b",
+          project_id: "project-1",
+          item_key: "item-b",
+          throughput_per_minute: 60,
+          solar_system_id: "system-1",
+          planet_id: "planet-1",
+          outbound_ils_count: 0,
+          line_divisible_by: 5,
+          same_system_warp_item_keys: [],
+          is_finished: 1,
+          created_at: "2026-04-18T08:01:00.000Z",
+        },
+        {
+          id: "site-c",
+          project_id: "project-1",
+          item_key: "item-c",
+          throughput_per_minute: 60,
+          solar_system_id: "system-1",
+          planet_id: "planet-1",
+          outbound_ils_count: 0,
+          line_divisible_by: 1,
+          same_system_warp_item_keys: [],
+          is_finished: 1,
+          created_at: "2026-04-18T08:02:00.000Z",
+        },
+      ],
+      transportRoutes: [],
+      settings: {},
+    });
+
+    expect(snapshot.productionSites.map((site) => site.line_divisible_by)).toEqual([null, 5, null]);
+    expect(buildBootstrap(snapshot).productionSites[1]?.line_divisible_by).toBe(5);
+  });
+
   it("surfaces a validation error when saved systems and planets do not match the imported seed", () => {
     const snapshot = normalizeSnapshot({
       resources: [],

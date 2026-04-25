@@ -150,6 +150,7 @@ function createBootstrap(): BootstrapData {
         solar_system_id: "alpha",
         planet_id: "alpha-1",
         outbound_ils_count: 0,
+        line_divisible_by: null,
         same_system_warp_item_keys: [],
         is_finished: 1,
         created_at: "2026-01-06T00:00:00.000Z",

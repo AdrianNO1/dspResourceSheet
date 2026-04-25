@@ -13,7 +13,7 @@ import {
   getTransportRoundTripSecondsMeters,
 } from "./dspMath";
 import { getPlanetExtractionOutboundIlsCount } from "../domain/planetLogistics";
-import { getRoundedMachinePlan } from "../domain/productionMath";
+import { getAdjustedLineCount, getRoundedMachinePlan } from "../domain/productionMath";
 import { getSystemDistanceLy } from "./dspCluster";
 import type {
   BootstrapData,
@@ -637,6 +637,7 @@ function buildDependencyViews(
   allocationsByConsumer: Record<string, Allocation[]>,
   producers: ProducerNode[],
   warnedSourceProducerIds: Set<string>,
+  lineDivisibleBy: number | null = null,
 ) {
   const scale = importedItem.imported_throughput_per_minute > 0
     ? throughputPerMinute / importedItem.imported_throughput_per_minute
@@ -687,7 +688,8 @@ function buildDependencyViews(
   });
 
   const outputBelts = importedItem.output_belts * scale;
-  const lineCount = Math.max(1, Math.ceil(Math.max(outputBelts, ...dependencyViews.map((dependency) => dependency.requiredBelts), 0)));
+  const exactLineDemand = Math.max(outputBelts, ...dependencyViews.map((dependency) => dependency.requiredBelts), 0);
+  const lineCount = getAdjustedLineCount(exactLineDemand, lineDivisibleBy);
   const assemblersPerLine = importedItem.machine_count * scale / lineCount;
   for (const dependency of dependencyViews) {
     dependency.beltsPerLine = roundUp(dependency.requiredBelts / lineCount, 2);
@@ -868,6 +870,7 @@ export function buildProductionDraftPreview(
   throughputPerMinute: number,
   solarSystemId: string,
   planetId: string,
+  lineDivisibleBy: number | null = null,
   sameSystemWarpByItemKey: Record<string, boolean> = {},
 ): ProductionDraftPreview | null {
   if (!projectId || !itemKey || throughputPerMinute <= 0 || !solarSystemId || !planetId) {
@@ -904,6 +907,7 @@ export function buildProductionDraftPreview(
     allocationLookup,
     context.producers,
     context.warnedSourceProducerIds,
+    lineDivisibleBy,
   );
 
   return {
@@ -970,6 +974,7 @@ export function buildProductionPlanner(data: BootstrapData, projectId: string | 
         context.allocationsByConsumer,
         context.producers,
         context.warnedSourceProducerIds,
+        site.line_divisible_by,
       );
 
       return [{

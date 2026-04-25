@@ -32,7 +32,12 @@ import {
   type ResourceOriginBreakdownRow,
 } from "../application/workspaceQueries";
 import type { StoreCommand } from "../application/storeCommands";
-import { getExactLineDemand, getRoundedMachinePlan, roundUpValue } from "../domain/productionMath";
+import {
+  getExactLineDemand,
+  getRoundedMachinePlan,
+  normalizeLineDivisibleBy,
+  roundUpValue,
+} from "../domain/productionMath";
 import { parseClusterAddress } from "../lib/dspCluster";
 import {
   getImportedItemExpectedPowerWatts,
@@ -439,6 +444,7 @@ function Workspace() {
     itemKey: "",
     throughputPerMinute: 0,
     outboundIlsCount: 0,
+    lineDivisibleBy: "",
     isFinished: false,
     solarSystemId: "",
     planetId: "",
@@ -956,6 +962,7 @@ function Workspace() {
     !!productionDraft.itemKey &&
     !!productionDraft.solarSystemId &&
     !!productionDraft.planetId;
+  const productionDraftLineDivisibleBy = normalizeLineDivisibleBy(productionDraft.lineDivisibleBy);
   const isEditingProductionSite = editingProductionSiteId !== null;
   const productionModalEyebrow = isEditingProductionSite ? "Edit production site" : "New production site";
   const productionModalSubmitLabel = isEditingProductionSite ? "Save production site" : "Add production site";
@@ -966,6 +973,7 @@ function Workspace() {
     Number(productionDraft.throughputPerMinute),
     productionDraft.solarSystemId,
     productionDraft.planetId,
+    productionDraftLineDivisibleBy,
     productionDraft.sameSystemWarpItemKeys,
   );
   const selectedProductionFallbackRecipeOutputs = selectedProductionTemplate ? parseRecipeEntries(selectedProductionTemplate.outputs || "") : [];
@@ -1708,6 +1716,7 @@ function Workspace() {
       itemKey,
       throughputPerMinute: Number(nextTemplate.imported_throughput_per_minute),
       outboundIlsCount: 0,
+      lineDivisibleBy: "",
       isFinished: false,
       sameSystemWarpItemKeys: {},
     }));
@@ -1727,6 +1736,7 @@ function Workspace() {
       itemKey: site.item_key,
       throughputPerMinute: Number(site.throughput_per_minute),
       outboundIlsCount: Number(site.outbound_ils_count),
+      lineDivisibleBy: site.line_divisible_by === null ? "" : String(site.line_divisible_by),
       isFinished: Number(site.is_finished) === 1,
       solarSystemId: site.solar_system_id,
       planetId: site.planet_id,
@@ -1972,6 +1982,7 @@ function Workspace() {
       itemKey: productionDraft.itemKey,
       throughputPerMinute: Number(productionDraft.throughputPerMinute),
       outboundIlsCount: Number(productionDraft.outboundIlsCount),
+      lineDivisibleBy: productionDraftLineDivisibleBy,
       isFinished: productionDraft.isFinished,
       solarSystemId: productionDraft.solarSystemId,
       planetId: productionDraft.planetId,
@@ -2003,6 +2014,7 @@ function Workspace() {
           ...current,
           throughputPerMinute: Number(importedItem?.imported_throughput_per_minute ?? current.throughputPerMinute),
           outboundIlsCount: 0,
+          lineDivisibleBy: "",
           isFinished: false,
           sameSystemWarpItemKeys: {},
         }));
@@ -2023,6 +2035,7 @@ function Workspace() {
       itemKey: site.item_key,
       throughputPerMinute: Number(site.throughput_per_minute),
       outboundIlsCount: Number(site.outbound_ils_count),
+      lineDivisibleBy: site.line_divisible_by,
       isFinished: isActive,
       solarSystemId: site.solar_system_id,
       planetId: site.planet_id,
@@ -2855,7 +2868,10 @@ function Workspace() {
                       </div>
 
                       <p className="helper-text">
-                        {siteView.lineCount} lines | {formatRoundedUpInteger(siteMachinePlan.machinesPerLine)} machines/line | {formatFixedValue(siteView.outputBeltsPerLine, 2)} output belts/line
+                        {siteView.lineCount} lines
+                        {siteView.site.line_divisible_by !== null ? ` (divisible by ${siteView.site.line_divisible_by})` : ""}
+                        {" | "}
+                        {formatRoundedUpInteger(siteMachinePlan.machinesPerLine)} machines/line | {formatFixedValue(siteView.outputBeltsPerLine, 2)} output belts/line
                       </p>
 
                       <div className="overview-breakdown-list">
@@ -2993,10 +3009,25 @@ function Workspace() {
                           <div className="production-line-plan-header">
                             <div className="production-line-plan-stat">
                               <span>Line plan</span>
-                              <strong>{formatFixedValue(roundUpValue(productionDraftExactLineDemand ?? productionDraftPreview.lineCount, 1), 1)} lines</strong>
+                              <strong>
+                                {productionDraftPreview.lineCount} lines
+                                {productionDraftLineDivisibleBy !== null ? ` (divisible by ${productionDraftLineDivisibleBy})` : ""}
+                              </strong>
                               <span>
-                                {formatRoundedUpInteger(productionDraftAverageMachinePlan?.machinesPerLine ?? productionDraftPreview.assemblersPerLine)} machines/line | {formatRoundedUpInteger(productionDraftMachinePlan?.totalMachineCount ?? productionDraftPreview.machineCount)} machines total
+                                Exact demand {formatFixedValue(roundUpValue(productionDraftExactLineDemand ?? productionDraftPreview.lineCount, 1), 1)} | {formatRoundedUpInteger(productionDraftAverageMachinePlan?.machinesPerLine ?? productionDraftPreview.assemblersPerLine)} machines/line | {formatRoundedUpInteger(productionDraftMachinePlan?.totalMachineCount ?? productionDraftPreview.machineCount)} machines total
                               </span>
+                              <label className="field compact-field production-line-plan-divisor-field">
+                                <span>Divisible by</span>
+                                <input
+                                  type="number"
+                                  min={2}
+                                  step={1}
+                                  inputMode="numeric"
+                                  placeholder="Optional"
+                                  value={productionDraft.lineDivisibleBy}
+                                  onChange={(event) => setProductionDraft((current) => ({ ...current, lineDivisibleBy: event.target.value }))}
+                                />
+                              </label>
                             </div>
                             <div className="production-line-plan-stat">
                               <span>Estimated power</span>
