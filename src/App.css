@@ -266,6 +266,7 @@
   border: 1px solid rgba(131, 161, 193, 0.2);
   background: rgba(7, 13, 23, 0.72);
   color: #edf5ff;
+  color-scheme: dark;
 }
 
 .field textarea {
@@ -277,6 +278,7 @@
 input[type="number"] {
   appearance: auto;
   -moz-appearance: auto;
+  color-scheme: dark;
 }
 
 input[type="number"]::-webkit-outer-spin-button,

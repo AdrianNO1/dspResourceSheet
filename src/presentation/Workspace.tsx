@@ -3007,7 +3007,7 @@ function Workspace() {
                                 </span>
                                 <input
                                   type="number"
-                                  min={2}
+                                  min={1}
                                   step={1}
                                   inputMode="numeric"
                                   placeholder="divisor"
