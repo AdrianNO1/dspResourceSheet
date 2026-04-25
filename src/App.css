@@ -1003,10 +1003,6 @@
   gap: 4px;
 }
 
-.production-line-plan-divisor-field {
-  margin-top: 8px;
-}
-
 .production-line-plan-stat span {
   color: rgba(211, 223, 235, 0.72);
   font-size: 0.88rem;
@@ -1014,6 +1010,31 @@
 
 .production-line-plan-stat strong {
   font-size: 1.2rem;
+}
+
+.production-line-plan-strong {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.production-line-plan-count-active {
+  color: #7db7ff;
+}
+
+.production-line-plan-divisor-input {
+  width: 88px;
+  padding: 6px 10px;
+  border-radius: 10px;
+  border: 1px solid rgba(131, 161, 193, 0.2);
+  background: rgba(7, 13, 23, 0.72);
+  color: #edf5ff;
+  font-size: 0.82rem;
+}
+
+.production-line-plan-divisor-input::placeholder {
+  color: rgba(211, 223, 235, 0.52);
 }
 
 .production-line-plan-list {

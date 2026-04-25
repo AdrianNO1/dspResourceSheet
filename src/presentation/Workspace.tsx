@@ -33,10 +33,8 @@ import {
 } from "../application/workspaceQueries";
 import type { StoreCommand } from "../application/storeCommands";
 import {
-  getExactLineDemand,
   getRoundedMachinePlan,
   normalizeLineDivisibleBy,
-  roundUpValue,
 } from "../domain/productionMath";
 import { parseClusterAddress } from "../lib/dspCluster";
 import {
@@ -1060,9 +1058,6 @@ function Workspace() {
           productionDraftPreview.lineCount,
         )
       : null;
-  const productionDraftExactLineDemand = productionDraftPreview
-    ? getExactLineDemand(productionDraftPreview.outputBelts, productionDraftPreview.dependencies)
-    : null;
   const selectedProductionEstimatedPowerWatts =
     productionDraftMachinePlan && selectedProductionTemplate
       ? getImportedItemExpectedPowerWatts(selectedProductionTemplate, productionDraftPreview?.throughputPerMinute)
@@ -2868,10 +2863,7 @@ function Workspace() {
                       </div>
 
                       <p className="helper-text">
-                        {siteView.lineCount} lines
-                        {siteView.site.line_divisible_by !== null ? ` (divisible by ${siteView.site.line_divisible_by})` : ""}
-                        {" | "}
-                        {formatRoundedUpInteger(siteMachinePlan.machinesPerLine)} machines/line | {formatFixedValue(siteView.outputBeltsPerLine, 2)} output belts/line
+                        {siteView.lineCount} lines | {formatRoundedUpInteger(siteMachinePlan.machinesPerLine)} machines/line | {formatFixedValue(siteView.outputBeltsPerLine, 2)} output belts/line
                       </p>
 
                       <div className="overview-breakdown-list">
@@ -3009,25 +3001,25 @@ function Workspace() {
                           <div className="production-line-plan-header">
                             <div className="production-line-plan-stat">
                               <span>Line plan</span>
-                              <strong>
-                                {productionDraftPreview.lineCount} lines
-                                {productionDraftLineDivisibleBy !== null ? ` (divisible by ${productionDraftLineDivisibleBy})` : ""}
-                              </strong>
-                              <span>
-                                Exact demand {formatFixedValue(roundUpValue(productionDraftExactLineDemand ?? productionDraftPreview.lineCount, 1), 1)} | {formatRoundedUpInteger(productionDraftAverageMachinePlan?.machinesPerLine ?? productionDraftPreview.assemblersPerLine)} machines/line | {formatRoundedUpInteger(productionDraftMachinePlan?.totalMachineCount ?? productionDraftPreview.machineCount)} machines total
-                              </span>
-                              <label className="field compact-field production-line-plan-divisor-field">
-                                <span>Divisible by</span>
+                              <strong className="production-line-plan-strong">
+                                <span className={productionDraftLineDivisibleBy !== null ? "production-line-plan-count production-line-plan-count-active" : "production-line-plan-count"}>
+                                  {productionDraftPreview.lineCount} lines
+                                </span>
                                 <input
                                   type="number"
                                   min={2}
                                   step={1}
                                   inputMode="numeric"
-                                  placeholder="Optional"
+                                  placeholder="divisor"
+                                  aria-label="Line divisor"
+                                  className="production-line-plan-divisor-input"
                                   value={productionDraft.lineDivisibleBy}
                                   onChange={(event) => setProductionDraft((current) => ({ ...current, lineDivisibleBy: event.target.value }))}
                                 />
-                              </label>
+                              </strong>
+                              <span>
+                                {formatRoundedUpInteger(productionDraftAverageMachinePlan?.machinesPerLine ?? productionDraftPreview.assemblersPerLine)} machines/line | {formatRoundedUpInteger(productionDraftMachinePlan?.totalMachineCount ?? productionDraftPreview.machineCount)} machines total
+                              </span>
                             </div>
                             <div className="production-line-plan-stat">
                               <span>Estimated power</span>
