@@ -274,6 +274,18 @@
   overflow: hidden;
 }
 
+input[type="number"] {
+  appearance: textfield;
+  -moz-appearance: textfield;
+}
+
+input[type="number"]::-webkit-outer-spin-button,
+input[type="number"]::-webkit-inner-spin-button {
+  appearance: none;
+  -webkit-appearance: none;
+  margin: 0;
+}
+
 .input-with-hint {
   position: relative;
 }
@@ -1019,7 +1031,13 @@
   flex-wrap: wrap;
 }
 
-.production-line-plan-count-active {
+.production-line-plan-strong .production-line-plan-count {
+  color: #edf5ff;
+  font-size: 1.2rem;
+  line-height: 1.2;
+}
+
+.production-line-plan-strong .production-line-plan-count-active {
   color: #7db7ff;
 }
 
