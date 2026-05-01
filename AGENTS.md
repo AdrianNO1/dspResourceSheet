@@ -34,8 +34,8 @@ Core extraction formulas are in `src/lib/dspMath.ts`.
 - Water / sulfuric acid pumps:
   `pumpCount * 50 * (miningSpeedPercent / 100)`
 - Oil extractor output:
-  `baseOilPerSecondAt100Percent * 1.5 * (miningSpeedPercent / 100)`
-- Oil values entered in the UI are normalized back to 100% mining speed when needed so persisted values stay comparable across settings.
+  `baseOilPerSecondAt100Percent * (miningSpeedPercent / 100)`
+- Oil values entered in the UI use the seep rate shown in the in-game tooltip, which stays comparable across mining-speed settings.
 - Orbital collector boost is derived from available fuel heat and mining speed, minus the collector's internal 30 MW draw.
 
 Important constants are also in `dspMath.ts`, including miner rates, power draw, vessel capacity, vessel count per ILS, and ILS storage assumptions.

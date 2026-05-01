@@ -4,7 +4,6 @@ export const REGULAR_MINER_POWER_MW = 0.42;
 export const PUMP_POWER_MW = 0.3;
 export const PUMP_OUTPUT_PER_MINUTE = 50;
 export const OIL_EXTRACTOR_POWER_MW = 0.84;
-export const OIL_OUTPUT_MULTIPLIER = 1.5;
 export const ORBITAL_COLLECTOR_INTERNAL_POWER_MW = 30;
 export const INTERSTELLAR_LOGISTICS_STATION_VESSEL_CAPACITY = 1000;
 export const INTERSTELLAR_LOGISTICS_STATION_VESSEL_COUNT = 10;
@@ -68,18 +67,12 @@ export function getPumpOutputPerMinute(pumpCount: number, miningSpeedPercent: nu
   return pumpCount * PUMP_OUTPUT_PER_MINUTE * getMiningSpeedMultiplier(miningSpeedPercent);
 }
 
-export function normalizeOilPerSecondTo100Percent(oilPerSecond: number, miningSpeedPercent: number) {
-  const miningSpeedMultiplier = getMiningSpeedMultiplier(miningSpeedPercent);
-
-  if (miningSpeedMultiplier <= 0) {
-    return 0;
-  }
-
-  return oilPerSecond / miningSpeedMultiplier;
+export function normalizeOilPerSecondTo100Percent(oilPerSecond: number, _miningSpeedPercent: number) {
+  return Math.max(0, oilPerSecond);
 }
 
 export function getOilOutputPerSecond(baseOilPerSecondAt100Percent: number, miningSpeedPercent: number) {
-  return baseOilPerSecondAt100Percent * OIL_OUTPUT_MULTIPLIER * getMiningSpeedMultiplier(miningSpeedPercent);
+  return baseOilPerSecondAt100Percent * getMiningSpeedMultiplier(miningSpeedPercent);
 }
 
 export function getOrbitalCollectorTrueBoost(

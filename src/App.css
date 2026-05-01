@@ -2367,6 +2367,16 @@ input[type="number"]:focus::-webkit-inner-spin-button {
   gap: 14px;
 }
 
+.map-toolbar {
+  display: grid;
+  gap: 10px;
+  margin-bottom: 18px;
+}
+
+.map-search-field {
+  max-width: 420px;
+}
+
 .map-system-card {
   display: grid;
   gap: 14px;

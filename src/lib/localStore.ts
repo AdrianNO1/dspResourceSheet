@@ -326,6 +326,22 @@ function migrateLiquidGoalsToItemsPerMinute(snapshot: Snapshot) {
   snapshot.settings.liquidGoalsMigratedToItemsPerMinute = "1";
 }
 
+function migrateOilExtractorBaseRatesToTrue100Percent(snapshot: Snapshot) {
+  if (snapshot.settings.oilExtractorBaseRateMigratedToTrue100Percent === "1") {
+    return;
+  }
+
+  const miningSpeedPercent = Number(snapshot.settings.miningSpeedPercent ?? "100");
+  const miningSpeedMultiplier = Number.isFinite(miningSpeedPercent) ? miningSpeedPercent / 100 : 1;
+
+  snapshot.oilExtractors = snapshot.oilExtractors.map((extractor) => ({
+    ...extractor,
+    oil_per_second: Number(extractor.oil_per_second) * (miningSpeedMultiplier > 0 ? miningSpeedMultiplier : 1),
+  }));
+
+  snapshot.settings.oilExtractorBaseRateMigratedToTrue100Percent = "1";
+}
+
 function romanToInteger(value: string) {
   const normalized = value.trim().toUpperCase();
   if (!normalized) {
@@ -588,6 +604,7 @@ export function normalizeSnapshot(input: unknown): StoredSnapshot {
   ensureSettingsDefaults(snapshot.settings);
   seedStarterProject(snapshot);
   migrateLiquidGoalsToItemsPerMinute(snapshot);
+  migrateOilExtractorBaseRatesToTrue100Percent(snapshot);
   reconcileSnapshotWithImportedCluster(snapshot);
 
   return snapshot;

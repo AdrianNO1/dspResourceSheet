@@ -33,8 +33,10 @@ import {
 } from "../application/workspaceQueries";
 import type { StoreCommand } from "../application/storeCommands";
 import {
+  getExactLineDemand,
   getRoundedMachinePlan,
   normalizeLineDivisibleBy,
+  roundUpValue,
 } from "../domain/productionMath";
 import { parseClusterAddress } from "../lib/dspCluster";
 import {
@@ -53,7 +55,6 @@ import { ProjectsScreen, SettingsScreen } from "./screens/ManagementScreens";
 import {
   getItemsPerMinutePerVessel,
   getOilOutputPerSecond,
-  normalizeOilPerSecondTo100Percent,
   getOrbitalCollectorTrueBoost,
   getPumpOutputPerMinute,
   getRequiredStations,
@@ -145,6 +146,20 @@ function getPlanetDisplayOrder(planetName: string, systemName: string) {
   }
 
   return romanToInteger(suffix) ?? Number.MAX_SAFE_INTEGER;
+}
+
+function normalizeMapSearchText(value: string) {
+  return value.trim().toLowerCase();
+}
+
+function parseNumericDraft(value: string) {
+  const trimmed = value.trim();
+  if (!trimmed) {
+    return 0;
+  }
+
+  const parsed = Number(trimmed);
+  return Number.isFinite(parsed) ? parsed : 0;
 }
 
 function buildPlanetPickerSystems(solarSystems: SolarSystem[], planets: Planet[]) {
@@ -400,6 +415,7 @@ function Workspace() {
   const [pendingProductionScrollKey, setPendingProductionScrollKey] = useState("");
   const [highlightedProductionItemKey, setHighlightedProductionItemKey] = useState("");
   const [clusterAddressDraft, setClusterAddressDraft] = useState("");
+  const [mapSearchQuery, setMapSearchQuery] = useState("");
   const [planetExtractionIlsDrafts, setPlanetExtractionIlsDrafts] = useState<Record<string, string>>({});
   const [planetResourceExtractionIlsDrafts, setPlanetResourceExtractionIlsDrafts] = useState<Record<string, string>>({});
   const [isProductionModalOpen, setIsProductionModalOpen] = useState(false);
@@ -426,10 +442,10 @@ function Workspace() {
   ]);
 
   const [liquidResourceId, setLiquidResourceId] = useState("");
-  const [pumpCount, setPumpCount] = useState(0);
+  const [pumpCount, setPumpCount] = useState("");
 
   const [oilResourceId, setOilResourceId] = useState("");
-  const [oilPerSecond, setOilPerSecond] = useState(0);
+  const [oilPerSecond, setOilPerSecond] = useState("");
 
   const [collectorCount, setCollectorCount] = useState(40);
   const [gasOutputs, setGasOutputs] = useState<GasOutputDraft[]>([
@@ -770,11 +786,8 @@ function Workspace() {
   const selectedOreTargetRequiredNodes = selectedOreSummary
     ? getRequiredAdvancedMinerNodes(getSummaryTargetPerMinute(selectedOreSummary), loadedData.settings.miningSpeedPercent)
     : 0;
-  const pendingLiquidOutputPerMinute = getPumpOutputPerMinute(pumpCount, loadedData.settings.miningSpeedPercent);
-  const pendingOilPerMinute = getOilOutputPerSecond(
-    normalizeOilPerSecondTo100Percent(oilPerSecond, loadedData.settings.miningSpeedPercent),
-    loadedData.settings.miningSpeedPercent,
-  ) * 60;
+  const pendingLiquidOutputPerMinute = getPumpOutputPerMinute(parseNumericDraft(pumpCount), loadedData.settings.miningSpeedPercent);
+  const pendingOilPerMinute = getOilOutputPerSecond(parseNumericDraft(oilPerSecond), loadedData.settings.miningSpeedPercent) * 60;
   const pendingGasTrueBoost = getOrbitalCollectorTrueBoost(
     gasOutputs
       .filter((output) => output.resourceId)
@@ -846,6 +859,46 @@ function Workspace() {
     selectedMapExtractionSiteCount,
     selectedMapTotalPowerDemandMw,
   } = mapView;
+  const filteredMapSystemCards = useMemo(() => {
+    const normalizedQuery = normalizeMapSearchText(mapSearchQuery);
+    if (!normalizedQuery) {
+      return mapSystemCards;
+    }
+
+    return mapSystemCards
+      .map((card) => {
+        const systemMatches = normalizeMapSearchText(card.solarSystem.name).includes(normalizedQuery);
+        const matchingPlanets = systemMatches
+          ? card.planets
+          : card.planets.filter((planet) =>
+              normalizeMapSearchText(
+                `${planet.name} ${card.solarSystem.name} ${planet.planet_type === "gas_giant" ? "gas giant" : "solid planet"}`,
+              ).includes(normalizedQuery),
+            );
+
+        if (!systemMatches && matchingPlanets.length === 0) {
+          return null;
+        }
+
+        if (systemMatches) {
+          return card;
+        }
+
+        const extractionSiteCount = matchingPlanets.reduce(
+          (sum, planet) => sum + (extractionSiteCountByPlanetId.get(planet.id) ?? 0),
+          0,
+        );
+        const activePlanetCount = matchingPlanets.filter((planet) => (extractionSiteCountByPlanetId.get(planet.id) ?? 0) > 0).length;
+
+        return {
+          ...card,
+          planets: matchingPlanets,
+          extractionSiteCount,
+          activePlanetCount,
+        };
+      })
+      .filter((card): card is (typeof mapSystemCards)[number] => card !== null);
+  }, [extractionSiteCountByPlanetId, mapSearchQuery, mapSystemCards]);
   const projectsView = useMemo(
     () => buildProjectsView(loadedData, lookups, selectedProjectId),
     [loadedData, lookups, selectedProjectId],
@@ -974,6 +1027,14 @@ function Workspace() {
     productionDraftLineDivisibleBy,
     productionDraft.sameSystemWarpItemKeys,
   );
+  const productionDraftLinePlanCount = productionDraftPreview
+    ? formatFixedValue(
+        productionDraftLineDivisibleBy !== null
+          ? productionDraftPreview.lineCount
+          : roundUpValue(getExactLineDemand(productionDraftPreview.outputBelts, productionDraftPreview.dependencies), 1),
+        1,
+      )
+    : null;
   const selectedProductionFallbackRecipeOutputs = selectedProductionTemplate ? parseRecipeEntries(selectedProductionTemplate.outputs || "") : [];
   const selectedProductionRecipeOutputs = selectedProductionReference?.outputs ?? selectedProductionFallbackRecipeOutputs;
   const selectedProductionPrimaryOutputQuantity = selectedProductionReference?.primaryOutputQuantity ?? selectedProductionRecipeOutputs[0]?.quantity ?? 1;
@@ -1812,16 +1873,18 @@ function Workspace() {
       return;
     }
 
+    const nextPumpCount = parseNumericDraft(pumpCount);
+
     await execute(
       {
         type: "liquid/create",
         planetId: currentPlanet.id,
         resourceId: liquidResourceId,
         label: "",
-        pumpCount: Number(pumpCount),
+        pumpCount: nextPumpCount,
       },
       () => {
-        setPumpCount(0);
+        setPumpCount("");
       },
     );
   }
@@ -1831,16 +1894,21 @@ function Workspace() {
       return;
     }
 
+    const nextOilPerSecond = parseNumericDraft(oilPerSecond);
+    if (nextOilPerSecond <= 0) {
+      return;
+    }
+
     await execute(
       {
         type: "oil-extractor/create",
         planetId: currentPlanet.id,
         resourceId: oilResourceId,
         label: "",
-        oilPerSecond: normalizeOilPerSecondTo100Percent(Number(oilPerSecond), loadedData.settings.miningSpeedPercent),
+        oilPerSecond: nextOilPerSecond,
       },
       () => {
-        setOilPerSecond(0);
+        setOilPerSecond("");
       },
     );
   }
@@ -2415,7 +2483,13 @@ function Workspace() {
                   )}
                   <label className="field">
                     <span>Pumps</span>
-                    <input type="number" min={0} value={pumpCount} onChange={(event) => setPumpCount(Number(event.target.value))} />
+                    <input
+                      type="number"
+                      min={0}
+                      placeholder="0"
+                      value={pumpCount}
+                      onChange={(event) => setPumpCount(event.target.value)}
+                    />
                   </label>
                   <button type="submit" className="primary-button" disabled={busy}>
                     Save pump site
@@ -2450,14 +2524,15 @@ function Workspace() {
                     </div>
                   )}
                   <label className="field">
-                    <span>Oil per second at current mining speed</span>
+                    <span>Oil seep per second from the game tooltip</span>
                     <input
                       type="number"
                       min={0.1}
                       max={30}
                       step="any"
+                      placeholder="0.1"
                       value={oilPerSecond}
-                      onChange={(event) => setOilPerSecond(Number(event.target.value))}
+                      onChange={(event) => setOilPerSecond(event.target.value)}
                     />
                   </label>
                   <button type="submit" className="primary-button" disabled={busy}>
@@ -3003,7 +3078,7 @@ function Workspace() {
                               <span>Line plan</span>
                               <strong className="production-line-plan-strong">
                                 <span className={productionDraftLineDivisibleBy !== null ? "production-line-plan-count production-line-plan-count-active" : "production-line-plan-count"}>
-                                  {productionDraftPreview.lineCount} lines
+                                  {productionDraftLinePlanCount} lines
                                 </span>
                                 <input
                                   type="number"
@@ -3312,8 +3387,25 @@ function Workspace() {
             </div>
 
             {mapSystemCards.length > 0 ? (
+              <>
+                <div className="map-toolbar">
+                  <label className="field map-search-field">
+                    <span>Search systems or planets</span>
+                    <input
+                      type="search"
+                      value={mapSearchQuery}
+                      onChange={(event) => setMapSearchQuery(event.target.value)}
+                      placeholder="Search planets or systems"
+                    />
+                  </label>
+                  <p className="helper-text">
+                    {filteredMapSystemCards.length} {filteredMapSystemCards.length === 1 ? "system" : "systems"} in view
+                  </p>
+                </div>
+
+                {filteredMapSystemCards.length > 0 ? (
               <div className="map-system-grid">
-                {mapSystemCards.map(({ solarSystem, planets, extractionSiteCount, activePlanetCount }) => {
+                {filteredMapSystemCards.map(({ solarSystem, planets, extractionSiteCount, activePlanetCount }) => {
                   const isSystemSelected =
                     selectedMapSelection.scope === "system" && selectedMapSelection.id === solarSystem.id;
 
@@ -3384,6 +3476,10 @@ function Workspace() {
                   );
                 })}
               </div>
+                ) : (
+                  <p className="empty-state">No systems or planets match that search.</p>
+                )}
+              </>
             ) : (
               <p className="empty-state">Import a cluster seed from Settings to generate your star map.</p>
             )}

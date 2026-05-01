@@ -92,6 +92,45 @@ describe("normalizeSnapshot", () => {
     ]);
   });
 
+  it("migrates stored oil extractor rates back to the seep tooltip value", () => {
+    const crudeOilResourceId = "33be1ca4-c877-4829-bb7c-fd44e4a0de53";
+    const snapshot = normalizeSnapshot({
+      resources: [],
+      solarSystems: [{ id: "system-1", name: "Alpha" }],
+      planets: [{ id: "planet-1", solar_system_id: "system-1", name: "Alpha I", planet_type: "solid" }],
+      projects: [],
+      projectGoals: [],
+      projectImportedItems: [],
+      oreVeins: [],
+      oreVeinMiners: [],
+      liquidSites: [],
+      oilExtractors: [{
+        id: "oil-1",
+        planet_id: "planet-1",
+        resource_id: crudeOilResourceId,
+        label: "",
+        oil_per_second: 3.3974 / 1.9,
+        created_at: "2026-04-25T10:00:00.000Z",
+      }],
+      gasGiantSites: [],
+      gasGiantOutputs: [],
+      productionSites: [],
+      transportRoutes: [],
+      settings: {
+        miningSpeedPercent: "190",
+      },
+    });
+
+    expect(snapshot.settings.oilExtractorBaseRateMigratedToTrue100Percent).toBe("1");
+    expect(snapshot.oilExtractors[0]?.oil_per_second).toBeCloseTo(3.3974, 6);
+
+    const bootstrap = buildBootstrap(snapshot);
+    const crudeOilSummary = bootstrap.summary.resourceSummaries.find((summary) => summary.resourceId === crudeOilResourceId);
+
+    expect(crudeOilSummary?.supplyPerSecond).toBeCloseTo(3.3974 * 1.9, 6);
+    expect(crudeOilSummary?.supplyPerMinute).toBeCloseTo(3.3974 * 1.9 * 60, 6);
+  });
+
   it("normalizes persisted production site line divisibility", () => {
     const snapshot = normalizeSnapshot({
       resources: [],
