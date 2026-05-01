@@ -1505,6 +1505,48 @@ input[type="number"]:focus::-webkit-inner-spin-button {
   font-size: 1.35rem;
 }
 
+.production-setup-overview-search {
+  display: grid;
+  gap: 8px;
+  padding: 12px 14px;
+  border-radius: 16px;
+  border: 1px solid rgba(122, 219, 216, 0.18);
+  background:
+    linear-gradient(135deg, rgba(122, 219, 216, 0.08), rgba(241, 160, 79, 0.06)),
+    rgba(7, 13, 23, 0.42);
+}
+
+.production-setup-overview-search span {
+  color: rgba(122, 219, 216, 0.9);
+  font-size: 0.76rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.production-setup-overview-search input {
+  width: 100%;
+  min-width: 0;
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid rgba(148, 172, 197, 0.18);
+  background: rgba(3, 8, 15, 0.62);
+  color: #edf5ff;
+  font: inherit;
+  outline: none;
+  transition: border-color 140ms ease, box-shadow 140ms ease, background 140ms ease;
+}
+
+.production-setup-overview-search input::placeholder {
+  color: rgba(211, 223, 235, 0.42);
+}
+
+.production-setup-overview-search input:focus {
+  border-color: rgba(122, 219, 216, 0.5);
+  background: rgba(3, 8, 15, 0.78);
+  box-shadow: 0 0 0 3px rgba(122, 219, 216, 0.12);
+}
+
 .production-setup-overview-layout,
 .production-setup-overview-section,
 .production-setup-overview-grid,

@@ -422,6 +422,7 @@ function Workspace() {
   const [editingProductionSiteId, setEditingProductionSiteId] = useState<string | null>(null);
   const [productionSetupPickerItemKey, setProductionSetupPickerItemKey] = useState("");
   const [isProductionSetupOverviewOpen, setIsProductionSetupOverviewOpen] = useState(false);
+  const [productionSetupOverviewSearch, setProductionSetupOverviewSearch] = useState("");
   const [newResourceName, setNewResourceName] = useState("");
   const [newResourceType, setNewResourceType] = useState<ResourceType>("ore_vein");
   const [projectNameDraft, setProjectNameDraft] = useState("");
@@ -1135,8 +1136,14 @@ function Workspace() {
     machinePlan: getProductionSummaryMachinePlan(summary),
     isSetup: summary.siteCount > 0,
   }));
-  const productionSetupCompleteRows = productionSetupOverviewRows.filter((row) => row.isSetup);
-  const productionSetupMissingRows = productionSetupOverviewRows.filter((row) => !row.isSetup);
+  const normalizedProductionSetupOverviewSearch = productionSetupOverviewSearch.trim().toLowerCase();
+  const filteredProductionSetupOverviewRows = normalizedProductionSetupOverviewSearch
+    ? productionSetupOverviewRows.filter(({ summary }) =>
+        `${summary.displayName} ${summary.itemKey}`.toLowerCase().includes(normalizedProductionSetupOverviewSearch),
+      )
+    : productionSetupOverviewRows;
+  const productionSetupCompleteRows = filteredProductionSetupOverviewRows.filter((row) => row.isSetup);
+  const productionSetupMissingRows = filteredProductionSetupOverviewRows.filter((row) => !row.isSetup);
 
   function focusProductionTreeItem(itemKey: string) {
     setSelectedProductionItemKey(itemKey);
@@ -3430,10 +3437,20 @@ function Workspace() {
                     <strong>{productionSetupMissingRows.length}</strong>
                   </div>
                   <div>
-                    <span>Total</span>
-                    <strong>{productionSetupOverviewRows.length}</strong>
+                    <span>{normalizedProductionSetupOverviewSearch ? "Matching" : "Total"}</span>
+                    <strong>{filteredProductionSetupOverviewRows.length}</strong>
                   </div>
                 </div>
+
+                <label className="production-setup-overview-search">
+                  <span>Search production</span>
+                  <input
+                    type="search"
+                    value={productionSetupOverviewSearch}
+                    onChange={(event) => setProductionSetupOverviewSearch(event.target.value)}
+                    placeholder="Filter by item name..."
+                  />
+                </label>
 
                 <div className="production-setup-overview-layout">
                   <section className="production-setup-overview-section production-setup-overview-section-ready">
@@ -3468,7 +3485,11 @@ function Workspace() {
                         ))}
                       </div>
                     ) : (
-                      <p className="empty-state">No production sites have been placed yet.</p>
+                      <p className="empty-state">
+                        {normalizedProductionSetupOverviewSearch
+                          ? "No placed production sites match this search."
+                          : "No production sites have been placed yet."}
+                      </p>
                     )}
                   </section>
 
@@ -3505,7 +3526,9 @@ function Workspace() {
                       </div>
                     ) : (
                       <p className="empty-state">
-                        {productionSetupOverviewRows.length === 0
+                        {normalizedProductionSetupOverviewSearch
+                          ? "No missing production items match this search."
+                          : productionSetupOverviewRows.length === 0
                           ? "Import a FactorioLab CSV to populate missing production items."
                           : "Every imported crafted item has at least one production site."}
                       </p>
