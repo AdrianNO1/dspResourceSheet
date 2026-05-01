@@ -1561,13 +1561,14 @@ input[type="number"]:focus::-webkit-inner-spin-button {
   gap: 16px;
   align-items: stretch;
   min-height: 0;
+  overflow: hidden;
 }
 
 .production-setup-overview-section {
+  grid-template-rows: auto minmax(0, 1fr);
   gap: 12px;
   min-width: 0;
   min-height: 0;
-  align-content: start;
   padding: 16px;
   border-radius: 20px;
   border: 1px solid rgba(148, 172, 197, 0.16);
@@ -1584,7 +1585,12 @@ input[type="number"]:focus::-webkit-inner-spin-button {
 
 .production-setup-overview-grid {
   grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  align-content: start;
   gap: 10px;
+  min-height: 0;
+  padding: 2px 4px 6px 2px;
+  overflow-x: hidden;
+  overflow-y: auto;
 }
 
 .production-setup-overview-tile {
@@ -2801,6 +2807,14 @@ input[type="number"]:focus::-webkit-inner-spin-button {
   .production-setup-overview-layout,
   .production-setup-overview-stats {
     grid-template-columns: 1fr;
+  }
+
+  .production-setup-overview-layout {
+    overflow-y: auto;
+  }
+
+  .production-setup-overview-section {
+    min-height: 320px;
   }
 
   .map-stat-grid,
