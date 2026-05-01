@@ -132,7 +132,7 @@ export type ProductionItemSummary = {
 
 export type ProductionWarning = {
   id: string;
-  kind: "missing-extraction-ils" | "overbooked-extraction-ils" | "overbooked-outbound-ils" | "shortage";
+  kind: "missing-extraction-ils" | "overbooked-extraction-ils" | "overbooked-outbound-ils" | "unfinished-required-site" | "shortage";
   title: string;
   detail: string;
   severity: "warning" | "danger";
@@ -183,6 +183,7 @@ type ProjectContext = {
   importedItems: ProjectImportedItem[];
   importedItemLookup: Map<string, ProjectImportedItem>;
   producers: ProducerNode[];
+  consumers: ConsumerNode[];
   allocations: Allocation[];
   allocationsByConsumer: Record<string, Allocation[]>;
   outboundIlsRequiredBySiteId: Record<string, number>;
@@ -323,7 +324,7 @@ function buildCraftedProducers(data: BootstrapData, importedItems: Map<string, P
   const systemLookup = getSystemLookup(data);
 
   return data.productionSites
-    .filter((site) => site.project_id === projectId && Number(site.is_finished) === 1)
+    .filter((site) => site.project_id === projectId)
     .flatMap<ProducerNode>((site) => {
       const importedItem = importedItems.get(site.item_key);
       const planet = planetLookup.get(site.planet_id);
@@ -720,6 +721,7 @@ function buildProjectContext(data: BootstrapData, projectId: string): ProjectCon
     importedItems,
     importedItemLookup,
     producers,
+    consumers,
     allocations,
     allocationsByConsumer,
     outboundIlsRequiredBySiteId,
@@ -848,6 +850,37 @@ function buildWarnings(
         detail: `${planet?.name ?? "Unknown planet"} needs ${roundUp(required, 2)} outbound ILS for its exports, but only ${site.outbound_ils_count} are configured.`,
       });
     }
+  }
+
+  for (const site of data.productionSites.filter((entry) => entry.project_id === projectId && Number(entry.is_finished) !== 1)) {
+    const suppliedAllocations = context.allocations.filter((allocation) => {
+      const producer = context.producers.find((entry) => entry.id === allocation.producerId);
+      return producer?.productionSiteId === site.id && allocation.throughputPerMinute > 0;
+    });
+    if (suppliedAllocations.length === 0) {
+      continue;
+    }
+
+    const importedItem = context.importedItemLookup.get(site.item_key);
+    const consumerNames = new Set(
+      suppliedAllocations.flatMap((allocation) => {
+        const consumer = context.consumers.find((entry) => entry.id === allocation.consumerId);
+        const consumerSite = consumer ? data.productionSites.find((entry) => entry.id === consumer.siteId) : null;
+        const consumerItem = consumerSite ? context.importedItemLookup.get(consumerSite.item_key) : null;
+        return consumerItem ? [consumerItem.display_name] : [];
+      }),
+    );
+    const requiredBy = Array.from(consumerNames).slice(0, 3).join(", ");
+
+    warnings.push({
+      id: `unfinished-required-site:${site.id}`,
+      kind: "unfinished-required-site",
+      severity: "warning",
+      title: `${importedItem?.display_name ?? site.item_key} is planned but required`,
+      detail: requiredBy
+        ? `This production site is not marked finished, but its output is being counted for ${requiredBy}.`
+        : "This production site is not marked finished, but its output is being counted by another placed production site.",
+    });
   }
 
   for (const item of itemSummaries.filter((entry) => entry.hasShortage)) {

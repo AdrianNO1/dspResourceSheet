@@ -70,7 +70,7 @@ function createBaseData(): BootstrapData {
 }
 
 describe("buildProductionPlanner", () => {
-  it("does not count inactive crafted sites as available supply", () => {
+  it("counts unfinished crafted sites as planned supply and warns when they are required", () => {
     const itemA = createImportedItem({
       item_key: "item-a",
       display_name: "Item A",
@@ -124,8 +124,13 @@ describe("buildProductionPlanner", () => {
 
     const planner = buildProductionPlanner(data, "project-1");
     const siteB = planner.siteViews.find((siteView) => siteView.site.id === "site-b");
-    expect(siteB?.dependencies[0]?.coveragePerMinute).toBe(0);
-    expect(siteB?.dependencies[0]?.shortagePerMinute).toBe(60);
+    expect(siteB?.dependencies[0]?.coveragePerMinute).toBe(60);
+    expect(siteB?.dependencies[0]?.shortagePerMinute).toBe(0);
+    expect(planner.warnings).toContainEqual(expect.objectContaining({
+      id: "unfinished-required-site:site-a",
+      kind: "unfinished-required-site",
+      severity: "warning",
+    }));
   });
 
   it("applies per-site line divisibility without changing item summary totals", () => {
