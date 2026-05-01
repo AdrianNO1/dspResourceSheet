@@ -1217,6 +1217,7 @@ function Workspace() {
 
   function closeProductionSetupOverview() {
     setIsProductionSetupOverviewOpen(false);
+    setProductionSetupOverviewSearch("");
   }
 
   function handleProductionSetupOverviewRow(summary: (typeof productionItemSummaries)[number]) {

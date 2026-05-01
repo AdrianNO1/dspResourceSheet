@@ -1471,7 +1471,9 @@ input[type="number"]:focus::-webkit-inner-spin-button {
 
 .production-setup-overview-modal {
   width: min(1040px, 100%);
+  min-height: min(760px, calc(100vh - 48px));
   display: grid;
+  grid-template-rows: auto auto auto minmax(0, 1fr);
   gap: 18px;
 }
 
@@ -1557,12 +1559,15 @@ input[type="number"]:focus::-webkit-inner-spin-button {
 .production-setup-overview-layout {
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   gap: 16px;
-  align-items: start;
+  align-items: stretch;
+  min-height: 0;
 }
 
 .production-setup-overview-section {
   gap: 12px;
   min-width: 0;
+  min-height: 0;
+  align-content: start;
   padding: 16px;
   border-radius: 20px;
   border: 1px solid rgba(148, 172, 197, 0.16);
