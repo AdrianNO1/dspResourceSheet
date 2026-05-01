@@ -423,6 +423,7 @@ function Workspace() {
   const [productionSetupPickerItemKey, setProductionSetupPickerItemKey] = useState("");
   const [isProductionSetupOverviewOpen, setIsProductionSetupOverviewOpen] = useState(false);
   const [productionSetupOverviewSearch, setProductionSetupOverviewSearch] = useState("");
+  const [returnToProductionSetupOverview, setReturnToProductionSetupOverview] = useState(false);
   const [newResourceName, setNewResourceName] = useState("");
   const [newResourceType, setNewResourceType] = useState<ResourceType>("ore_vein");
   const [projectNameDraft, setProjectNameDraft] = useState("");
@@ -1211,18 +1212,30 @@ function Workspace() {
     setProductionSetupPickerItemKey(itemKey);
   }
 
+  function reopenProductionSetupOverviewIfNeeded() {
+    if (!returnToProductionSetupOverview) {
+      return;
+    }
+
+    setReturnToProductionSetupOverview(false);
+    setIsProductionSetupOverviewOpen(true);
+  }
+
   function closeProductionSetupPicker() {
     setProductionSetupPickerItemKey("");
+    reopenProductionSetupOverviewIfNeeded();
   }
 
   function closeProductionSetupOverview() {
     setIsProductionSetupOverviewOpen(false);
     setProductionSetupOverviewSearch("");
+    setReturnToProductionSetupOverview(false);
   }
 
   function handleProductionSetupOverviewRow(summary: (typeof productionItemSummaries)[number]) {
     setSelectedProductionItemKey(summary.itemKey);
-    closeProductionSetupOverview();
+    setIsProductionSetupOverviewOpen(false);
+    setReturnToProductionSetupOverview(true);
 
     if (summary.siteCount > 0) {
       openProductionSetupEditor(summary.itemKey);
@@ -1836,6 +1849,7 @@ function Workspace() {
   function closeProductionSiteModal() {
     setEditingProductionSiteId(null);
     setIsProductionModalOpen(false);
+    reopenProductionSetupOverviewIfNeeded();
   }
 
   async function handleSaveProject() {
