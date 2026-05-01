@@ -4,7 +4,7 @@ import "../App.css";
 import { PlanetPicker, type PlanetPickerSystemOption } from "../components/PlanetPicker";
 import { ResourceIcon } from "../components/ResourceIcon";
 import { ResourceSelect } from "../components/ResourceSelect";
-import { useAppContext } from "../application/AppProvider";
+import { useAppContext } from "../application/appContext";
 import { parseApiEntityPath } from "../application/apiPaths";
 import { viewTabs } from "../application/appTypes";
 import {
@@ -421,6 +421,7 @@ function Workspace() {
   const [isProductionModalOpen, setIsProductionModalOpen] = useState(false);
   const [editingProductionSiteId, setEditingProductionSiteId] = useState<string | null>(null);
   const [productionSetupPickerItemKey, setProductionSetupPickerItemKey] = useState("");
+  const [isProductionSetupOverviewOpen, setIsProductionSetupOverviewOpen] = useState(false);
   const [newResourceName, setNewResourceName] = useState("");
   const [newResourceType, setNewResourceType] = useState<ResourceType>("ore_vein");
   const [projectNameDraft, setProjectNameDraft] = useState("");
@@ -1129,6 +1130,13 @@ function Workspace() {
   const allProductionRowsExpanded =
     allExpandableProductionKeys.length > 0 &&
     allExpandableProductionKeys.every((itemKey) => expandedProductionItemKeys[itemKey]);
+  const productionSetupOverviewRows = productionItemSummaries.map((summary) => ({
+    summary,
+    machinePlan: getProductionSummaryMachinePlan(summary),
+    isSetup: summary.siteCount > 0,
+  }));
+  const productionSetupCompleteRows = productionSetupOverviewRows.filter((row) => row.isSetup);
+  const productionSetupMissingRows = productionSetupOverviewRows.filter((row) => !row.isSetup);
 
   function focusProductionTreeItem(itemKey: string) {
     setSelectedProductionItemKey(itemKey);
@@ -1198,6 +1206,22 @@ function Workspace() {
 
   function closeProductionSetupPicker() {
     setProductionSetupPickerItemKey("");
+  }
+
+  function closeProductionSetupOverview() {
+    setIsProductionSetupOverviewOpen(false);
+  }
+
+  function handleProductionSetupOverviewRow(summary: (typeof productionItemSummaries)[number]) {
+    setSelectedProductionItemKey(summary.itemKey);
+    closeProductionSetupOverview();
+
+    if (summary.siteCount > 0) {
+      openProductionSetupEditor(summary.itemKey);
+      return;
+    }
+
+    openProductionSiteModal(summary.itemKey);
   }
 
   function toggleExpandAllProductionRows() {
@@ -2760,6 +2784,13 @@ function Workspace() {
                   <button type="button" className="ghost-button" onClick={toggleExpandAllProductionRows}>
                     {allProductionRowsExpanded ? "Collapse all" : "Expand everything"}
                   </button>
+                  <button
+                    type="button"
+                    className="ghost-button production-setup-overview-button"
+                    onClick={() => setIsProductionSetupOverviewOpen(true)}
+                  >
+                    Production grid
+                  </button>
                 </div>
               </div>
               {productionItemSummaries.length > 0 ? (
@@ -3371,6 +3402,115 @@ function Workspace() {
                       </button>
                     );
                   })}
+                </div>
+              </section>
+            </div>
+          ) : null}
+
+          {isProductionSetupOverviewOpen ? (
+            <div className="modal-backdrop" onClick={closeProductionSetupOverview}>
+              <section className="modal-card production-setup-overview-modal" onClick={(event) => event.stopPropagation()}>
+                <div className="section-heading">
+                  <div>
+                    <p className="eyebrow">Production grid</p>
+                    <h2>{selectedProject ? `${selectedProject.name} setup map` : "Setup map"}</h2>
+                  </div>
+                  <button type="button" className="ghost-button" onClick={closeProductionSetupOverview}>
+                    Close
+                  </button>
+                </div>
+
+                <div className="production-setup-overview-stats">
+                  <div>
+                    <span>Set up</span>
+                    <strong>{productionSetupCompleteRows.length}</strong>
+                  </div>
+                  <div>
+                    <span>Missing</span>
+                    <strong>{productionSetupMissingRows.length}</strong>
+                  </div>
+                  <div>
+                    <span>Total</span>
+                    <strong>{productionSetupOverviewRows.length}</strong>
+                  </div>
+                </div>
+
+                <div className="production-setup-overview-layout">
+                  <section className="production-setup-overview-section production-setup-overview-section-ready">
+                    <div className="compact-section-heading">
+                      <h3>Set up</h3>
+                      <span>{productionSetupCompleteRows.length} item{productionSetupCompleteRows.length === 1 ? "" : "s"}</span>
+                    </div>
+                    {productionSetupCompleteRows.length > 0 ? (
+                      <div className="production-setup-overview-grid">
+                        {productionSetupCompleteRows.map(({ summary, machinePlan }) => (
+                          <button
+                            key={`setup:${summary.itemKey}`}
+                            type="button"
+                            className="production-setup-overview-tile production-setup-overview-tile-ready"
+                            onClick={() => handleProductionSetupOverviewRow(summary)}
+                          >
+                            <ResourceIcon
+                              name={summary.displayName}
+                              iconUrl={getIconUrlForName(summary.displayName)}
+                              colorStart={productionIconStart}
+                              colorEnd={productionIconEnd}
+                              size="sm"
+                            />
+                            <span className="production-setup-overview-copy">
+                              <strong>{summary.displayName}</strong>
+                              <span>{getProductionSetupStatusLabel(summary.activeSiteCount, summary.siteCount)}</span>
+                            </span>
+                            <span className="production-setup-overview-meta">
+                              {formatRoundedUpInteger(machinePlan.totalMachineCount)} machines
+                            </span>
+                          </button>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="empty-state">No production sites have been placed yet.</p>
+                    )}
+                  </section>
+
+                  <section className="production-setup-overview-section production-setup-overview-section-missing">
+                    <div className="compact-section-heading">
+                      <h3>Missing</h3>
+                      <span>{productionSetupMissingRows.length} item{productionSetupMissingRows.length === 1 ? "" : "s"}</span>
+                    </div>
+                    {productionSetupMissingRows.length > 0 ? (
+                      <div className="production-setup-overview-grid">
+                        {productionSetupMissingRows.map(({ summary, machinePlan }) => (
+                          <button
+                            key={`missing:${summary.itemKey}`}
+                            type="button"
+                            className="production-setup-overview-tile production-setup-overview-tile-missing"
+                            onClick={() => handleProductionSetupOverviewRow(summary)}
+                          >
+                            <ResourceIcon
+                              name={summary.displayName}
+                              iconUrl={getIconUrlForName(summary.displayName)}
+                              colorStart={productionIconStart}
+                              colorEnd={productionIconEnd}
+                              size="sm"
+                            />
+                            <span className="production-setup-overview-copy">
+                              <strong>{summary.displayName}</strong>
+                              <span>{formatRoundedUpInteger(summary.totalPlannedThroughput)} / min</span>
+                            </span>
+                            <span className="production-setup-overview-meta">
+                              {summary.plannedLineCount} lines | {formatRoundedUpInteger(machinePlan.totalMachineCount)} machines
+                            </span>
+                          </button>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="empty-state">
+                        {productionSetupOverviewRows.length === 0
+                          ? "Import a FactorioLab CSV to populate missing production items."
+                          : "Every imported crafted item has at least one production site."}
+                      </p>
+                    )}
+                  </section>
                 </div>
               </section>
             </div>

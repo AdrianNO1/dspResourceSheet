@@ -67,7 +67,7 @@ export function getPumpOutputPerMinute(pumpCount: number, miningSpeedPercent: nu
   return pumpCount * PUMP_OUTPUT_PER_MINUTE * getMiningSpeedMultiplier(miningSpeedPercent);
 }
 
-export function normalizeOilPerSecondTo100Percent(oilPerSecond: number, _miningSpeedPercent: number) {
+export function normalizeOilPerSecondTo100Percent(oilPerSecond: number) {
   return Math.max(0, oilPerSecond);
 }
 

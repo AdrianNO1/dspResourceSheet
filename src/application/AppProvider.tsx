@@ -1,43 +1,11 @@
-import { createContext, useContext, useEffect, useMemo, useReducer, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useReducer, type ReactNode } from "react";
 import type { BootstrapData } from "../lib/types";
 import { appClient } from "./appClient";
+import { AppContext, type AppContextValue, type AppState } from "./appContext";
 import { defaultView, getHashForView, getViewFromHash, type MapSelection, type UndoToast, type ViewKey } from "./appTypes";
 import type { StoreCommand } from "./storeCommands";
 
 const UNDO_TOAST_DURATION_MS = 6000;
-
-type AppState = {
-  data: BootstrapData | null;
-  loading: boolean;
-  busy: boolean;
-  error: string;
-  undoToast: UndoToast | null;
-  undoToastNow: number;
-  activeView: ViewKey;
-  selectedProjectId: string;
-  selectedProductionItemKey: string;
-  selectedMapSelection: MapSelection;
-};
-
-type AppContextValue = {
-  state: AppState;
-  navigateToView: (view: ViewKey) => void;
-  setSelectedProjectId: (projectId: string) => void;
-  setSelectedProductionItemKey: (itemKey: string) => void;
-  setSelectedMapSelection: (selection: MapSelection) => void;
-  refreshBootstrap: () => Promise<void>;
-  runCommand: (command: StoreCommand, onSuccess?: (payload: BootstrapData) => void) => Promise<void>;
-  runUndoableCommand: (
-    command: StoreCommand,
-    undoTitle: string,
-    onSuccess?: (payload: BootstrapData) => void,
-    undoDescription?: string,
-  ) => Promise<void>;
-  restoreSnapshot: (snapshot: unknown) => Promise<void>;
-  exportSnapshot: typeof appClient.exportSnapshot;
-  undoToastSecondsLabel: string;
-  undoToastProgressWidth: number;
-};
 
 type AppAction =
   | { type: "loading/set"; loading: boolean }
@@ -94,16 +62,14 @@ function appReducer(state: AppState, action: AppAction): AppState {
   }
 }
 
-const AppContext = createContext<AppContextValue | null>(null);
+function getBootstrapError(data: BootstrapData | null) {
+  return data?.summary.seedValidationError ?? "";
+}
 
 export function AppProvider({ children }: { children: ReactNode }) {
   const [state, dispatch] = useReducer(appReducer, initialState);
 
-  function getBootstrapError(data: BootstrapData | null) {
-    return data?.summary.seedValidationError ?? "";
-  }
-
-  async function refreshBootstrap() {
+  const refreshBootstrap = useCallback(async () => {
     dispatch({ type: "loading/set", loading: true });
 
     try {
@@ -118,17 +84,17 @@ export function AppProvider({ children }: { children: ReactNode }) {
     } finally {
       dispatch({ type: "loading/set", loading: false });
     }
-  }
+  }, []);
 
-  function navigateToView(view: ViewKey) {
+  const navigateToView = useCallback((view: AppState["activeView"]) => {
     dispatch({ type: "view/set", view });
     const nextHash = getHashForView(view);
     if (window.location.hash !== nextHash) {
       window.location.hash = nextHash;
     }
-  }
+  }, []);
 
-  async function runCommand(command: StoreCommand, onSuccess?: (payload: BootstrapData) => void) {
+  const runCommand = useCallback(async (command: StoreCommand, onSuccess?: (payload: BootstrapData) => void) => {
     dispatch({ type: "busy/set", busy: true });
     dispatch({ type: "error/set", error: "" });
 
@@ -145,9 +111,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
     } finally {
       dispatch({ type: "busy/set", busy: false });
     }
-  }
+  }, []);
 
-  function showUndoToast(title: string, snapshot: unknown, description = "Undo available for a few seconds.") {
+  const showUndoToast = useCallback((title: string, snapshot: unknown, description = "Undo available for a few seconds.") => {
     dispatch({
       type: "undo/show",
       undoToast: {
@@ -159,14 +125,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
         durationMs: UNDO_TOAST_DURATION_MS,
       },
     });
-  }
+  }, []);
 
-  async function runUndoableCommand(
+  const runUndoableCommand = useCallback(async (
     command: StoreCommand,
     undoTitle: string,
     onSuccess?: (payload: BootstrapData) => void,
     undoDescription?: string,
-  ) {
+  ) => {
     dispatch({ type: "busy/set", busy: true });
     dispatch({ type: "error/set", error: "" });
 
@@ -185,9 +151,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
     } finally {
       dispatch({ type: "busy/set", busy: false });
     }
-  }
+  }, [showUndoToast]);
 
-  async function restoreSnapshot(snapshot: unknown) {
+  const restoreSnapshot = useCallback(async (snapshot: unknown) => {
     dispatch({ type: "undo/hide" });
     dispatch({ type: "busy/set", busy: true });
     dispatch({ type: "error/set", error: "" });
@@ -204,11 +170,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
     } finally {
       dispatch({ type: "busy/set", busy: false });
     }
-  }
+  }, []);
 
   useEffect(() => {
     void refreshBootstrap();
-  }, []);
+  }, [refreshBootstrap]);
 
   useEffect(() => {
     const syncViewFromHash = () => {
@@ -294,15 +260,16 @@ export function AppProvider({ children }: { children: ReactNode }) {
     exportSnapshot: appClient.exportSnapshot,
     undoToastSecondsLabel,
     undoToastProgressWidth,
-  }), [state, undoToastProgressWidth, undoToastSecondsLabel]);
+  }), [
+    navigateToView,
+    refreshBootstrap,
+    restoreSnapshot,
+    runCommand,
+    runUndoableCommand,
+    state,
+    undoToastProgressWidth,
+    undoToastSecondsLabel,
+  ]);
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
-}
-
-export function useAppContext() {
-  const context = useContext(AppContext);
-  if (!context) {
-    throw new Error("useAppContext must be used inside AppProvider.");
-  }
-  return context;
 }

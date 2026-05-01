@@ -6,7 +6,7 @@ describe("oil extractor math", () => {
     const enteredOilPerSecond = 3.3974;
     const miningSpeedPercent = 190;
 
-    const normalizedBaseRate = normalizeOilPerSecondTo100Percent(enteredOilPerSecond, miningSpeedPercent);
+    const normalizedBaseRate = normalizeOilPerSecondTo100Percent(enteredOilPerSecond);
 
     expect(normalizedBaseRate).toBeCloseTo(enteredOilPerSecond, 6);
     expect(getOilOutputPerSecond(normalizedBaseRate, miningSpeedPercent)).toBeCloseTo(3.3974 * 1.9, 6);
